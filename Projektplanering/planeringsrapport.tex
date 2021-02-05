@@ -1,10 +1,11 @@
-% Temporär skeleton för planeringsrapporten.
-
 \documentclass[12pt]{article}
 
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[backend=biber, style=ieee]{biblatex}
 \usepackage[colorlinks,allcolors=blue]{hyperref}
 
-% Vilka packages skall vi använda?
+\bibliography{referenser}
 
 \begin{document}
    \begin{titlepage}
@@ -36,9 +37,6 @@
     \input{skeleton/metod}
     \input{skeleton/etiskaregler}
     \input{skeleton/tidsplan}
-    \bibliographystyle{ieeetr}
-    \bibliography{referenser}
+
+    \printbibliography
 \end{document}
-
-
-
