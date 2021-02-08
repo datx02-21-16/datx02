@@ -1,11 +1,12 @@
 % Vilka packages skall vi använda?
-=======
 \documentclass[12pt]{article}
 
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
 \usepackage[backend=biber, style=ieee]{biblatex}
 \usepackage[colorlinks,allcolors=blue]{hyperref}
+
+\addbibresource{referenser.bib}
 
 \begin{document}
    \begin{titlepage}
@@ -37,7 +38,7 @@
     \input{skeleton/metod}
     \input{skeleton/etiskaregler}
     \input{skeleton/tidsplan}
-    \bibliographystyle{ieeetr}
-    \bibliography{referenser}
+%    \bibliographystyle{ieeetr}
+%    \bibliography{referenser}
     \printbibliography
 \end{document}
