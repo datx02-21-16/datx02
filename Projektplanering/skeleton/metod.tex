@@ -3,22 +3,23 @@ The process of developing the proof editor is split into three main phases:
 background research, development and testing.
 
 \subsection{Background research}
-Existing editors and proof assistants are tested and evaluated in order to identify important features and shortcomings. From this experience, some outlining design choices are made which set a frame of reference for the actual develoment of the editor.
+Existing editors and proof assistants are tested and evaluated in order to identify important features and shortcomings. From this experience, some outlining design choices are made which set a frame of reference for the actual development of the editor.
 
 \subsection{Developing the editor}
 
 \subsubsection{Overview of the software}
-The editor will be implemented as a web application, built in Javascript. This provides a simple way of creating good looking GUI:s and let's users run it on any platform with a modern web browser.
+The editor will be implemented as a web application, built in JavaScript and PureScript. This provides a simple way of creating good looking GUI:s and lets users run it on any platform with a modern web browser.
 
-The model of the propositions will be based on \textit{Purescript}, a purely functional language which compiles to readable Javascript \cite{purescript}. Functional languages are well suited to model recursive data structures, such as propositions in logic, while the transpilation to Javascript enables the use of existing frameworks for web development.
+The model of the propositions will be based on \textit{PureScript}, a purely functional language which compiles to readable JavaScript \cite{purescript}. Functional languages are well suited to model recursive data structures, such as propositions in logic, while the transpilation to JavaScript enables the use of existing frameworks for web development.
 
 \subsubsection{Group process}
-During the development, active and upcoming tasks are tracked using a Kanban board which provides an overview of the team's progress. One team member is responsible for prioritising the upcoming tasks and each member of the team picks tasks from the board to work on. The group meets twice every week to discuss progress and current challenges.
+During the development, active and upcoming tasks are tracked using a Kanban board which provides an overview of the team's progress. The project manager is responsible for prioritising upcoming tasks and each member of the team picks tasks from the board to work on. The group meets twice every week to discuss progress and current challenges.
+
+Specific roles, such as project manager and group secretary will be assigned to team members in two week-intervals throughout the entire project.
 
 \subsection{Testing}
 The editor will be tested using a group of users who match our target audience. These test users will be given a set of problems, similar to exam problems used in university courses in logic.
 
 During the test, the users will be asked to solve some problems using nothing
 but pen and paper and other problems using the proof editor. By comparing the
-time it takes to produce a correct proof using the editor with the time it takes
-using pen and paper we can determine the efficiency of the editor.
+time it takes to solve the problems, and the number of correct solutions,  using the editor with the time it takes using pen and paper, the efficiency of the editor can be determined.
