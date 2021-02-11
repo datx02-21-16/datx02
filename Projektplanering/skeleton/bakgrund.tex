@@ -1,54 +1,57 @@
-\section{Bakgrund}
+\section{Background}
 
-Everyone has probably heard of the term logic in their everyday life and it can be explained shortly as a study of reasoning where you infer conclusions from truths, also known as premises.
-Computer Scientists, Mathemathicians and Psychologists are one of many groups people that apply logic in their work, and what type of logic they use depend on what they want to achieve. One of the most
-common types of logic is Propositional logic and Predicate logic. Here comes two examples that shows what can appear in these logic types and how logical reasoning can be applied to draw conclusions:
+Everyone has probably heard of the term logic in their everyday life and it can be explained shortly as a study of reasoning, inferring conclusions from known or assumed truths, also known as premises. Computer scientists, mathemathicians and psychologists all use different types of logic. Two common types of logic are \textit{propositional logic} and \textit{predicate logic}.
 
+Propositional logic deals with simple statements, propositions. Consider the following sentences, written in natural language:
 
-Assume we got the following sentences written informally in natural language:
+\begin{enumerate}
+      \item ``If Adam is eating an apple then Peter is not happy.''
+      \item ``Peter is happy.''
+\end{enumerate}
 
-\begin{itemize}
-    \item [1] If Adam eats an apple then Peter will be happy.
-    \item [2] Peter is happy.
-\end{itemize}
+From these sentences, it is possible to conclude that
 
+\begin{enumerate}[resume]
+      \item ``Adam is not eating an apple''.
+\end{enumerate}
 
- \noindent From these two sentences we can deduce a third one, which is a conclusion:
+The conclusion is drawn based on the fact that Peter is never happy when Adam is eating an apple. Since Peter is happy, we know that Adam is not eating an apple.
 
- \begin{itemize}
-    \item [3] Therefore Adam ate an apple.
-\end{itemize}
+Predicate logic deals with properties and relationships between objects. Consider the following statements about humans and mortality.
 
-\noindent This is one example of an inference were we from two arguments could deduce the conclusion(a truth) using logical reasoning in propositional logic. In predicate logic a sentence could be written informally in natural language as:
+\begin{enumerate}[resume]
+      \item ``All humans are mortal.''
+      \item ``All adults are human.''
+\end{enumerate}
 
-\begin{itemize}
-    \item [4] All humans are mortal. 
-\end{itemize}
+Ignoring the inconsistency with the real world (adult lions are not human), the following conclusion can be inferred from the statements above.
 
-\noindent How can we conclude that this is true? Well, by informal reasoning all humans are mortal but analyzing the logical structure of this sentence, we can see that we have some properties and human objects involved. By precisely talking about
-a specific world where objects live and properties related to this world, we can deduce conclusions. In our world known as Earth, all human beings are mortal and thus we can conclude the sentence is true. 
+\begin{enumerate}[resume]
+      \item ``All adults are mortal.''
+\end{enumerate}
 
-What we have done currently in both of these examples is that we have logically deduced conclusions informally. This is one way of thinking about logic but usually we work in a more
-symbolic nature where these sentences can be translated into so called formulas. Once again, using the examples above, we can write them more formally in a symbolic representation as:
+The sentence ``All adults are human.'' implies that \textit{adults} is a subset of \textit{humans}. Since the property of mortality applies to all humans, it must apply to all adults, hence the conclusion.
 
-\begin{itemize}
-    \item [1] $P => Q$
-    \item [2] Q
-    \item [3] Therefore P
-\end{itemize}
+Using natural language quickly becomes inefficient when dealing with larger sets of propositions, and it is therefore customary to use a more compact syntax comprising letters, operators, quantifiers and functions. The examples above can then be rewritten as follows.
 
-\noindent And in the case of Predicate logic:
+\begin{enumerate}
+      \item $P \rightarrow \lnot Q$
+      \item Q
+      \item Therefore $\lnot P$
+\end{enumerate}
 
-\begin{itemize}
-    \item [4] $ \forall x \, [H(x) \wedge M(x)]$
-\end{itemize}
+where $P$ means \textit{Adam is eating an apple} and $Q$ means \textit{Peter is happy}. The example from predicate logic can be rewritten in the following way.
 
+\begin{enumerate}[resume]
+      \item $\forall x \, [H(x) \rightarrow M(x)]$
+      \item $\forall x \, [A(x) \rightarrow H(x)]$
+      \item $\forall x \, [A(x) \rightarrow M(x)]$
+\end{enumerate}
 
-\noindent A question we should ask ourselves is why we want to use this formal notation when reasoning logically? The answer is simply that we want to formalize these informal languages so we can reason about them more precisely using a computer program. This is done by taking formulas as input into a 
-program that performs these kind of deductions from a set of premises to conclusions. This, by applying different predefined rules to eventually deduce a conclusion if it is possible. This is called natural 
-deduction which is a calculus of reasoning giving a proof of validity of a potential conclusion.
+where $\forall x$ means \textit{for all} $x$, $H(x)$ means $x$ is human, $M(x)$ means $x$ is mortal and $A(x)$ means $x$ is an adult.
 
-Our aim of the project is to develop a program which is a natural deduction proof editor for both propositional logic and predicate logic. The editor is going to be using an interactive webb-GUI interface where users can write these kind of formulas to the editor and different predefinied rules in our calculus applied to them to infer new formulas until
-a proof is given and a conclusion is found. The program will also handle errors generated by wrong inputs from the user, namely if the formulas are not well definied or if a bad rule is applied during a specific step of the proof. Hints will also be given to the users during a proof deduction if they get stuck or want to see possible deduction steps that can be applied.
+By using this short notation, one can create a well structured, formal language for reasoning about logic. This allows for the use of computer programs to facilitate proof constructions and checking proofs for correctness.
 
-Our finished product can be used by all people interested in logic, but the product will be designed with a focus based on assumptions that basic knowledge of propositional logic and predicate logic is known by the user using the editor. 
+One method used for constructing proofs is \textit{natural deduction} which is the process of applying sound rules to premises which are already proven or part of an assumption. \cite{huth_ryan_2018} This can be done using pen and paper, or with the assistance of a computer program.
+
+There are many proof editors available on the internet, including Easyprove \cite{easyprove}, Yoda \cite{Yoda}, FitchJS \cite{rieppel}, Conan \cite{conan} and fitch-checker \cite{klement}. These projects range from general purpose proof editors to applications targeting students of a specific university course or readers of book.

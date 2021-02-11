@@ -1,25 +1,25 @@
 \documentclass[12pt]{article}
 
-\usepackage[T1]{fontenc}
-\usepackage[utf8]{inputenc}
-\usepackage[backend=biber, style=ieee]{biblatex}
-\usepackage[colorlinks,allcolors=blue]{hyperref}
+\input{preamble}
 
 \bibliography{referenser}
 
 \begin{document}
-   \begin{titlepage}
-       \begin{center}
-           \line(1,0){300}\\
-           [0.25in]
-           \huge{\bfseries Planeringsrapport}\\
-           [2mm]
-           \line(1,0){300}\\
-           [5cm]
-           \textsc{PÅGÅENDE ARBETE}\\
-           [5cm]
-       \end{center}
-       \begin{flushright}
+
+\pagenumbering{gobble}
+
+\begin{titlepage}
+    \begin{center}
+        \line(1,0){300}\\
+        [0.25in]
+        \huge{\bfseries Planeringsrapport}\\
+        [2mm]
+        \line(1,0){300}\\
+        [5cm]
+        \textsc{PÅGÅENDE ARBETE}\\
+        [5cm]
+    \end{center}
+    \begin{flushright}
         \textsc{\large \textbf{Grupp 16}}\\
         Anton Levinsson\\
         Axel Forsman\\
@@ -27,16 +27,21 @@
         Lo Ranta\\
         Michael Åkesson\\
         Therese Andersson\\
-       \end{flushright}
-   \end{titlepage}
-    \input{skeleton/titel}
-    \input{skeleton/bakgrund}
-    \input{skeleton/syfte}
-    \input{skeleton/uppgift}
-    \input{skeleton/avgransningar}
-    \input{skeleton/metod}
-    \input{skeleton/etiskaregler}
-    \input{skeleton/tidsplan}
+    \end{flushright}
+\end{titlepage}
 
-    \printbibliography
+
+\tableofcontents
+\newpage
+\pagenumbering{arabic}
+
+\input{skeleton/bakgrund}
+\input{skeleton/syfte}
+\input{skeleton/uppgift}
+\input{skeleton/avgransningar}
+\input{skeleton/metod}
+\input{skeleton/etiskaregler}
+\input{skeleton/tidsplan}
+
+\printbibliography
 \end{document}
