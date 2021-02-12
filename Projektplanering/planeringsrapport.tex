@@ -1,7 +1,7 @@
 \documentclass[12pt]{article}
 
 \input{preamble}
-
+\loadglsentries{defns}
 \bibliography{referenser}
 
 \begin{document}
@@ -9,7 +9,6 @@
 \pagenumbering{gobble}
 
 \begin{titlepage}
-    \maketitle
     \begin{center}
         \line(1,0){300}\\
         [0.25in]
@@ -31,7 +30,8 @@
     \end{flushright}
 \end{titlepage}
 
-
+\printglossaries
+\newpage
 \tableofcontents
 \newpage
 \pagenumbering{arabic}
