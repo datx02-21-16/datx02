@@ -1,70 +1,31 @@
 \section{Problem}
-%
-We are creating a proof editor for natural deduction to help students practice constructing proofs.
-%
-We will make our proof editor in the form of a web application.
-%
-We believe that this will make it more accessible and easier to try out without commitment.
-%
-The users will not need to make any changes to their system and can get started fast. \\
-%
-Web applications that serve as an educational tool for logic has been successfully done before by other projects such as Easyprove \cite{easyprove}, Yoda \cite{Yoda}, FitchJS \cite{rieppel} and fitch-checker \cite{klement}. 
-%
-These project sometimes had particular target audiences in mind, from students taking a particular course to serving as an accompaniment to a certain book.
-%
-Our proof editor will first and foremost target students at Chalmers University of Technology and Gothenburg University, and secondly to serve as an accompaniment to the book on logic in computer science by Michael Huth and Mark Ryan \cite{huth_ryan_2018}. \\ \\
 
+When designing the application, there are several factors to consider. From the user's perspective, easy usage is important, while the developer is more concerned with code quality and maintainability.
 
-
-Our first task when starting out with our project will be to find out how students in our target group currently go about constructing proofs.
-%
-We want to find out about their work process and what syntax they use.
-%
-Getting to know our target group better will help us make a proof editor that most students will find intuitive to use.
-%
-The result of the study will inform our choice of a graphical user interface, the syntax and how user interaction should work. \\ \\
-
-
-%
-Some functionality we intend to provide with our proof editor are:
-%
+\subsection{Usability}
+The application is meant to be an educational tool, aimed at students learning natural deduction. Therefore it should not require much introduction as this will draw attention from the subject. To guarantee this, the application will adhere to the following principles and requirements.
 
 \begin{itemize}
-    \item Validation of steps
-
-%
-The proof editor should be able to validate a step, i.e. an application of a proof rule. 
-%
-
-%
-If a step is invalid, the proof editor should give the user an error message prompting the user to fix the mistake.
-%
-
-
-%
-\item Hints
-
-%
-The proof editor could help students out with constructing proofs e.g. by showing which proof rules they could apply in the next step or partially filling in the next step towards the given goal. \\
-
-
-%
-Additional possible features are:
-
-%
-\item Saving a proof
-
-%
-The user can save their proof in some convinient format, e.g. to use in a hand-in assignment.
-%
-
-%
-\item Providing exercises
-
-%
-Give the user a choice of exercises to work on. 
-
-%
-Additionally the exercises could be sorted according to difficulty or filtered to show only those with hints available.
-%
+    \item The application should be accessible from any platform with minimum requirements on the user's computer.
+    \item There must always be a clear focus on the natural deduction process.
+    \item Intuitive use and a steep learning curve are more important factors than maximising potential productivity.
 \end{itemize}
+
+Furthermore, the application should provide clear advantages compared to using pen and paper. To achieve this, there are some minimum features which must be implemented.
+
+\begin{itemize}
+    \item The proof editor should be able to validate syntax.
+    \item The proof editor should be able to validate each step in a proof. If a step is invalid, the proof editor should give the user a clear error message, with information about the type of error.
+    \item The proof editor should guide students through the construction of proofs, for instance by showing which proof rules can be applied in the next step or partially filling in the next step towards the given goal.
+\end{itemize}
+
+Additional possible features are:
+\begin{itemize}
+    \item The user can save their proof in some convenient format, e.g. to use in a hand-in assignment.
+    \item Give the user a choice of exercises to work on. Additionally the exercises could be sorted according to difficulty or filtered to show only those with hints available.
+    \item Automate single steps in the proof construction. By choosing an inference rule and existing clauses, the editor can provide the conclusion automatically.
+\end{itemize}
+
+\subsection{Code quality}
+
+Intuitive interfaces and good support for the learning process make the application \emph{usable}. Another important part of the development is to make the application \emph{maintainable}, meaning it is possible to handle changing requirements or updates in dependency libraries without rebuilding from scratch. An unmaintainable application is inevitably going to break or become obsolete. To ensure maintainability, it is important to use good practices for software architecture, documentation and code style.

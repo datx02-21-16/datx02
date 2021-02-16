@@ -1,17 +1,29 @@
 \section{Work process}
-The process of developing the proof editor will be split into three main phases: background research, development and testing.
+The process of developing the proof editor is split into three main phases:
+background research, development and testing.
 
-\subsection{Researching current editors}
-In the research phase, we will look at existing proof editors and assistants available online. We will test both editors which come with a GUI and text based editors to identify both important features and things to avoid. Key aspects in the evaluation of different apps will include efficiency, ease of use, installation process and the level of assistance provided by the app in the process of constructing a proof.
+\subsection{Background research}
+Existing editors and proof assistants are tested and evaluated in order to identify important features and shortcomings. From this experience, some outlining design choices are made which set a frame of reference for the development of the editor.
 
 \subsection{Developing the editor}
-Based on our experience from testing the currently available editors, we will start the development process by making some initial design choices for our editor. These initial choices will include choosing a user interface type and deciding how to distribute the application to the users. Once we have outlined the features of the application, we will decide what technology stack to use.
 
-During the development, we intend to use a Kanban board to keep track of which tasks we are currently working on, which tasks are coming up next, and which tasks are done. One member of the team will be responsible for prioritising the upcoming tasks and each member of the team will pick tasks from the board to work on.
+Once the initial design choices are made, the actual development of the editor begins.
 
-Coordination of the team will be managed through group meetings, occuring twice every week, where current issues will be discussed.
+\subsubsection{Overview of the software}
+The editor will be implemented as a web application, built in \gls{javascript} and \gls{purescript}. This provides a simple way of creating good looking \glspl{gui} and lets users run it on any platform with a modern web browser.
 
-\subsection{Testing, evaluating and tweaking}
-Testing of the proof editor will be carried out using a group of test users who match our target audience. These test users will be given a set of problems, similar to exam problems used in university courses in logic.
+The model of the propositions will be based on \emph{PureScript}, a purely functional language which compiles to readable JavaScript \cite{purescript}. Functional languages are well suited to model recursive data structures, such as propositions in logic, while the \gls{transpilation} to JavaScript enables the use of existing frameworks for web development.
 
-During the test, the users will be asked to solve some problems using nothing but pen and paper and other problems using the proof editor. By comparing the time it takes to produce a correct proof using the editor with the time it takes using pen and paper we can determine if the editor allows for a more efficient process than regular pen and paper.
+\subsubsection{Group process}
+During the development, active and upcoming tasks are tracked using a \Gls{kanban} board which provides an overview of the team's progress. The project manager is responsible for prioritising upcoming tasks and each member of the team picks tasks from the board to work on. The group meets twice every week to discuss progress and current challenges.
+
+Specific roles, such as project manager and group secretary will be assigned to team members in two week-intervals throughout the entire project.
+
+\subsection{Testing}
+The editor will be tested using a group of users who match our target audience. These test users will be given a set of problems, similar to exam problems used in university courses in logic.
+
+During the test, the users will be asked to solve some problems using nothing
+but pen and paper and other problems using the proof editor. By comparing the
+time it takes to solve the problems, and the number of correct solutions,  using the editor with the time it takes using pen and paper, the efficiency of the editor can be determined.
+
+As a complement, the users will be asked to take a short survey about their experience using the editor.
