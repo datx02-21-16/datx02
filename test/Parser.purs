@@ -1,15 +1,19 @@
 module Test.Parser where
 
 import Prelude
+
+import Formula (Variable(..), Term(..), Formula(..))
 import Data.Either (Either(..))
+import Parser (parseFormula)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
-import Formula (Variable(..), Term(..), Formula(..))
-import Parser (parseFormula)
-
 spec :: Spec Unit
-spec = describe "Formula parser" do
+spec = do simpleParserTest
+          testConjunction -- 
+
+simpleParserTest :: Spec Unit
+simpleParserTest = describe "Formula parser" do
   it "should work" do
     parseFormula "¬(A ∧ B)" `shouldEqual`
       Right (Not (And
@@ -31,3 +35,36 @@ spec = describe "Formula parser" do
       Right (Predicate "=" [Var $ Variable "x", Var $ Variable "y"])
   it "should parse double negation" do
     parseFormula "¬¬P" `shouldEqual` Right (Not (Not (Predicate "P" [])))
+  it "does not care about 'left' parentheses" do
+    (parseFormula "(A ∧ B) ∧ C") `shouldEqual`
+      Right (And 
+              (And 
+                (Predicate "A" [])
+                (Predicate "B" []))
+              (Predicate "C" []))
+  it "cares right parentheses" do
+    (parseFormula "A ∧ (B ∧ C)") `shouldEqual`
+      Right (And
+              (Predicate "A" [])
+              (And
+                (Predicate "B" [])
+                (Predicate "C" [])))
+  it "properly parses implication" do
+    (parseFormula "(A ∧ B) → (B ∧ A)") `shouldEqual`
+      Right (Implies
+              (And
+                (Predicate "A" [])
+                (Predicate "B" []))
+              (And
+                (Predicate "B" [])
+                (Predicate "A" [])))
+
+testConjunction :: Spec Unit
+testConjunction = describe "Conjunction parser tests" do
+  it "is left associative" do
+    (parseFormula "A ∧ B ∧ C") `shouldEqual`
+      Right (And 
+              (And 
+                (Predicate "A" [])
+                (Predicate "B" []))
+              (Predicate "C" []))
