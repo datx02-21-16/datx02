@@ -24,3 +24,8 @@ spec = describe "Formula parser" do
     (parseFormula "∀x Le(x, c())") `shouldEqual`
       Right (Forall (Variable "x")
             (Predicate "Le" [Var $ Variable "x", App "c" []]))
+  it "parses the equality predicate" do
+    (parseFormula "=(x, y)") `shouldEqual`
+      Right (Predicate "=" [Var $ Variable "x", Var $ Variable "y"])
+    (parseFormula "x = y") `shouldEqual`
+      Right (Predicate "=" [Var $ Variable "x", Var $ Variable "y"])

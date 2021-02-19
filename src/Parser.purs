@@ -55,12 +55,19 @@ term = do
 -- | Parse a single predicate variable such as P(x).
 predicate :: Parser String Formula
 predicate = let
-  predicateSymbol = lookAhead upper *> token.identifier
+  predicateSymbol = token.symbol "=" <|> lookAhead upper *> token.identifier
+  -- The equality predicate is usually written using infix notation
+  equality = do
+    x <- term
+    _ <- token.symbol "="
+    y <- term
+    pure $ Predicate "=" [x, y]
   in do
     symbol <- predicateSymbol
     -- For nullary predicates the argument list is optional
     args <- option [] (argumentList term)
     pure $ Predicate symbol args
+  <|> equality
 
 -- | Parse a single formula.
 formula :: Parser String Formula
