@@ -27,6 +27,7 @@ data Formula
   | Implies Formula Formula
   | Forall Variable Formula
   | Exists Variable Formula
+  | Bottom 
 
 derive instance eqFormula :: Eq Formula
 
@@ -39,6 +40,7 @@ instance showFormula :: Show Formula where
   show (Implies a b) = "(" <> (show a) <> " → " <> (show b) <> ")"
   show (Forall x phi) = "∀" <> (show x) <> " " <> (show phi)
   show (Exists x phi) = "∃" <> (show x) <> " " <> (show phi)
+  show (Bottom)       = "⊥"
 
 -- | The formula obtained by replacing each free occurrence of x in f by t.
 substitution :: Formula -> Term -> Variable -> Formula
@@ -55,3 +57,4 @@ substitution f t x = case f of
   Forall y phi -> Forall y (substitution phi t x)
   Exists y _ | x == y -> f
   Exists y phi -> Exists y (substitution phi t x)
+  Bottom -> Bottom
