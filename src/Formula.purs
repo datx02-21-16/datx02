@@ -58,6 +58,7 @@ data Formula
   | Implies Formula Formula
   | Forall Variable Formula
   | Exists Variable Formula
+--  | Bottom 
 
 derive instance eqFormula :: Eq Formula
 
@@ -70,6 +71,7 @@ instance showFormula :: Show Formula where
   show (Implies a b) = "(" <> (show a) <> " → " <> (show b) <> ")"
   show (Forall x phi) = "∀" <> (show x) <> " " <> (show phi)
   show (Exists x phi) = "∃" <> (show x) <> " " <> (show phi)
+--  show (Bottom)       = "⊥"
 
 -- | A substitution {t₁/v₁, ..., tₙ/vₙ}.
 -- |
