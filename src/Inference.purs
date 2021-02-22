@@ -161,6 +161,20 @@ check that phi2 is a negated formula, thus has the form (Not (phi3)), if not thr
 check phi3 == phi  , if not throw error
 If all stages above are true, then output pure (Or phi phi2) else throw some kind of error.
  
+
 -}
 
+{-
+
+Todo predicate logic rules: 
+
+We need to somehow be able to provide a term that is going to be substituted in the variable
+
+forallElim :: Formula -> ND Formula
+forallElim (Forall var psi) = substitution psi ? var         where ? = some term
+forallElim _          -> throwError 
+
+...... 
+
+-}
 
