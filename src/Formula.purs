@@ -2,6 +2,7 @@ module Formula where
 
 import Prelude
 import Data.String.Common (joinWith)
+import Data.Foldable (or)
 
 newtype Variable = Variable String
 
@@ -58,3 +59,14 @@ substitution f t x = case f of
   Exists y _ | x == y -> f
   Exists y phi -> Exists y (substitution phi t x)
   Bottom -> Bottom
+
+containsTerm :: Formula -> Term -> Boolean
+containsTerm f t = case f of
+  Predicate n args -> or $ map (\t' -> t == t') args
+  Not f'           -> containsTerm f' t
+  And f1 f2        -> containsTerm f1 t || containsTerm f2 t
+  Or f1 f2         -> containsTerm f1 t || containsTerm f2 t
+  Implies f1 f2    -> containsTerm f1 t || containsTerm f2 t
+  Forall x f'      -> containsTerm f' t
+  Exists x f'      -> containsTerm f' t
+  Bottom           -> false 
