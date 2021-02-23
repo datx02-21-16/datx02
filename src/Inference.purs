@@ -3,8 +3,9 @@ module Inference where
 import Prelude
 
 import Control.Monad.Except (Except, runExcept, throwError)
+import Control.Monad.State (StateT, evalStateT, get, put)
 import Data.Either (Either)
-import Formula (Formula(..))
+import Formula (Formula(..), Variable(..), Term(..), substitution)
 
 {- | Different kind of errors that can be produced when using these
 'inference rules' to produce formulas. -}
@@ -14,6 +15,7 @@ data NDErrors = NotAConjunction  Formula
               | NotAModusTollens Formula Formula
               | NotADoubleNeg    Formula
               | NotANegElim Formula Formula
+              | NotAForall Formula
               | BadOrElimination Formula -- left operand of the or formula
                                  Formula -- result of trying to eliminate the left operand
                                  Formula -- right operand of the or formula
@@ -38,6 +40,7 @@ instance showNDErrors :: Show NDErrors where
                                         "Got the following: " <> "Formula1 = " <> show e1 <> ", Formula2 = " <> show e2
   show (NotANegElim e1 e2)            = "not a negation elimination: \n" <>
                                         "Got the following: " <> "Formula1 = " <> show e1 <> ", Formula2 = " <> show e2 
+  show (NotAForall f)                 = "Not a forall: \n" <> show f
   show (NotADoubleNeg e)              = "No double negation on formula: " <> show e 
   show (BadOrElimination e1 e2 e3 e4) = "bad or elimination: \n" <>
                                         "  " <> show e1 <> " → " <> show e2 <> "\n" <>
@@ -51,11 +54,18 @@ instance showNDErrors :: Show NDErrors where
   show (BadNegElim e1 e2)             = "bad negation elimination application: \n" <> " " <> "Formula1 = " <> show  e1   <>  " Formula2 = " <> show e2
 
 -- | Natural deduction monad
-type ND a = Except NDErrors a
+type ND a = StateT Int (Except NDErrors) a
+
 
 -- | Run a ND computation
 runND :: ND Formula -> Either NDErrors Formula
-runND = runExcept
+runND ma = runExcept (evalStateT ma 0)
+
+fresh :: ND Variable
+fresh = do
+  st <- get
+  put $ st + 1
+  pure $ Variable $ "fresh" <> (show st)
 
 -- | And elimination-L. Produces an error if the input formula is not a conjunction.
 andElimL :: Formula -> ND Formula
@@ -178,3 +188,21 @@ forallElim _          -> throwError
 
 -}
 
+forallElim :: Formula -> ND Formula
+forallElim (Forall var psi) = do
+    var' <- fresh
+    pure $ substitution psi (Var var') var
+forallElim f          = throwError $ NotAForall f
+
+{-
+
+-- Might want something like this though, not sure.
+-- On page 111 in the logic book there is an example with forall elimination. It is
+-- very important in that proof that the forall elimination introduces a variable x0,
+-- as it can then be used with the other things in the proof. The above version
+-- will just introduce a random variable.
+
+forallElim :: Formula -> Term -> ND Formula
+forallElim (Forall var psi) var' = pure $ substitution psi var' var
+forallElim f _                   = throwError $ NotAForall f
+-}
