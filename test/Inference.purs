@@ -2,9 +2,10 @@ module Test.Inference where
 
 import Prelude
 
+import Data.Array (singleton)
 import Data.Either (Either(..))
-import Formula (Formula(..))
-import Inference (NDErrors(..), andElimL, andElimR, andIntro, doubleNotElim, doubleNotIntro, implIntro, modusTollens, orElim, runND)
+import Formula (Formula(..), Variable(..), Term(..))
+import Inference (NDErrors(..), andElimL, andElimR, andIntro, forallIntro, doubleNotElim, doubleNotIntro, implIntro, modusTollens, orElim, runND)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
@@ -84,6 +85,12 @@ testInference = describe "inference tests" do
   it "Test: Can execute double negation introduction (¬¬i) on a formula (Input: ¬Φ)" do
     (runND (doubleNotIntro (Not a)) `shouldEqual`
       (Right (Not (Not (Not a)))))
+  it "properly substitutes in forall elim" do
+    (runND (forallIntro
+              (Variable "x0")
+              (Variable "x")
+              (pure (Predicate "P" (singleton (Var (Variable "x0"))))))) `shouldEqual`
+      Right (Forall ((Variable "x")) (Predicate "P" (singleton (Var (Variable "x")))))
   --it "Test: Can execute negation elimination (¬e) on correct formulas (Input: Φ , ¬Φ)" do
   --  (runND (notElim (And a b)(Not (And a b))) `shouldEqual`
   --    (Right Bottom))
