@@ -5,15 +5,24 @@ module Formula ( Variable(..)
                , singleSub
                , class Substitutable
                , substitute
+               , disagreementSet
+               , unify
                ) where
 
 import Prelude
-import Data.Maybe (Maybe(..), fromMaybe)
+import Data.List as List
+import Data.List (List(Nil), null, transpose)
+import Data.Array as Array
+import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.String.Common (joinWith)
+import Data.Traversable (sequence)
 import Data.Tuple (Tuple(..))
 import Data.Map as Map
 import Data.Map (Map)
+import Data.Set as Set
+import Data.Set (Set)
 import Data.Foldable (any)
+import Data.Unfoldable as Unfoldable
 
 -- | A variable symbol.
 newtype Variable = Variable String
@@ -120,3 +129,42 @@ instance substitutableFormula :: Substitutable Formula where
     Exists x a -> Exists x (subWithout x a)
     where sub = substitute θ
           subWithout x = substitute $ Substitution (Map.delete x s)
+
+-- | The disagreement set of the specified set of expression lists.
+-- |
+-- | It is the set of respective subexpressions where the expressions
+-- | first differ when doing a depth-first traversal.
+disagreementSet :: List (List Term) -> List Term
+disagreementSet xs = fromMaybe Nil $ List.find (not <<< null) $ disagreement <$> transpose xs
+  where
+    -- | Returns subexpressions of a term if it shares top-most structure with head.
+    subexprs head = case head, _ of
+      Var v1, Var v2 | v1 == v2 -> Just Nil
+      App f1 args1, App f2 args2
+        | f1 == f2, Array.length args1 == Array.length args2 -> Just $ List.fromFoldable args2
+      _, _ -> Nothing
+    disagreement terms = case List.head terms of
+      Nothing -> Nil
+      Just head -> maybe terms disagreementSet (sequence $ subexprs head <$> terms)
+
+-- | Tries to find a most general unifier for the set of term lists.
+-- |
+-- | Implements the unification algorithm.
+-- |
+-- | See: C. Chang and R. Lee "Symbolic Logic and Mechanical Theorem
+-- |      Proving". Academic Press, New York, 1973
+unify :: Set (List Term) -> Maybe (Tuple Substitution (List Term))
+unify = go mempty
+  where
+    -- If w is singleton σ is most general unifier
+    go σ w | Set.size w <= 1 = (Tuple σ) <$> (Set.toUnfoldable w)
+    go σ w = let
+      ds = disagreementSet $ List.fromFoldable w
+      sub = List.head do
+        -- Find v and t in ds such that v is a variable not occuring in t
+        v <- ds >>= case _ of
+          Var v -> pure v
+          _ -> Nil
+        t <- ds
+        Unfoldable.fromMaybe $ singleSub v t
+      in sub >>= (\λ -> go (σ <> λ) (Set.map (map (substitute λ)) w))
