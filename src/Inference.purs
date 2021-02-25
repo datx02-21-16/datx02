@@ -118,7 +118,9 @@ orIntroR r = Or ? r
 function that when applied to what we are assuming produce some formula, we
 can deduce that the assumed formula implies the derived formula. -}
 implIntro :: Formula -> (Formula -> ND Formula) -> ND Formula
-implIntro f box = box f
+implIntro assumption box = do
+    implied <- box assumption
+    pure $ Implies assumption implied
 
 {-} | If we have an implicatino such as A -> B, and an A, we can deduce B. Produces an error
 if the first input argument is not an implication, or if the second input argument is
@@ -129,6 +131,8 @@ implElim (Implies a b) ma = if a == ma     -- Is the elimination valid?
                               else throwError $ BadImplElimination a b ma
 implElim e _ = throwError $ NotAnImplication e
 
+closeBox :: Formula -> ND Formula
+closeBox = pure
 
 -- notElim is the rule ¬e
 
@@ -182,6 +186,9 @@ If all stages above are true, then output pure (Or phi phi2) else throw some kin
  
 
 -}
+
+lem :: Formula -> ND Formula
+lem f = pure $ Or f (Not f)
 
 pbc :: Formula -> (Formula -> ND Formula) -> ND Formula
 pbc f box = do
