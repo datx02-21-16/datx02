@@ -3,14 +3,15 @@ module Test.Inference where
 import Prelude
 
 import Data.Array (singleton)
-import Data.Either (Either(..))
 import Formula (Formula(..), Variable(..), Term(..))
-import Inference (NDErrors(..), andElimL, andElimR, andIntro, forallIntro, doubleNotElim, doubleNotIntro, implIntro, modusTollens, orElim, runND)
+import Data.Either (Either(..))
+import Inference (NDErrors(..), andElimL, andElimR, andIntro, closeBox, doubleNotElim, forallIntro, doubleNotIntro, implElim, implIntro, modusTollens, orElim, runND)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
 spec :: Spec Unit
-spec = testInference
+spec = do testInference
+          bookExamples
 
 -- | Shorthand for the formula "A"
 a :: Formula
@@ -64,8 +65,7 @@ testInference = describe "inference tests" do
     (runND (implIntro (And a b) 
                       (\ab -> do a'  <- andElimL ab
                                  b'  <- andElimR ab
-                                 ba <- andIntro b' a'
-                                 pure $ Implies ab ba))) `shouldEqual`
+                                 andIntro b' a'))) `shouldEqual`
         (Right (Implies (And a b) (And b a)))
   it "Test: Cant execute double negation elimination (¬¬e) on wrong formula (not a ¬¬Φ)" do
     (runND (doubleNotElim (And a b))) `shouldEqual`
@@ -101,3 +101,95 @@ testInference = describe "inference tests" do
   --  (runND (notElim (And a b)(Not(Or a b))) `shouldEqual`
   --    (Left (BadNegElim (And a b)(Not(Or a b)))))
   
+bookExamples :: Spec Unit
+bookExamples = describe "examples from the book Logic in Computer Science" do
+  let p = Predicate "p" []
+  let q = Predicate "q" []
+  let r = Predicate "r" []
+
+  it "page 13 example 1.9" do
+    (runND (do let premise = Implies (Not q) (Not p)
+               
+               implIntro p (\p -> do
+                   nnp <- doubleNotIntro p
+                   nnq <- modusTollens premise nnp
+                   closeBox nnq)
+
+               )) `shouldEqual`
+            Right (Implies p (Not (Not q)))
+
+  it "page 13 example 1.11" do
+    (runND (do
+               implIntro (Implies q r) (\impqr -> do
+                   long <- implIntro (Implies (Not q) (Not p)) (\impnqnp -> do
+                               pimpr <- implIntro p (\p -> do
+                                            nnp <- doubleNotIntro p
+                                            nnq <- modusTollens impnqnp nnp
+                                            q   <- doubleNotElim nnq
+                                            r   <- implElim impqr q
+                                            closeBox r)
+                               closeBox pimpr)
+                   closeBox long))) `shouldEqual`
+            Right (Implies
+                    (Implies q r)
+                    (Implies                      
+                      (Implies (Not q) (Not p))
+                      (Implies p r)))
+
+  it "page 15 example 1.13" do
+    (runND (do let premise = Implies (And p q) (r)
+
+               implIntro p (\p -> do
+                 qr <- implIntro q (\q -> do
+                   pq <- andIntro p q
+                   r  <- implElim premise pq
+                   closeBox r)
+                 closeBox qr) 
+               )) `shouldEqual`
+            Right (Implies p (Implies q r))
+  
+  it "page 16 example 1.14" do
+    (runND (do let premise = Implies (p) (Implies q r)
+  
+               implIntro (And p q) (\pq -> do
+                 p  <- andElimL pq
+                 q  <- andElimR pq 
+                 qr <- implElim premise p
+                 r  <- implElim qr q
+                 closeBox r)
+                )) `shouldEqual`
+            Right (Implies (And p q) r)
+  
+  it "page 16 example 1.15" do
+    (runND (do let premise = Implies p q
+               implIntro (And p r) (\pr -> do
+                 p  <- andElimL pr
+                 r  <- andElimR pr
+                 q  <- implElim premise p
+                 qr <- andIntro q r
+                 closeBox qr)
+               )) `shouldEqual`
+            Right (Implies (And p r) (And q r))
+
+  it "page 47 example 1" do
+    (runND (do let premise = Implies (And p q) r
+               
+               implIntro p (\p ->
+                   implIntro q (\q -> do
+                       pq <- andIntro p q
+                       r  <- implElim premise pq
+                       closeBox r))))
+                       
+        `shouldEqual`
+        Right (Implies p (Implies q r))
+
+  it "page 47 example 2" do
+    (runND (do let premise1 = Implies (And p q) r
+               let premise2 = p
+               implIntro q (\q -> do
+                   pq <- andIntro premise2 q
+                   r  <- implElim premise1 pq
+                   closeBox r)))
+                       
+        `shouldEqual`
+        Right (Implies q r)
