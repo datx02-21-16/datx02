@@ -8,6 +8,7 @@ module Formula ( Variable(..)
                , disagreementSet
                , unify
                , containsTerm
+               , formulaUnifier
                ) where
 
 import Prelude
@@ -63,6 +64,7 @@ data Formula
   | Exists Variable Formula
 
 derive instance eqFormula :: Eq Formula
+derive instance ordFormula :: Ord Formula
 
 -- | Shows formulas using least amount of parentheses wrt. precedence.
 instance showFormula :: Show Formula where
@@ -194,3 +196,15 @@ containsTerm f t = case f of
   Implies f1 f2    -> containsTerm f1 t || containsTerm f2 t
   Forall x f'      -> containsTerm f' t
   Exists x f'      -> containsTerm f' t
+
+-- | TODO At the moment only works on propositional logic
+formulaUnifier :: Formula -> Formula -> Maybe Substitution
+formulaUnifier = case _, _ of
+  Predicate f args1, Predicate g args2
+    | f == g, Array.length args1 == Array.length args2, Array.length args1 == 0
+      -> Just mempty
+  Not a, Not b -> formulaUnifier a b
+  And a b, And c d -> formulaUnifier a c *> formulaUnifier b d
+  Or a b, Or c d -> formulaUnifier a c *> formulaUnifier b d
+  Implies a b, Implies c d -> formulaUnifier a c *> formulaUnifier b d
+  _, _ -> Nothing

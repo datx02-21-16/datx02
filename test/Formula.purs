@@ -13,7 +13,7 @@ import Data.NonEmpty (NonEmpty(NonEmpty))
 import Data.Array.NonEmpty as NonEmptyArray
 import Data.Set as Set
 import Data.Foldable (fold)
-import Data.Maybe (Maybe(..), fromJust)
+import Data.Maybe (Maybe(..), fromJust, isJust)
 import Data.Either (Either(Right))
 import Data.Tuple (Tuple(..))
 import Data.Traversable (sequence)
@@ -25,7 +25,7 @@ import Data.Char as Char
 import Data.String.CodeUnits as CU
 
 import Formula (Term(..), Variable(..), Formula(..), singleSub, substitute,
-                disagreementSet, unify)
+                disagreementSet, unify, formulaUnifier)
 import Parser (parseFormula)
 
 -- | Generator for a single uppercase letter string.
@@ -156,3 +156,7 @@ spec = describe "Formulas" do
       it "should survive show/parseFormula roundtrip" do
         quickCheck \(TFormula formula)
                    -> parseFormula (show formula) `assertEquals` Right formula
+
+      it "can unify and formula" do
+        let formula = And (Predicate "A" []) (Predicate "B" [])
+        (isJust $ formulaUnifier formula formula) `shouldEqual` true
