@@ -10,7 +10,7 @@ import Data.Either (Either)
 import Data.Identity (Identity)
 
 import Text.Parsing.Parser (Parser, ParserT, ParseError, runParser)
-import Text.Parsing.Parser.Combinators (option, lookAhead, (<?>))
+import Text.Parsing.Parser.Combinators (option, chainl1, lookAhead, (<?>))
 import Text.Parsing.Parser.String (oneOf, satisfy, eof)
 import Text.Parsing.Parser.Token (GenLanguageDef(..), TokenParser, makeTokenParser, upper, letter)
 import Text.Parsing.Parser.Expr (OperatorTable, Assoc(..), Operator(..), buildExprParser)
@@ -76,9 +76,13 @@ formula = fix allFormulas
     forallParser = Forall <$> (token.reservedOp "∀" *> variable)
     existsParser = Exists <$> (token.reservedOp "∃" *> variable)
 
+    -- Required because buildExprParser does not allow multiple prefix
+    -- operators of the same precedence (e.g. ¬¬A).
+    chained p = chainl1 p $ pure (<<<)
+
     opTable :: OperatorTable Identity String Formula
     opTable =
-      [ [ Prefix (token.reservedOp "¬" $> Not)
+      [ [ Prefix $ chained (token.reservedOp "¬" $> Not)
         , Prefix forallParser
         , Prefix existsParser ]
       , [ Infix (token.reservedOp "∧" $> And) AssocLeft

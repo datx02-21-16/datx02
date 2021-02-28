@@ -11,21 +11,23 @@ import Parser (parseFormula)
 spec :: Spec Unit
 spec = describe "Formula parser" do
   it "should work" do
-    (parseFormula "¬(A ∧ B)") `shouldEqual`
+    parseFormula "¬(A ∧ B)" `shouldEqual`
       Right (Not (And
                   (Predicate "A" [])
                   (Predicate "B" [])))
   it "should handle whitespace" do
-    (parseFormula " ∃ x P ( x ) → ( A ) ") `shouldEqual`
+    parseFormula " ∃ x P ( x ) → ( A ) " `shouldEqual`
       Right (Implies
              (Exists (Variable "x") (Predicate "P" [(Var $ Variable "x")]))
              (Predicate "A" []))
   it "parses constants and variables" do
-    (parseFormula "∀x Le(x, c())") `shouldEqual`
+    parseFormula "∀x Le(x, c())" `shouldEqual`
       Right (Forall (Variable "x")
             (Predicate "Le" [Var $ Variable "x", App "c" []]))
   it "parses the equality predicate" do
-    (parseFormula "=(x, y)") `shouldEqual`
+    parseFormula "=(x, y)" `shouldEqual`
       Right (Predicate "=" [Var $ Variable "x", Var $ Variable "y"])
-    (parseFormula "x = y") `shouldEqual`
+    parseFormula "x = y" `shouldEqual`
       Right (Predicate "=" [Var $ Variable "x", Var $ Variable "y"])
+  it "should parse double negation" do
+    parseFormula "¬¬P" `shouldEqual` Right (Not (Not (Predicate "P" [])))
