@@ -1,78 +1,88 @@
-module Parser where
+module Parser (formula, parseFormula) where
 
 import Prelude
 
-import Control.Lazy (fix)
-import Data.Identity (Identity)
-import Data.Char.Unicode (isLower)
-import Data.String.CodeUnits (singleton)
-import Data.List (many)
-import Data.Array as Array
-import Data.Either (Either)
-import Util ((>>))
-
-import Text.Parsing.Parser.Token (LanguageDef, GenLanguageDef(..), TokenParser, makeTokenParser,
-                                  upper, letter, space)
-import Text.Parsing.Parser.Combinators (lookAhead, sepBy1)
-import Text.Parsing.Parser.String (oneOf, satisfy, char)
-import Text.Parsing.Parser.Expr (OperatorTable, Assoc(..), Operator(..), buildExprParser)
-import Text.Parsing.Parser (Parser, ParseError, runParser)
 import Control.Alternative ((<|>))
+import Control.Lazy (fix)
+import Data.Array as Array
+import Data.Char.Unicode (isLower)
+import Data.Either (Either)
+import Data.Identity (Identity)
+
+import Text.Parsing.Parser (Parser, ParserT, ParseError, runParser)
+import Text.Parsing.Parser.Combinators (option, chainl1, lookAhead, (<?>))
+import Text.Parsing.Parser.String (oneOf, satisfy, eof)
+import Text.Parsing.Parser.Token (GenLanguageDef(..), TokenParser, makeTokenParser, upper, letter)
+import Text.Parsing.Parser.Expr (OperatorTable, Assoc(..), Operator(..), buildExprParser)
 
 import Formula (Variable(..), Term(..), Formula(..))
 
-languageDef :: LanguageDef
-languageDef = LanguageDef
-              { commentStart: ""
-              , commentEnd: ""
-              , commentLine: ""
-              , nestedComments: false
-              , identStart: letter
-              , identLetter: letter
-              , opStart: oneOf ['¬', '∧', '∨', '→', '∀', '∃']
-              , opLetter: oneOf []
-              , reservedNames: []
-              , reservedOpNames: ["¬", "∧", "∨", "→", "∀", "∃"]
-              , caseSensitive: true
-              }
-
 token :: TokenParser
 token = makeTokenParser languageDef
-identifier :: Parser String String
-identifier = token.identifier
-parens :: forall a. Parser String a -> Parser String a
-parens = token.parens
+  where
+    languageDef = LanguageDef
+                  { commentStart: ""
+                  , commentEnd: ""
+                  , commentLine: ""
+                  , nestedComments: false
+                  , identStart: letter
+                  , identLetter: letter
+                  , opStart: oneOf ['¬', '∧', '∨', '→', '∀', '∃']
+                  , opLetter: oneOf []
+                  , reservedNames: []
+                  , reservedOpNames: ["¬", "∧", "∨", "→", "∀", "∃"]
+                  , caseSensitive: true
+                  }
 
-lower :: Parser String Char
-lower = satisfy isLower
+-- | Parse a lowercase letter.
+lower :: forall m. Monad m => ParserT String m Char
+lower = satisfy isLower <?> "lowercase letter"
 
+variableSymbol :: Parser String String
+variableSymbol = lookAhead lower *> token.identifier
 variable :: Parser String Variable
-variable = Variable <$> ((lookAhead (singleton <$> lower)) >> identifier)
+variable = Variable <$> variableSymbol
+
+argumentList :: forall a. Parser String a -> Parser String (Array a)
+argumentList p = Array.fromFoldable <$> token.parens (token.commaSep p)
 
 term :: Parser String Term
-term = (Var <$> variable)
+term = do
+      symbol <- variableSymbol
+      -- Constants require empty argument list ("c()") to disambiguate from variables
+      option (Var $ Variable symbol) (App symbol <$> argumentList term)
 
+-- | Parse a single predicate variable such as P(x).
 predicate :: Parser String Formula
 predicate = let
-  predicateSymbol = (lookAhead upper) >> identifier
+  predicateSymbol = token.symbol "=" <|> lookAhead upper *> token.identifier
+  -- The equality predicate is usually written using infix notation
+  equality = do
+    x <- term
+    _ <- token.symbol "="
+    y <- term
+    pure $ Predicate "=" [x, y]
   in do
     symbol <- predicateSymbol
-    args <- (Array.fromFoldable <$> parens (sepBy1 term (many space >> char ',' >> many space)))
-            <|> pure []
+    -- For nullary predicates the argument list is optional
+    args <- option [] (argumentList term)
     pure $ Predicate symbol args
+  <|> equality
 
+-- | Parse a single formula.
 formula :: Parser String Formula
 formula = fix allFormulas
   where
-    forallParser :: Parser String (Formula -> Formula)
-    forallParser = Forall <$> (token.reservedOp "∀" >> variable)
+    forallParser = Forall <$> (token.reservedOp "∀" *> variable)
+    existsParser = Exists <$> (token.reservedOp "∃" *> variable)
 
-    existsParser :: Parser String (Formula -> Formula)
-    existsParser = Exists <$> (token.reservedOp "∃" >> variable)
+    -- Required because buildExprParser does not allow multiple prefix
+    -- operators of the same precedence (e.g. ¬¬A).
+    chained p = chainl1 p $ pure (<<<)
 
     opTable :: OperatorTable Identity String Formula
     opTable =
-      [ [ Prefix (token.reservedOp "¬" $> Not)
+      [ [ Prefix $ chained (token.reservedOp "¬" $> Not)
         , Prefix forallParser
         , Prefix existsParser ]
       , [ Infix (token.reservedOp "∧" $> And) AssocLeft
@@ -80,8 +90,9 @@ formula = fix allFormulas
         , Infix (token.reservedOp "→" $> Implies) AssocRight ] ]
 
     allFormulas p = let
-      singleFormula = parens p <|> predicate
-      in buildExprParser opTable singleFormula
+      singleFormula = token.parens p <|> predicate
+      in token.whiteSpace *> buildExprParser opTable singleFormula
 
+-- | Returns the result of parsing a formula from the specified string.
 parseFormula :: String -> Either ParseError Formula
-parseFormula = flip runParser $ formula
+parseFormula = flip runParser $ formula <* eof
