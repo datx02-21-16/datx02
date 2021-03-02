@@ -5,7 +5,8 @@ import Prelude
 import Control.Monad.Except (Except, runExcept, throwError)
 import Control.Monad.State (StateT, evalStateT, get, put)
 import Data.Either (Either)
-import Formula (Formula(..), Term(..), Variable(..), containsTerm, substitution)
+import Data.Maybe (Maybe(..))
+import Formula (Formula(..), Term(..), Variable(..), containsTerm, substitute, singleSub)
 
 {- | Different kind of errors that can be produced when using these
 'inference rules' to produce formulas. -}
@@ -15,6 +16,7 @@ data NDErrors = NotAConjunction  Formula
               | NotAModusTollens Formula Formula
               | NotADoubleNeg    Formula
               | NotANegElim Formula Formula
+              | NotAnExists Formula
               | NotAForall Formula
               | NotPBC Formula Formula
               | BadOrElimination Formula -- left operand of the or formula
@@ -30,6 +32,7 @@ data NDErrors = NotAConjunction  Formula
               | BadNegElim Formula Formula
               | BadExistsElim Formula Term
               | BadExistsIntro Formula Term
+              | BadSubstitution
 
 
 
@@ -43,6 +46,7 @@ instance showNDErrors :: Show NDErrors where
                                         "Got the following: " <> "Formula1 = " <> show e1 <> ", Formula2 = " <> show e2
   show (NotANegElim e1 e2)            = "not a negation elimination: \n" <>
                                         "Got the following: " <> "Formula1 = " <> show e1 <> ", Formula2 = " <> show e2 
+  show (NotAnExists f)                = "Not an exists: \n" <> show f
   show (NotAForall f)                 = "Not a forall: \n" <> show f
   show (NotADoubleNeg e)              = "No double negation on formula: " <> show e
   show (NotPBC f1 f2)                 = "Not a proof by contradiction: \n" <>
@@ -61,7 +65,8 @@ instance showNDErrors :: Show NDErrors where
                                         "formula " <> show f <> " contains term " <> show t
   show (BadExistsIntro f t)           = "bad exists introduction: \n" <>
                                         "formula " <> show f <> " does not contain term " <> show t
-
+  show BadSubstitution                = "Bad substitution"
+ 
 -- | Natural deduction monad
 type ND a = StateT Int (Except NDErrors) a
 
@@ -136,11 +141,11 @@ closeBox = pure
 
 -- notElim is the rule ¬e
 
-notElim :: Formula -> Formula -> ND Formula 
-notElim phi (Not phi2) = if phi == phi2                                  -- Given Φ1 and ¬Φ2 , check that Φ1 == Φ2
-                            then pure (Bottom)                           -- return the deduced formula ⊥ 
-                            else throwError (BadNegElim phi (Not phi2))  -- if Φ1 != Φ2 throw specific error.
-notElim e1 e2          = throwError (NotANegElim e1 e2)                  -- If input formulas are not in the form Φ and ¬Φ then throw specific error.
+--notElim :: Formula -> Formula -> ND Formula 
+--notElim phi (Not phi2) = if phi == phi2                                  -- Given Φ1 and ¬Φ2 , check that Φ1 == Φ2
+--                            then pure (Bottom)                           -- return the deduced formula ⊥ 
+--                            else throwError (BadNegElim phi (Not phi2))  -- if Φ1 != Φ2 throw specific error.
+--notElim e1 e2          = throwError (NotANegElim e1 e2)                  -- If input formulas are not in the form Φ and ¬Φ then throw specific error.
 
 
 -- doubleNotElim is the rule ¬¬e
@@ -187,15 +192,15 @@ If all stages above are true, then output pure (Or phi phi2) else throw some kin
 
 -}
 
-lem :: Formula -> ND Formula
-lem f = pure $ Or f (Not f)
+--pbc :: Formula -> (Formula -> ND Formula) -> ND Formula
+--pbc f box = do
+--    f' <- box (Not f)
+--    if f' == Bottom
+--      then pure f
+--      else throwError $ NotPBC f f'
 
-pbc :: Formula -> (Formula -> ND Formula) -> ND Formula
-pbc f box = do
-    f' <- box (Not f)
-    if f' == Bottom
-      then pure f
-      else throwError $ NotPBC f f'
+--lem :: Formula -> ND Formula
+--lem f = pure $ Or f (Not f)
 
 {-
 
@@ -214,7 +219,10 @@ forallElim _          -> throwError
 forallElim :: Formula -> ND Formula
 forallElim (Forall var psi) = do
     var' <- fresh
-    pure $ substitution psi (Var var') var
+    let sub = singleSub var (Var var')
+    case sub of
+        Just sub' -> pure $ substitute sub' psi
+        Nothing   -> throwError BadSubstitution
 forallElim f          = throwError $ NotAForall f
 
 {-
@@ -233,7 +241,10 @@ forallElim f _                   = throwError $ NotAForall f
 forallIntro :: Variable -> Variable -> ND Formula -> ND Formula
 forallIntro x0 x mf = do
     f <- mf
-    pure $ substitution f (Var x) x0
+    let sub = singleSub x0 (Var x)
+    case sub of
+        Just sub' -> pure $ Forall x $ substitute sub' f
+        Nothing   -> throwError BadSubstitution
 
 {-
 
@@ -255,15 +266,21 @@ arguments.
 
 existsElim :: Formula -> Variable -> (Formula -> ND Formula) -> ND Formula
 existsElim (Exists x f) x0 box = do
-    f' <- box $ substitution f (Var x0) x
+    let sub = singleSub x (Var x0)
+    f' <- case sub of
+              Just sub' -> box $ substitute sub' f
+              Nothing   -> throwError BadSubstitution
     if containsTerm f' (Var x0)
       then throwError $ BadExistsElim f' (Var x0)
       else pure f'
-existsElim _ _ _ = pure Bottom
+existsElim f _ _ = throwError $ NotAnExists f
 
 existsIntro :: Formula -> Variable -> Variable -> ND Formula
 existsIntro f t x =  if containsTerm f (Var t)
-       then pure $ Exists x (substitution f (Var x) t)
+       then let sub = singleSub t (Var x)
+            in case sub of
+                   Just sub' -> pure $ Exists x (substitute sub' f)
+                   Nothing   -> throwError BadSubstitution
        else throwError $ BadExistsIntro f (Var t)
 
 {-

@@ -2,12 +2,10 @@ module Test.Inference where
 
 import Prelude
 
-import Control.Parallel (parSequence, parallel)
+import Data.Array (singleton)
+import Formula (Formula(..), Variable(..), Term(..))
 import Data.Either (Either(..))
-import Data.Enum (pred)
-import Data.Int (quot)
-import Formula (Formula(..))
-import Inference (NDErrors(..), andElimL, andElimR, andIntro, closeBox, doubleNotElim, doubleNotIntro, implElim, implIntro, modusTollens, notElim, orElim, runND)
+import Inference (NDErrors(..), andElimL, andElimR, andIntro, closeBox, doubleNotElim, forallIntro, doubleNotIntro, implElim, implIntro, modusTollens, orElim, runND)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
@@ -87,16 +85,22 @@ testInference = describe "inference tests" do
   it "Test: Can execute double negation introduction (¬¬i) on a formula (Input: ¬Φ)" do
     (runND (doubleNotIntro (Not a)) `shouldEqual`
       (Right (Not (Not (Not a)))))
-  it "Test: Can execute negation elimination (¬e) on correct formulas (Input: Φ , ¬Φ)" do
-    (runND (notElim (And a b)(Not (And a b))) `shouldEqual`
-      (Right Bottom))
-  it "Test: Cant execute negation elimination (¬e) on wrong formulas (Wrong Input: Φ , Φ)" do
-    (runND (notElim (And a b)(And a b)) `shouldEqual`
-      (Left (NotANegElim (And a b)(And a b))))
-  it "Test: Cant execute negation elimination (¬e) on wrong formulas (Wrong Input: Φ1 , ¬Φ2 where Φ1 != Φ2)" do
-    (runND (notElim (And a b)(Not(Or a b))) `shouldEqual`
-      (Left (BadNegElim (And a b)(Not(Or a b)))))
-
+  it "properly substitutes in forall elim" do
+    (runND (forallIntro
+              (Variable "x0")
+              (Variable "x")
+              (pure (Predicate "P" (singleton (Var (Variable "x0"))))))) `shouldEqual`
+      Right (Forall ((Variable "x")) (Predicate "P" (singleton (Var (Variable "x")))))
+  --it "Test: Can execute negation elimination (¬e) on correct formulas (Input: Φ , ¬Φ)" do
+  --  (runND (notElim (And a b)(Not (And a b))) `shouldEqual`
+  --    (Right Bottom))
+  --it "Test: Cant execute negation elimination (¬e) on wrong formulas (Wrong Input: Φ , Φ)" do
+  --  (runND (notElim (And a b)(And a b)) `shouldEqual`
+  --    (Left (NotANegElim (And a b)(And a b))))
+  --it "Test: Cant execute negation elimination (¬e) on wrong formulas (Wrong Input: Φ1 , ¬Φ2 where Φ1 != Φ2)" do
+  --  (runND (notElim (And a b)(Not(Or a b))) `shouldEqual`
+  --    (Left (BadNegElim (And a b)(Not(Or a b)))))
+  
 bookExamples :: Spec Unit
 bookExamples = describe "examples from the book Logic in Computer Science" do
   let p = Predicate "p" []
