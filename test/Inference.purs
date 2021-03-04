@@ -41,11 +41,11 @@ testInference = describe "inference tests" do
     (runND (andElimL (And a b))) `shouldEqual`
         (Right a)
 
-  it "Cant execute a conjunction elimination (^e2) when applied to a wrong formula (this test case : implies formula) " do
+  it "cannot execute a conjunction elimination (^e2) when applied to a wrong formula (this test case : implies formula) " do
     (runND (andElimR (Implies a b))) `shouldEqual`
         Left (NotAConjunction (Implies a b))
 
-  it "Can execute a conjunction elimination (^e2) when applied to a correct formula (conjunction formula)" do
+  it "can execute a conjunction elimination (^e2) when applied to a correct formula (conjunction formula)" do
     (runND (andElimR (And a b))) `shouldEqual`
         (Right b)
 
@@ -67,19 +67,19 @@ testInference = describe "inference tests" do
                                  b'  <- andElimR ab
                                  andIntro b' a'))) `shouldEqual`
         (Right (Implies (And a b) (And b a)))
-  it "Test: Cant execute double negation elimination (¬¬e) on wrong formula (not a ¬¬Φ)" do
+  it "Test: Cannot execute double negation elimination (¬¬e) on wrong formula (not a ¬¬Φ)" do
     (runND (doubleNotElim (And a b))) `shouldEqual`
       (Left (NotADoubleNeg (And a b)))
   it "Test: Can execute double negation elimination (¬¬e) on correct formula (a ¬¬Φ)" do
     (runND (doubleNotElim (Not(Not(And a b))))) `shouldEqual`
       (Right (And a b))
-  it "Test: Cant execute modus tollens (MT) on wrong formulas (Wrong Input: Φ → Ψ1 , ¬Ψ2 where Ψ1 != Ψ2 )" do
+  it "Test: Cannot execute modus tollens (MT) on wrong formulas (Wrong Input: Φ → Ψ1 , ¬Ψ2 where Ψ1 != Ψ2 )" do
     (runND (modusTollens (Implies a b)(Not a))) `shouldEqual`
       (Left (BadModusTollens (a)(b)(a)))
   it "Test: Can execute modus tollens (MT) on correct formulas (Correct Input: Φ → Ψ1 , ¬Ψ2 where Ψ1 == Ψ2 )" do
     (runND (modusTollens (Implies a b)(Not b))) `shouldEqual`
       (Right (Not a))
-  it "Test: Cant execute modus tollens (MT) on wrong formulas (Wrong Input: Φ ∧ Ψ , Φ ∨ Ψ )" do
+  it "Test: Cannot execute modus tollens (MT) on wrong formulas (Wrong Input: Φ ∧ Ψ , Φ ∨ Ψ )" do
     (runND (modusTollens (And a b)(Or a b))) `shouldEqual`
       (Left (NotAModusTollens (And a b) (Or a b)))
   it "Test: Can execute double negation introduction (¬¬i) on a formula (Input: ¬Φ)" do

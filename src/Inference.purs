@@ -10,28 +10,28 @@ import Formula (Formula(..), Term(..), Variable(..), containsTerm, substitute, s
 
 {- | Different kind of errors that can be produced when using these
 'inference rules' to produce formulas. -}
-data NDErrors = NotAConjunction  Formula
-              | NotADisjunction  Formula
-              | NotAnImplication Formula
-              | NotAModusTollens Formula Formula
-              | NotADoubleNeg    Formula
-              | NotANegElim Formula Formula
-              | NotAnExists Formula
-              | NotAForall Formula
-              | NotPBC Formula Formula
-              | BadOrElimination Formula -- left operand of the or formula
-                                 Formula -- result of trying to eliminate the left operand
-                                 Formula -- right operand of the or formula
-                                 Formula -- result of trying to eliminate the right operand
+data NDErrors = NotAConjunction    Formula
+              | NotADisjunction    Formula
+              | NotAnImplication   Formula
+              | NotAModusTollens   Formula Formula
+              | NotADoubleNeg      Formula
+              | NotANegElim        Formula Formula
+              | NotAnExists        Formula
+              | NotAForall         Formula
+              | NotPBC             Formula Formula
+              | BadOrElimination   Formula -- left operand of the or formula
+                                   Formula -- result of trying to eliminate the left operand
+                                   Formula -- right operand of the or formula
+                                   Formula -- result of trying to eliminate the right operand
               | BadImplElimination Formula -- first operand of the implication
                                    Formula -- second operand of the implication
                                    Formula -- the formula we attempted to eliminate the implication with
-              | BadModusTollens Formula
-                                Formula
-                                Formula
-              | BadNegElim Formula Formula
-              | BadExistsElim Formula Term
-              | BadExistsIntro Formula Term
+              | BadModusTollens    Formula
+                                   Formula
+                                   Formula
+              | BadNegElim         Formula Formula
+              | BadExistsElim      Formula Term
+              | BadExistsIntro     Formula Term
               | BadSubstitution
 
 
@@ -95,9 +95,9 @@ andElimR e         = throwError $ NotAConjunction e
 andIntro :: Formula -> Formula -> ND Formula
 andIntro l r = pure $ And l r
 
-{- | Or elimination. If we have A \/ B and two functions that go from A to C, and
+{- | Or elimination. If we have A ∨ B and two functions that go from A to C, and
 B to C, we can deduce C. Produces an error if the first input argument is not a
-disjunction, or if the two functions don't produce equal results. -}
+disjunction, or if the two functions do not produce equal results. -}
 orElim :: Formula -> (Formula -> ND Formula) -> (Formula -> ND Formula) -> ND Formula
 orElim (Or l r) f g = do
     r1 <- f l      -- try to eliminate left operand
@@ -127,7 +127,7 @@ implIntro assumption box = do
     implied <- box assumption
     pure $ Implies assumption implied
 
-{-} | If we have an implicatino such as A -> B, and an A, we can deduce B. Produces an error
+{-} | If we have an implication such as A -> B, and an A, we can deduce B. Produces an error
 if the first input argument is not an implication, or if the second input argument is
 not the same as the first operand of the implication. -}
 implElim :: Formula -> Formula -> ND Formula
@@ -148,7 +148,7 @@ closeBox = pure
 --notElim e1 e2          = throwError (NotANegElim e1 e2)                  -- If input formulas are not in the form Φ and ¬Φ then throw specific error.
 
 
--- doubleNotElim is the rule ¬¬e
+-- | doubleNotElim is the rule ¬¬e
 
 doubleNotElim :: Formula -> ND Formula 
 doubleNotElim (Not (Not phi)) = pure phi       -- Given a formula ¬¬Φ , output Φ
@@ -156,7 +156,7 @@ doubleNotElim e = throwError (NotADoubleNeg e) -- If a formula doesnt have the f
 
 
 
---modusTollens is the macro rule MT. 
+-- | modusTollens is the macro rule MT. 
 
 modusTollens :: Formula -> Formula -> ND Formula
 modusTollens (Implies phi psi) (Not psi2) = if psi == psi2                                  -- if we got Φ -> Ψ1 and ¬Ψ2, check that Ψ1 == Ψ2
@@ -166,7 +166,7 @@ modusTollens e1 e2                        =  throwError (NotAModusTollens e1 e2)
 
 
 
---doubleNotIntro is the ¬¬i rule. Given a formula Φ as input, return ¬¬Φ.
+-- | doubleNotIntro is the ¬¬i rule. Given a formula Φ as input, return ¬¬Φ.
 
 doubleNotIntro :: Formula -> ND Formula 
 doubleNotIntro phi = pure (Not(Not phi))
@@ -282,9 +282,3 @@ existsIntro f t x =  if containsTerm f (Var t)
                    Just sub' -> pure $ Exists x (substitute sub' f)
                    Nothing   -> throwError BadSubstitution
        else throwError $ BadExistsIntro f (Var t)
-
-{-
-
-P(t)            -- premise
-Exists x . P(x) -- exists intro
--}
