@@ -10,7 +10,7 @@ import Data.Either (Either)
 import Data.Identity (Identity)
 
 import Text.Parsing.Parser (Parser, ParserT, ParseError, runParser)
-import Text.Parsing.Parser.Combinators (option, chainl1, lookAhead, (<?>))
+import Text.Parsing.Parser.Combinators (option, choice, chainl1, lookAhead, (<?>))
 import Text.Parsing.Parser.String (oneOf, satisfy, eof)
 import Text.Parsing.Parser.Token (GenLanguageDef(..), TokenParser, makeTokenParser, upper, letter)
 import Text.Parsing.Parser.Expr (OperatorTable, Assoc(..), Operator(..), buildExprParser)
@@ -82,12 +82,12 @@ formula = fix allFormulas
 
     opTable :: OperatorTable Identity String Formula
     opTable =
-      [ [ Prefix $ chained (token.reservedOp "¬" $> Not)
-        , Prefix forallParser
-        , Prefix existsParser ]
-      , [ Infix (token.reservedOp "∧" $> And) AssocLeft
-        , Infix (token.reservedOp "∨" $> Or) AssocLeft
-        , Infix (token.reservedOp "→" $> Implies) AssocRight ] ]
+      [ [ Prefix $ chained $ choice [ token.reservedOp "¬" $> Not
+                                    , forallParser
+                                    , existsParser ] ]
+      , [ Infix (token.reservedOp "∧" $> And) AssocLeft ]
+      , [ Infix (token.reservedOp "∨" $> Or) AssocLeft ]
+      , [ Infix (token.reservedOp "→" $> Implies) AssocRight ] ]
 
     allFormulas p = let
       singleFormula = token.parens p <|> predicate
