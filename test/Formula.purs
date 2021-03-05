@@ -86,6 +86,7 @@ spec = describe "Formulas" do
   substitutionTests
   disagreementSetTests
   unificationTests
+  showTests
   where
     substitutionTests = describe "substitutions" do
       it "can do substitution on formula" do
@@ -138,3 +139,19 @@ spec = describe "Formulas" do
               , List.fromFoldable [Var (Variable "y"), Var (Variable "y")]
               ])
           `shouldEqual` Nothing
+
+    showTests = describe "show" do
+      it "should handle precedence" do
+        show (Or (Predicate "A" []) (Not $ Predicate "A" []))
+          `shouldEqual` "A ∨ ¬A"
+        show (Exists (Variable "x") (Implies (Predicate "P" [Var $ Variable "x"]) (Predicate "Q" [Var $ Variable "x"])))
+          `shouldEqual` "∃x (P(x) → Q(x))"
+      it "should handle associativity" do
+        show (And (And (Predicate "A" []) (Predicate "B" [])) (Predicate "C" []))
+          `shouldEqual` "A ∧ B ∧ C"
+        show (And (Predicate "A" []) (And (Predicate "B" []) (Predicate "C" [])))
+          `shouldEqual` "A ∧ (B ∧ C)"
+
+      it "should survive show/parseFormula roundtrip" do
+        quickCheck \(TFormula formula)
+                   -> parseFormula (show formula) `assertEquals` Right formula
