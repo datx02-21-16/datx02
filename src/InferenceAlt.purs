@@ -9,7 +9,7 @@ import Data.Array (deleteAt, head, index, insert, insertAt, length, tail , range
 import Partial.Unsafe as Partial
 
 
-data Rule = AndElimE1 | AndElimE2 | AndIntro | ImplElim | ImplIntro | Premise | Assumption  
+data Rule = AndElimE1 | AndElimE2 | AndIntro | ImplElim | ImplIntro | Premise | Assume | BottomElim | DoubleNegElim
 
 instance showRule :: Show Rule where 
   show (AndElimE1)  = "AND E1"
@@ -17,6 +17,8 @@ instance showRule :: Show Rule where
   show (AndIntro)   = "And Intro"
   show (ImplElim)   = "Implies Elimination"  
   show (ImplIntro)  = "Implies Introduction"
-  show (Assumption) = "Assumption"
+  show (Assume)     = "Assume"
   show (Premise)    = "Premise"
+  show (BottomElim) = "Bottom elimination"
+  show (DoubleNegElim) = "Double neg elimination"
 
