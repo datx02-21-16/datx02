@@ -73,9 +73,9 @@ instance showFormula :: Show Formula where
   show (Predicate p []) = p
   show (Predicate p args) = p <> "(" <> (joinWith ", " (show <$> args)) <> ")"
   show (Not phi) = "Not" <> (show phi)                                        -- Får konstiga prints i spago repl, ändrar till icke special tecken. Ändrar tillbaka senare.
-  show (And a b) = "(" <> (show a) <> " And " <> (show b) <> ")"              -- Får konstiga prints i spago repl, ändrar till icke special tecken. Ändrar tillbaka senare.
-  show (Or a b) = "(" <> (show a) <> " Or " <> (show b) <> ")"                -- Får konstiga prints i spago repl, ändrar till icke special tecken. Ändrar tillbaka senare.
-  show (Implies a b) = "(" <> (show a) <> " Implies " <> (show b) <> ")"      -- Får konstiga prints i spago repl, ändrar till icke special tecken. Ändrar tillbaka senare.
+  show (And a b) = "(" <> (show a) <> " ^ " <> (show b) <> ")"              -- Får konstiga prints i spago repl, ändrar till icke special tecken. Ändrar tillbaka senare.
+  show (Or a b) = "(" <> (show a) <> " v " <> (show b) <> ")"                -- Får konstiga prints i spago repl, ändrar till icke special tecken. Ändrar tillbaka senare.
+  show (Implies a b) = "(" <> (show a) <> " -> " <> (show b) <> ")"      -- Får konstiga prints i spago repl, ändrar till icke special tecken. Ändrar tillbaka senare.
   show (Forall x phi) = "∀" <> (show x) <> " " <> (show phi)
   show (Exists x phi) = "∃" <> (show x) <> " " <> (show phi)
 

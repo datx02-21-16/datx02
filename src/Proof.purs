@@ -20,7 +20,7 @@ data Box = Box {lines :: Array Row , boxNumber :: Int , open :: Boolean}
 instance showProof :: Show Proof where
   show (Proof {lines : rows , assumptions : a})  = case rows , a of 
                                 [] , [] -> "Empty proof"
-                                xs , ys -> "\n" <> joinWith "\n" (map show xs) <> "\n" <> "\n" <> joinWith "\n" (map show ys)     -- added "\n" to the left of joinWith so we can print out proofs niceer when returning them from the evalRule functions. 
+                                xs , ys -> "\n" <> joinWith "\n" (map show xs) <> "\n" <> "\n" <> joinWith "\n" (map show ys)
 
 instance showRow :: Show Row where 
     show (Row {rowNumber : i , formula : Just (f) , rule : Just (r) , applyRuleOn : i2}) = "Row: " <> show i <> "     Formula: " <> show f <> " " <> "      Rule: " <> show r <> "     Line: "    <> show i2 
@@ -52,6 +52,9 @@ evalUnaryRuleOnProof rule (Proof {lines : listRows , assumptions : listAssumptio
                 (DoubleNegElim) , (Just (Row {formula : f })) -> case Partial.unsafePartial (fromJust (f)) of 
                                                                                     (Not (Not phi)) -> helperFunc listRows totalRows phi rule line
                                                                                     _ -> printError rule f
+                (DoubleNegIntro) , (Just (Row {formula : f })) -> case Partial.unsafePartial (fromJust (f)) of 
+                                                                                    phi -> helperFunc listRows totalRows (Not (Not phi)) rule line
+                                                                                  --  _ -> printError rule f
                                                     
                 _ , _ -> Left "catch em all"
               where 
@@ -75,8 +78,22 @@ evalBinaryRuleOnProof  rule (Proof {lines : listRows , assumptions : listAssumpt
 
                 (AndIntro) , (Just (Row {formula : f })) , (Just (Row {formula : f2 })) -> case Partial.unsafePartial (fromJust (f)) , Partial.unsafePartial (fromJust (f2)) of 
                                                                                                                                         phi , psi  -> helperFunc listRows totalRows (And phi psi) rule line line2
-                                                                                                                                        
                 
+                (ImplElim) , (Just (Row {formula : f })) , (Just (Row {formula : f2 })) -> case Partial.unsafePartial (fromJust (f)) , Partial.unsafePartial (fromJust (f2)) of 
+                                                                                                                                        phi , (Implies phi1 psi)  -> if phi == phi1 
+                                                                                                                                                                     then helperFunc listRows totalRows (psi) rule line line2
+                                                                                                                                                                     else Left ("formula1 : " <> show phi <> " is not equal to the antecedent of formula2: " <> show (Implies phi1 psi))
+                                                                                                                                        _ , _                     -> printError rule f f2
+                (NegElim) , (Just (Row {formula : f })) , (Just (Row {formula : f2 })) -> case Partial.unsafePartial (fromJust (f)) , Partial.unsafePartial (fromJust (f2)) of 
+                                                                                                                                        phi , (Not phi1)  -> if phi == phi1 
+                                                                                                                                                                     then helperFunc listRows totalRows (Predicate "⊥" []) rule line line2
+                                                                                                                                                                     else Left ("Wrong input formula.   Formula1 : " <> show phi <> " ,   Formula2 : " <> show (Not phi1))
+                                                                                                                                        _ , _                     -> printError rule f f2
+                (ModusTollens) , (Just (Row {formula : f })) , (Just (Row {formula : f2 })) -> case Partial.unsafePartial (fromJust (f)) , Partial.unsafePartial (fromJust (f2)) of 
+                                                                                                                                        (Implies phi psi) , (Not psi1)  -> if psi == psi1 
+                                                                                                                                                                     then helperFunc listRows totalRows (Not phi) rule line line2
+                                                                                                                                                                     else Left ("Wrong input formula.   Formula1 : " <> show phi <> " ,   Formula2 : " <> show (Not phi))
+                                                                                                                                        _ , _                     -> printError rule f f2
                                                     
                 _ , _, _ -> Left "catch em all"
               where 
@@ -84,11 +101,10 @@ evalBinaryRuleOnProof  rule (Proof {lines : listRows , assumptions : listAssumpt
                 helperFunc listRow totalRows f r  lineNr lineNr2 =  case insertAt (totalRows) (Row {rowNumber : totalRows+1 , formula : Just (f) , rule : Just r , applyRuleOn : [lineNr , lineNr2]}) listRow of 
                                                                                                                Just a -> Right (Proof {lines : a , assumptions : [] , proofNumber : pN})
                                                                                                                _      -> Left "Error inserting a newline to existing proof"
+                printError :: Rule -> Maybe Formula -> Maybe Formula -> Either String Proof 
+                printError r f f2 = Left ("Cant apply rule:  " <> show rule <> "  on the following formulas:  " <> show f <> "    " <> show f2)
 
 -- Convenience/helper functions 
-
--- The evalRules spit out type Either String Proof, and applying this on an evalRule again wont work because its type signature taking a proof. This function
--- converts it to correct type as Proof.
 
 convertEitherProof :: Either String Proof -> Proof 
 convertEitherProof (Right (Proof x)) = Proof x
@@ -114,13 +130,13 @@ isEmptyProof (Proof {lines : l , assumptions : a , proofNumber : n}) = case l , 
 
 
 
--------------------------------------------- Proofs without any assumptions. Used for testing-------------------------------------------------------------
+-------------------------------------------- Proofs without any assumptions. Used for testing, remove later-------------------------------------------------------------
 
 testProof1 :: Proof
 testProof1 = Proof {lines : [Row {rowNumber : 1 , formula : Just (And (And (Predicate "P" []) (Predicate "Q" [])) (Predicate "R" [])) , rule : Just Premise , applyRuleOn : [1] }, 
                              Row {rowNumber : 2 , formula : Just (And (Predicate "S" []) (Predicate "T" []) ) , rule : Just Premise , applyRuleOn : [2] } ] , assumptions : [] , proofNumber : 1}
 
--- Example 1.6 in book, using and elim/intro
+-- Example 1.6 in book.
 
 testProof2 :: Proof 
 testProof2 = let 
@@ -130,26 +146,30 @@ testProof2 = let
                 four = convertEitherProof (evalBinaryRuleOnProof (AndIntro) three 4 5)
              in four
 
-------------------------------------------- Proofs with assumptions. Used for testing----------------------------------------------------------------
+-- Example 1.5 in book. 
 
-testProof3 :: Proof
-testProof3 = Proof {lines : [Row {rowNumber : 1 , formula : Just (And (And (Predicate "P" []) (Predicate "Q" [])) (Predicate "R" [])) , rule : Just Premise , applyRuleOn : [1] }] , 
+testProof3 :: Proof 
+testProof3 = let 
+              one = Proof {lines : [Row {rowNumber : 1 , formula : Just (Predicate "P" []) , rule : Just Premise , applyRuleOn : [1] }, 
+                             Row {rowNumber : 2 , formula : Just (Not(Not(And (Predicate "Q" []) (Predicate "R" [])))) , rule : Just Premise , applyRuleOn : [2] } ] 
+                             , assumptions : [] , proofNumber : 1}
+              two = convertEitherProof (evalUnaryRuleOnProof (DoubleNegIntro) one 1)
+              three = convertEitherProof (evalUnaryRuleOnProof (DoubleNegElim) two 2)
+              four = convertEitherProof (evalUnaryRuleOnProof (AndElimE2) three 4)
+              five = convertEitherProof (evalBinaryRuleOnProof (AndIntro) four 3 5)
+              in five
+
+
+
+
+
+------------------------------------------- Proofs with assumptions. Used for testing, remove later----------------------------------------------------------------
+
+-- Example 1.9 in book
+
+testProof4 :: Proof
+testProof4 = Proof {lines : [Row {rowNumber : 1 , formula : Just (Implies (Not (Predicate "Q" [])) (Not (Predicate "P" [])))  , rule : Just Premise , applyRuleOn : [1] }] , 
                              assumptions : [Box {lines : [Row {rowNumber : 2 , formula : Just (And (And (Predicate "P" []) (Predicate "Q" [])) (Predicate "R" [])) , rule : Just Assume , applyRuleOn : [2] }] , boxNumber : 1 , open : true }] 
                              
                              
                              , proofNumber : 1}
-
-
-testProof5 :: Proof 
-testProof5 = Proof {lines : [Row {rowNumber : 1 , formula : Just (And (Predicate "P" []) (Predicate "Q" [])) , rule : Just AndElimE1 , applyRuleOn : [0] },
-                             Row {rowNumber : 2 , formula : Just (Or (Predicate "P" []) (Predicate "Q" []))  , rule : Just AndElimE1 , applyRuleOn : [0] },
-                             Row {rowNumber : 3 , formula : Just (And (Predicate "P" []) (Predicate "Q" [])) , rule : Just AndElimE1 , applyRuleOn : [0] },
-                             Row {rowNumber : 4 , formula : Just (Or (Predicate "P" []) (Predicate "Q" []))  , rule : Just AndElimE1 , applyRuleOn : [0] }
-] , assumptions : [Box {lines : [Row {rowNumber : 5 , formula : Just (And (Predicate "P" []) (Predicate "Q" [])) , rule : Just Assume , applyRuleOn : [5]}, 
-                                 Row {rowNumber : 6 , formula : Just (And (Predicate "P" []) (Predicate "Q" [])) , rule : Just AndElimE1 , applyRuleOn : [5]},
-                                 Row {rowNumber : 7 , formula : Just (And (Predicate "P" []) (Predicate "Q" [])) , rule : Just AndElimE1 , applyRuleOn : [5]},
-                                 Row {rowNumber : 8 , formula : Just (And (Predicate "P" []) (Predicate "Q" [])) , rule : Just AndElimE1 , applyRuleOn : [5]}] , boxNumber : 1 , open : false},
-
-
-
-                   Box {lines : [Row {rowNumber : 9 , formula : Just (Or (Predicate "P" []) (Predicate "Q" [])) , rule : Just Assume , applyRuleOn : [6]}] , boxNumber : 2 , open : true}] , proofNumber : 1}
