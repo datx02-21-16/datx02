@@ -198,13 +198,21 @@ containsTerm f t = case f of
   Exists x f'      -> containsTerm f' t
 
 -- | TODO At the moment only works on propositional logic
+formulaUnify :: Formula -> Formula -> Maybe (Tuple Substitution (List Term))
+formulaUnify f1 f2 = subTerms f1 f2 >>= unify
+  where
+    -- | Returns the subterms if the two formulas have the same structure.
+    subTerms :: Formula -> Formula -> Maybe (Set (List Term))
+    subTerms = case _, _ of
+      Predicate f args1, Predicate g args2
+        | f == g, Array.length args1 == Array.length args2
+          -> Just $ Set.fromFoldable
+             [List.fromFoldable args1, List.fromFoldable args2]
+      Not a, Not b -> subTerms a b
+      And a b, And c d -> (<>) <$> subTerms a c <*> subTerms b d
+      Or a b, Or c d -> (<>) <$> subTerms a c <*> subTerms b d
+      Implies a b, Implies c d -> (<>) <$> subTerms a c <*> subTerms b d
+      _, _ -> Nothing
+
 formulaUnifier :: Formula -> Formula -> Maybe Substitution
-formulaUnifier = case _, _ of
-  Predicate f args1, Predicate g args2
-    | f == g, Array.length args1 == Array.length args2, Array.length args1 == 0
-      -> Just mempty
-  Not a, Not b -> formulaUnifier a b
-  And a b, And c d -> formulaUnifier a c *> formulaUnifier b d
-  Or a b, Or c d -> formulaUnifier a c *> formulaUnifier b d
-  Implies a b, Implies c d -> formulaUnifier a c *> formulaUnifier b d
-  _, _ -> Nothing
+formulaUnifier a b = (\(Tuple σ _) -> σ) <$> formulaUnify a b

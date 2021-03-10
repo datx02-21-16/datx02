@@ -23,26 +23,44 @@ spec = describe "Automated ND" do
                          , { formula: readFormula "¬P", rule: Assumption }
                          , { formula: readFormula "P", rule: Assumption }
                          , { formula: readFormula "¬Q", rule: Assumption }
-                         , { formula: readFormula "¬¬Q", rule: NotIntro }
+                         , { formula: readFormula "¬¬Q", rule: NotIntro 3 }
                          , { formula: readFormula "Q", rule: NotElim 4 }
-                         , { formula: readFormula "P → Q", rule: ImpliesIntro }
+                         , { formula: readFormula "P → Q", rule: ImpliesIntro 5 }
                          , { formula: readFormula "P", rule: ImpliesElim 0 6 }
-                         , { formula: readFormula "¬¬P", rule: NotIntro }
+                         , { formula: readFormula "¬¬P", rule: NotIntro 7 }
                          , { formula: readFormula "P", rule: NotElim 8 }
-                         , { formula: readFormula "((P → Q) → P) → P", rule: ImpliesIntro }
-                         ]
+                         , { formula: readFormula "((P → Q) → P) → P", rule: ImpliesIntro 9 } ]
 
-  it "should be able to do shit" do
-    prove [readFormula "P∨Q"] (readFormula "¬P→Q") `shouldEqual` Nothing
+  it "should prove modus tollens" do
+    prove [readFormula "P → Q", readFormula "¬Q"]
+      (readFormula "¬P")
+      `shouldEqual` Just [ { formula: readFormula "P → Q", rule: Premise }
+                         , { formula: readFormula "¬Q", rule: Premise }
+                         , { formula: readFormula "P", rule: Assumption }
+                         , { formula: readFormula "Q", rule: ImpliesElim 0 2 }
+                         , { formula: readFormula "¬P", rule: NotIntro 3 } ]
+
+  it "should determine that no ND proof can be found" do
+    prove [readFormula "P"] (readFormula "Q") `shouldEqual` Nothing
+
+    -- Commented out because it takes ~5 seconds
+    -- prove [readFormula "(P∧Q)→(R∨S)"] (readFormula "(P→R)∨(Q→V)") `shouldEqual` Nothing
+
   it "should be able to do hard shit" do
     prove [readFormula "(P∧Q)→(R∨S)"] (readFormula "(P→R)∨(Q→S)") `shouldEqual` Nothing
 
-  -- This one takes a long ass time to finish.
-  -- it "should be able to do hard shit v2" do
-    -- prove [readFormula "(P∧Q)→(R∨S)"] (readFormula "(P→R)∨(Q→V)") `shouldEqual` Nothing
-
   it "should prove De Morgan's" do
-    prove [readFormula "¬(A ∧ B)"] (readFormula "¬A ∨ ¬B") `shouldEqual` Nothing
-
-  it "should prove De Morgan's v2" do
-    prove [readFormula "¬A ∨ ¬B"] (readFormula "¬(A ∧ B)") `shouldEqual` Nothing
+    prove [readFormula "¬(A ∧ B)"] (readFormula "¬A ∨ ¬B")
+      `shouldEqual` Just [ { formula: readFormula "¬(A ∧ B)", rule: Premise }
+                         , { formula: readFormula "¬(¬A ∨ ¬B)", rule: Assumption }
+                         , { formula: readFormula "¬B", rule: Assumption }
+                         , { formula: readFormula "¬A ∨ ¬B", rule: OrIntro }
+                         , { formula: readFormula "¬¬B", rule: NotIntro 3 }
+                         , { formula: readFormula "B", rule: NotElim 4 }
+                         , { formula: readFormula "¬A", rule: Assumption }
+                         , { formula: readFormula "¬A ∨ ¬B", rule: OrIntro }
+                         , { formula: readFormula "¬¬A", rule: NotIntro 7 }
+                         , { formula: readFormula "A", rule: NotElim 8 }
+                         , { formula: readFormula "A ∧ B", rule: AndIntro }
+                         , { formula: readFormula "¬¬(¬A ∨ ¬B)", rule: NotIntro 10 }
+                         , { formula: readFormula "¬A ∨ ¬B", rule: NotElim 11 } ]
