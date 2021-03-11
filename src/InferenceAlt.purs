@@ -11,6 +11,9 @@ import Partial.Unsafe as Partial
 
 data Rule = AndElimE1 | AndElimE2 | AndIntro | ImplElim | ImplIntro | Premise | Assume | BottomElim | DoubleNegElim | NegElim | ModusTollens | DoubleNegIntro
 
+--data RuleApp = {rule :: Rule , formulas :: Array Formula}
+
+
 instance showRule :: Show Rule where 
   show (AndElimE1)  = "^E1"
   show (AndElimE2)  = "^E2" 
