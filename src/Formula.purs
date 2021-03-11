@@ -7,6 +7,7 @@ module Formula ( Variable(..)
                , substitute
                , disagreementSet
                , unify
+               , containsTerm
                ) where
 
 import Prelude
@@ -21,7 +22,10 @@ import Data.Map as Map
 import Data.Map (Map)
 import Data.Set as Set
 import Data.Set (Set)
-import Data.Foldable (any)
+
+import Data.Foldable (any, or)
+
+
 import Data.Unfoldable as Unfoldable
 
 -- | A variable symbol.
@@ -59,17 +63,25 @@ data Formula
   | Forall Variable Formula
   | Exists Variable Formula
 
+
+--  | Bottom 
+
+
 derive instance eqFormula :: Eq Formula
 
 instance showFormula :: Show Formula where
   show (Predicate p []) = p
   show (Predicate p args) = p <> "(" <> (joinWith ", " (show <$> args)) <> ")"
-  show (Not phi) = "¬" <> (show phi)
-  show (And a b) = "(" <> (show a) <> " ∧ " <> (show b) <> ")"
-  show (Or a b) = "(" <> (show a) <> " ∨ " <> (show b) <> ")"
-  show (Implies a b) = "(" <> (show a) <> " → " <> (show b) <> ")"
+  show (Not phi) = "Not" <> (show phi)                                        -- Får konstiga prints i spago repl, ändrar till icke special tecken. Ändrar tillbaka senare.
+  show (And a b) = "(" <> (show a) <> " ^ " <> (show b) <> ")"              -- Får konstiga prints i spago repl, ändrar till icke special tecken. Ändrar tillbaka senare.
+  show (Or a b) = "(" <> (show a) <> " v " <> (show b) <> ")"                -- Får konstiga prints i spago repl, ändrar till icke special tecken. Ändrar tillbaka senare.
+  show (Implies a b) = "(" <> (show a) <> " -> " <> (show b) <> ")"      -- Får konstiga prints i spago repl, ändrar till icke special tecken. Ändrar tillbaka senare.
   show (Forall x phi) = "∀" <> (show x) <> " " <> (show phi)
   show (Exists x phi) = "∃" <> (show x) <> " " <> (show phi)
+
+
+--  show (Bottom)       = "⊥"
+
 
 -- | A substitution {t₁/v₁, ..., tₙ/vₙ}.
 -- |
@@ -168,3 +180,13 @@ unify = go mempty
         t <- ds
         Unfoldable.fromMaybe $ singleSub v t
       in sub >>= (\λ -> go (σ <> λ) (Set.map (map (substitute λ)) w))
+
+containsTerm :: Formula -> Term -> Boolean
+containsTerm f t = case f of
+  Predicate n args -> or $ map (\t' -> t == t') args
+  Not f'           -> containsTerm f' t
+  And f1 f2        -> containsTerm f1 t || containsTerm f2 t
+  Or f1 f2         -> containsTerm f1 t || containsTerm f2 t
+  Implies f1 f2    -> containsTerm f1 t || containsTerm f2 t
+  Forall x f'      -> containsTerm f' t
+  Exists x f'      -> containsTerm f' t
