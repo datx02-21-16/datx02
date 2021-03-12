@@ -13,7 +13,7 @@ type Panel
 proofPanel :: forall t11 t12 t31 t34. Panel t34 t31 t12 t11
 proofPanel =
   H.mkComponent
-    { initialState: \_ -> GP.emptyProof
+    { initialState: \_ -> unit
     , render
     , eval: H.mkEval H.defaultEval
     }
