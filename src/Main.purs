@@ -2,9 +2,9 @@ module Main where
 
 import Prelude
 import Effect (Effect)
+import GUI as G
 import Halogen.Aff as HA
 import Halogen.VDom.Driver (runUI)
-import GUI as G
 
 main :: Effect Unit
 main =

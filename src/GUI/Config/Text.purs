@@ -1,7 +1,7 @@
 module GUI.Config.Text where
 
 editorName :: String
-editorName = "Not Conan"
+editorName = "¬Conan"
 
 editorSlogan :: String
 editorSlogan = "A proof editor"
