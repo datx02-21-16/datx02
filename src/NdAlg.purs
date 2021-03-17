@@ -202,6 +202,13 @@ prove premises initialGoal
         go nd@{ list_goals: goal:_ }
           = maybe' (\_ -> branchOnCurrentGoal nd goal) go $ findElim nd
 
+        literalDisjunctionOrExists = case _ of
+          Predicate _ [] -> true
+          Not (Predicate _ []) -> true
+          Or _ _ -> true
+          Exists _ _ -> true
+          _ -> false
+
         -- Procedure 2
         branchOnCurrentGoal nd@{ list_proof, list_goals, marks: marks@(m:|ms) }
           = case _ of
@@ -211,17 +218,21 @@ prove premises initialGoal
             -> go $ nd { list_proof = snoc list_proof {formula: Not p, rule: Assumption}
                        , list_goals = False:list_goals
                        , marks = m:|m:ms }
-          Goal (Not a)
+          Goal (Not a) --- | literalDisjunctionOrExists a
             -> go $ nd { list_proof = snoc list_proof {formula: a, rule: Assumption}
                        , list_goals = False:list_goals
                        , marks = m:|m:ms }
-          Goal (And a b) -> go $ nd { list_goals = Goal b:Goal a:list_goals }
+          Goal (And a b) -> go $ nd { list_goals = Goal a:Goal b:list_goals }
           -- Try either disjunct
           Goal (Or a b) -> findMap go
                              [ nd { list_goals = Goal a:list_goals }
                              , nd { list_goals = Goal b:list_goals }
+                             -- Only try to show ¬A ∧ ¬B if necessary
                              , nd { list_proof = snoc list_proof {formula: Not (Or a b), rule: Assumption}
                                   , list_goals = False:list_goals
+                                  , marks = m:|m:ms }
+                             , nd { list_proof = snoc list_proof {formula: Not (Or a b), rule: Assumption}
+                                  , list_goals = Goal (Not a):Goal (Not b):False:list_goals
                                   , marks = m:|m:ms } ]
           Goal (Implies a b)
             -> go $ nd { list_proof = snoc list_proof {formula: a, rule: Assumption }
