@@ -1,85 +1,90 @@
 module GUI.Proof where
 
 import Prelude
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), fromJust)
+import Partial.Unsafe (unsafePartial, unsafeCrashWith)
+import Data.Array as Array
+import Data.FunctorWithIndex (mapWithIndex)
+import Effect.Class (class MonadEffect)
+import Effect.Console (logShow)
+
 import GUI.Utils (substituteAll)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 
-type LineData
-  = { number :: Int
-    , formulaText :: String
+type Row
+  = { formulaText :: String
     , ruleText :: String
     , ruleArgs :: Array String
     }
 
-type Proof
+type State
   = { premises :: String
     , conclusion :: String
-    , lines :: Array LineData
+    , rows :: Array Row
     }
 
 data Action
-  = UpdateFormula
-  | UpdateRule
+  = UpdateFormula Int String
+  | UpdateRule Int
 
-newProof :: String -> String -> Array LineData -> Proof
-newProof prems conc lines =
-  { premises: prems
-  , conclusion: conc
-  , lines: lines
-  }
-
-emptyLine :: Int -> LineData
-emptyLine n =
-  { number: n
-  , formulaText: ""
-  , ruleText: ""
-  , ruleArgs: []
-  }
-
-proofLine :: forall t25 t5 t6. Int -> H.Component t25 Int t6 t5
-proofLine n =
+proof :: forall query input output m. MonadEffect m => H.Component query input output m
+proof =
   H.mkComponent
-    { initialState: \_ -> emptyLine n
+    { initialState
     , render
-    , eval: H.mkEval $ H.defaultEval { handleAction = handleAction }
+    , eval: H.mkEval H.defaultEval { handleAction = handleAction }
     }
   where
-  render state =
-    HH.div
+  initialState _ = { premises: ""
+                   , conclusion: ""
+                   , rows: [
+                     { formulaText: "fin", ruleText: "fin", ruleArgs: []}
+                           ] }
+
+  render st =
+      HH.div
+          [ HP.classes [ HH.ClassName "panel-block" ] ]
+          (mapWithIndex row st.rows)
+
+  row i { formulaText, ruleText }
+    = HH.div
       [ HP.classes [ HH.ClassName "columns", HH.ClassName "is-mobile" ] ]
       ( [ HH.div
             [ HP.classes [ HH.ClassName "column" ] ]
             [ HH.h4
                 [ HP.classes [ HH.ClassName "title", HH.ClassName "is-4" ] ]
-                [ HH.text (show state.number) ]
+                [ HH.text (show i) ]
             ]
         , HH.div
             [ HP.classes [ HH.ClassName "column", HH.ClassName "is-three-quarters" ] ]
             [ HH.input
-                [ HP.value state.formulaText
+                [ HP.value formulaText
                 , HP.placeholder "Enter formula"
                 , HP.classes [ HH.ClassName "input", HH.ClassName "is-primary" ]
                 , HP.type_ HP.InputText
-                , HE.onKeyUp \_ -> UpdateFormula
+                , HE.onValueInput $ UpdateFormula 0
                 ]
             ]
         , HH.div
             [ HP.classes [ HH.ClassName "column", HH.ClassName "is-one-fifth" ] ]
             [ HH.input
-                [ HP.value state.ruleText
+                [ HP.value ruleText
                 , HP.placeholder "Rule"
                 , HP.classes [ HH.ClassName "input", HH.ClassName "is-primary" ]
                 , HP.type_ HP.InputText
-                , HE.onKeyUp \_ -> UpdateRule
+                , HE.onKeyUp \_ -> UpdateRule 0
                 ]
             ]
         ]
       )
 
   handleAction = case _ of
-    UpdateFormula -> H.modify_ \state -> state { formulaText = substituteAll state.formulaText }
-    UpdateRule -> H.modify_ \state -> state { ruleText = substituteAll state.ruleText }
+    UpdateFormula i s -> do
+      H.liftEffect $ logShow "fin"
+      H.modify_
+         \st -> st { rows = unsafePartial $ fromJust $ Array.modifyAt i (\row@{formulaText} -> row { formulaText = substituteAll s}) st.rows }
+    -- UpdateRule _ -> H.modify_ \state -> state { ruleText = substituteAll state.ruleText }
+    _ -> unsafeCrashWith "unimpl"

@@ -8,13 +8,14 @@ import GUI.StaticElements as SE
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
+import Effect.Class (class MonadEffect)
 
 type Slots
   = ( panel :: forall query. H.Slot query Void Int )
 
 _panel = Proxy :: Proxy "panel"
 
-siteBody :: forall q i o m. H.Component q i o m
+siteBody :: forall q i o m. MonadEffect m => H.Component q i o m
 siteBody =
   H.mkComponent
     { initialState: identity
@@ -37,8 +38,8 @@ siteBody =
                   [ HH.slot _panel 0 P.proofPanel 0 identity ]
               , HH.div
                   [ HP.classes [ HH.ClassName "column" ] ]
-                  [ HH.slot _panel 0 P.ruleButtonPanel 0 (identity)
-                  , HH.slot _panel 0 P.settingsPanel 0 (identity)
+                  [ HH.slot _panel 1 P.ruleButtonPanel 0 (identity)
+                  , HH.slot _panel 2 P.settingsPanel 0 (identity)
                   ]
               ]
           ]
