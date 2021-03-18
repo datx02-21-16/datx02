@@ -1,134 +1,116 @@
-module Proof where
+module Proof (NdError,
+              Rule,
+              Nd,
+              proofRef,
+              addProof,
+              addBox,
+              closeBox) where
 
-import Control.Bind
+import Prelude
 import Control.Monad.State (State, modify_, gets)
-import Data.Array (concat, snoc, init, last, length, modifyAt)
-import Data.Either (Either(..))
-import Data.Foldable (elem)
-import Data.Function (($))
-import Data.Maybe (Maybe, fromJust)
-import Data.Tuple (Tuple(..))
-import Formula (Formula, Term)
-import Inference (Rule)
-import Partial.Unsafe (unsafePartial)
-import Prelude (Unit, identity, (+), (-))
+import Data.Array (snoc, (!!))
+import Data.Either (Either(..), note)
+import Data.Maybe (Maybe(..), fromJust)
+import Partial.Unsafe (unsafePartial, unsafeCrashWith)
+import Data.Array as Array
+import Data.List as List
+import Data.List (List(Nil), (:))
+import Data.Set as Set
+import Data.Set (Set)
 
-type Validation
-  = State ValidationEnv
+import Formula (Formula(..))
 
-data ProofElement
-  = BoxOpen
-  | BoxClose
-  | RowElem Row
+data Rule
+  = Premise
+  | Assumption
+  | AndElimE1 Int
+  | AndElimE2 Int
+  | AndIntro Int Int
+  | ImplElim
+  | ImplIntro
+  | BottomElim
+  | DoubleNegElim
+  | NegElim
+  | ModusTollens
+  | DoubleNegIntro
 
-type RowError
-  = Either String
+--data RuleApp = {rule :: Rule , formulas :: Array Formula}
+instance showRule :: Show Rule where
+  show Premise = "Premise"
+  show Assumption = "Assumption"
+  show (AndElimE1 _) = "^E1"
+  show (AndElimE2 _) = "^E2"
+  show (AndIntro _ _) = "^I"
+  show (ImplElim) = "->e"
+  show (ImplIntro) = "->i"
+  show (BottomElim) = "Bottom elimination"
+  show (DoubleNegElim) = "Double neg elimination"
+  show (NegElim) = "Neg elimination"
+  show (ModusTollens) = "MT"
+  show (DoubleNegIntro) = "Double neg introduction"
 
-type Proof
-  = Array ProofElement
+data NdError = BadRef | RefDiscarded | BadRule | BadFormula | FormulaMismatch
 
-type Row
-  = { formula :: Maybe Formula
-    , rule :: Maybe Rule
-    , args :: Array Int
-    }
+type Proof = { formula :: Maybe Formula
+             , rule :: Rule
+             , error :: Maybe NdError
+             }
 
-type ValidationEnv
-  = { provenFormulas :: Array (RowError Formula)
-    , nextRow :: Int
-    , boxFrom :: Array Int
-    , lineScopes :: Array (Array Int)
-    , boxScopes :: Array (Array (Tuple Int Int))
-    , termScopes :: Array (Array Term)
-    }
+-- | Partial or completed ND derivation.
+newtype Nd = Nd { proofs :: Array Proof
+                , discarded :: Set Int
+                , boxStarts :: List Int -- Stack of indexes where boxes start
+                , consequent :: Formula
+                }
 
--- | Validate a line.
-validateLine :: ProofElement -> Validation Unit
-validateLine = case _ of
-  BoxOpen -> enterBox
-  BoxClose -> exitBox
-  RowElem r -> modify_ identity -- TODO
+newNd :: Array Formula -> Formula -> Nd
+newNd premises consequent
+  = Nd { proofs: ({ formula: _
+                  , rule: Premise
+                  , error: Nothing } <<< Just) <$> premises
+       , discarded: Set.empty
+       , boxStarts: Nil
+       , consequent
+       }
 
--- | Create an empty environment
-newEnv :: ValidationEnv
-newEnv =
-  { provenFormulas: []
-  , nextRow: 1
-  , boxFrom: []
-  , lineScopes: [ [] ]
-  , boxScopes: [ [] ]
-  , termScopes: [ [] ]
-  }
+proofRef :: Int -> Nd -> Either NdError (Maybe Formula)
+proofRef i (Nd { proofs, discarded }) = do
+  { formula } <- note BadRef $ proofs !! i
+  when (i `Set.member` discarded) $ Left RefDiscarded
+  pure formula
 
--- State updates
-addFormula :: Formula -> Validation Unit
-addFormula f = modify_ \s -> s { provenFormulas = snoc s.provenFormulas (Right f) }
+addBox :: Nd -> Nd
+addBox (Nd nd@{ proofs, boxStarts })
+  = Nd $ nd { boxStarts = (Array.length proofs):boxStarts }
 
--- | Increment nextRow.
-incNextRow :: Validation Unit
-incNextRow = modify_ \s -> s { nextRow = s.nextRow + 1 }
-
--- | Enter a new box.
-enterBox :: Validation Unit
-enterBox =
-  modify_
-    ( \s ->
-        s
-          { lineScopes = snoc s.lineScopes []
-          , boxScopes = snoc s.boxScopes []
-          , termScopes = snoc s.termScopes []
-          , boxFrom = snoc s.boxFrom s.nextRow
-          }
-    )
-
--- | Exit from a box.
-exitBox :: Validation Unit
-exitBox = do
-  dropScope
-  bStart <- gets $ \s -> unsafePartial $ fromJust $ last $ s.boxFrom
-  bEnd <- gets _.nextRow
-  addBoxToScope $ Tuple bStart bEnd
-  modify_ \s -> s { boxFrom = unsafePartial $ fromJust $ init s.boxFrom }
-
--- | Add a box to the innermost box scope in the environment
-addBoxToScope :: Tuple Int Int -> Validation Unit
-addBoxToScope b =
-  modify_
-    ( \state ->
-        state
-          { boxScopes =
-            unsafePartial
-              $ fromJust
-              $ modifyAt
-                  (lastIndex state.boxScopes)
-                  (\s -> snoc s b)
-                  state.boxScopes
-          }
-    )
+closeBox :: Nd -> Nd
+closeBox (Nd nd@{ proofs, discarded, boxStarts })
+  = Nd $ nd { discarded = discarded <> newDiscards }
   where
-  lastIndex a = length a - 1
+    { head: startIdx, tail: boxStarts' } = unsafePartial $ fromJust
+        $ List.uncons boxStarts
+    endIdx = Array.length proofs
+    newDiscards = Set.fromFoldable $ Array.range startIdx endIdx
 
--- | Drop the innermost scope from all scopes.
-dropScope :: Validation Unit
-dropScope =
-  modify_
-    ( \s ->
-        s
-          { lineScopes = unsafePartial $ fromJust $ init s.lineScopes
-          , boxScopes = unsafePartial $ fromJust $ init s.boxScopes
-          , termScopes = unsafePartial $ fromJust $ init s.termScopes
-          }
-    )
+-- | Takes a user-provided formula and ND state and tries to apply the rule.
+applyRule :: Rule -> Maybe Formula -> Nd -> Either NdError Formula
+applyRule rule formula nd = case rule of
+  AndElimE1 i -> do
+    a <- proofRef i nd
+    case a of
+      Just (And x _) -> pure x
+      _ -> Left BadRule
+  _ -> unsafeCrashWith "unimplemented"
 
--- Checks on current state.
--- | Check if line is in scope.
-lineInScope :: Int -> ValidationEnv -> Boolean
-lineInScope n ve = elem n (concat ve.lineScopes)
-
--- | Check if box is in scope.
-boxInScope :: Tuple Int Int -> ValidationEnv -> Boolean
-boxInScope b ve = elem b (concat ve.boxScopes)
-
--- | Check if term is in scope.
-termInScope :: Term -> ValidationEnv -> Boolean
-termInScope t ve = elem t (concat ve.termScopes)
+addProof :: Maybe Formula -> Rule -> Nd -> Nd
+addProof formula rule (Nd nd@{ proofs }) = let
+  ruleResult = do
+    ruleFormula <- applyRule rule formula (Nd nd)
+    case formula of
+      Nothing -> Left BadFormula
+      Just f | f /= ruleFormula -> Left FormulaMismatch
+      _ -> pure ruleFormula
+  error = case ruleResult of
+    Left x -> Just x
+    _ -> Nothing
+  in Nd $ nd { proofs = snoc proofs { formula, rule, error } }

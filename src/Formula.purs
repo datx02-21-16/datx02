@@ -63,10 +63,6 @@ data Formula
   | Forall Variable Formula
   | Exists Variable Formula
 
-
---  | Bottom 
-
-
 derive instance eqFormula :: Eq Formula
 
 instance showFormula :: Show Formula where
@@ -79,9 +75,8 @@ instance showFormula :: Show Formula where
   show (Forall x phi) = "∀" <> (show x) <> " " <> (show phi)
   show (Exists x phi) = "∃" <> (show x) <> " " <> (show phi)
 
-
---  show (Bottom)       = "⊥"
-
+bottom :: Formula
+bottom = Predicate "⊥" []
 
 -- | A substitution {t₁/v₁, ..., tₙ/vₙ}.
 -- |

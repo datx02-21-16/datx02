@@ -29,7 +29,6 @@ module.exports = {
 					{
 						loader: "purs-loader",
 						options: {
-							src: ["src/**/*.purs"],
 							spago: true,
 							watch: true,
 							pscIde: true,
