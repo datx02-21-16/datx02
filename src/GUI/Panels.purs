@@ -2,14 +2,11 @@ module GUI.Panels where
 
 import Prelude
 import Type.Proxy (Proxy(..))
-import Data.Array as Array
-import Partial.Unsafe (unsafePartial)
 import Effect.Class (class MonadEffect)
 
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
-import Halogen.HTML.Events as HE
 
 import GUI.Config.Text as GCT
 import GUI.Proof as GP
@@ -37,7 +34,7 @@ proofPanel =
           [ HH.text "Proof" ]
       , HH.div
           [ HP.classes [ HH.ClassName "panel-block" ] ]
-          [ HH.slot_ _proof 1 GP.proof { } ]
+          [ HH.slot_ _proof 0 GP.proof { } ]
       ]
 
 ruleButtonPanel :: forall t11 t12 t31 t34. Panel t34 t31 t12 t11

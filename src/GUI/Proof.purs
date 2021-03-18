@@ -1,18 +1,20 @@
 module GUI.Proof where
 
 import Prelude
-import Data.Maybe (Maybe(..), fromJust)
+import Type.Proxy (Proxy(..))
+import Data.Maybe (fromJust)
 import Partial.Unsafe (unsafePartial, unsafeCrashWith)
 import Data.Array as Array
 import Data.FunctorWithIndex (mapWithIndex)
 import Effect.Class (class MonadEffect)
 import Effect.Console (logShow)
 
-import GUI.Utils (substituteAll)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
+
+import GUI.SymbolInput (symbolInput)
 
 type Row
   = { formulaText :: String
@@ -29,6 +31,8 @@ type State
 data Action
   = UpdateFormula Int String
   | UpdateRule Int
+
+_symbolInput = Proxy :: Proxy "symbolInput"
 
 proof :: forall query input output m. MonadEffect m => H.Component query input output m
 proof =
@@ -60,13 +64,7 @@ proof =
             ]
         , HH.div
             [ HP.classes [ HH.ClassName "column", HH.ClassName "is-three-quarters" ] ]
-            [ HH.input
-                [ HP.value formulaText
-                , HP.placeholder "Enter formula"
-                , HP.classes [ HH.ClassName "input", HH.ClassName "is-primary" ]
-                , HP.type_ HP.InputText
-                , HE.onValueInput $ UpdateFormula 0
-                ]
+            [ (HH.slot _symbolInput i (symbolInput "Enter formula") formulaText $ UpdateFormula i)
             ]
         , HH.div
             [ HP.classes [ HH.ClassName "column", HH.ClassName "is-one-fifth" ] ]
@@ -83,8 +81,7 @@ proof =
 
   handleAction = case _ of
     UpdateFormula i s -> do
-      H.liftEffect $ logShow "fin"
       H.modify_
-         \st -> st { rows = unsafePartial $ fromJust $ Array.modifyAt i (\row@{formulaText} -> row { formulaText = substituteAll s}) st.rows }
+         \st -> st { rows = unsafePartial $ fromJust $ Array.modifyAt i _ { formulaText = s } st.rows }
     -- UpdateRule _ -> H.modify_ \state -> state { ruleText = substituteAll state.ruleText }
     _ -> unsafeCrashWith "unimpl"

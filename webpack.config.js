@@ -32,7 +32,7 @@ module.exports = {
 							spago: true,
 							psc: "psa",
 							watch: true,
-							pscIde: true,
+							// pscIde: true,
 						}
 					},
 				]
