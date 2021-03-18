@@ -6,7 +6,7 @@ import Prelude
 import Data.Either (fromRight)
 import Data.String.Regex.Flags (global)
 import GUI.Config.Syntax as Syntax
-import Partial.Unsafe (unsafePartial)
+import Partial.Unsafe (unsafeCrashWith)
 import Data.Array (foldr)
 
 substituteAll :: String -> String
@@ -28,4 +28,4 @@ substitutions =
   ]
 
 makeRegex :: String -> Regex
-makeRegex s = unsafePartial (fromRight (regex s global))
+makeRegex s = fromRight' (\_ -> unsafeCrashWith "Bad regex") $ regex s global

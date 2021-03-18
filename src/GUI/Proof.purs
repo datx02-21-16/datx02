@@ -21,9 +21,6 @@ type Proof
     , lines :: Array LineData
     }
 
-type ProofLine
-  = H.Component HH.HTML
-
 data Action
   = UpdateFormula
   | UpdateRule
@@ -43,7 +40,7 @@ emptyLine n =
   , ruleArgs: []
   }
 
-proofLine :: forall t25 t5 t6. Int -> ProofLine t25 Int t6 t5
+proofLine :: forall t25 t5 t6. Int -> H.Component t25 Int t6 t5
 proofLine n =
   H.mkComponent
     { initialState: \_ -> emptyLine n
@@ -67,7 +64,7 @@ proofLine n =
                 , HP.placeholder "Enter formula"
                 , HP.classes [ HH.ClassName "input", HH.ClassName "is-primary" ]
                 , HP.type_ HP.InputText
-                , HE.onKeyUp \_ -> Just UpdateFormula
+                , HE.onKeyUp \_ -> UpdateFormula
                 ]
             ]
         , HH.div
@@ -77,7 +74,7 @@ proofLine n =
                 , HP.placeholder "Rule"
                 , HP.classes [ HH.ClassName "input", HH.ClassName "is-primary" ]
                 , HP.type_ HP.InputText
-                , HE.onKeyUp \_ -> Just UpdateRule
+                , HE.onKeyUp \_ -> UpdateRule
                 ]
             ]
         ]

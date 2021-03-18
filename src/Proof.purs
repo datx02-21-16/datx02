@@ -38,9 +38,9 @@ data Rule
 instance showRule :: Show Rule where
   show Premise = "Premise"
   show Assumption = "Assumption"
-  show (AndElimE1 _) = "^E1"
-  show (AndElimE2 _) = "^E2"
-  show (AndIntro _ _) = "^I"
+  show (AndElimE1 _) = "∧e1"
+  show (AndElimE2 _) = "∧e2"
+  show (AndIntro _ _) = "∧i"
   show (ImplElim) = "->e"
   show (ImplIntro) = "->i"
   show (BottomElim) = "Bottom elimination"
@@ -56,10 +56,14 @@ type Proof = { formula :: Maybe Formula
              , error :: Maybe NdError
              }
 
+type Box = { startIdx :: Int
+             -- TODO Store accessible sub-boxes for →i/BottomElim
+           }
+
 -- | Partial or completed ND derivation.
 newtype Nd = Nd { proofs :: Array Proof
                 , discarded :: Set Int
-                , boxStarts :: List Int -- Stack of indexes where boxes start
+                , boxes :: List Box -- Stack of nested boxes
                 , consequent :: Formula
                 }
 
@@ -69,7 +73,7 @@ newNd premises consequent
                   , rule: Premise
                   , error: Nothing } <<< Just) <$> premises
        , discarded: Set.empty
-       , boxStarts: Nil
+       , boxes: Nil
        , consequent
        }
 
@@ -79,16 +83,19 @@ proofRef i (Nd { proofs, discarded }) = do
   when (i `Set.member` discarded) $ Left RefDiscarded
   pure formula
 
+-- TODO Should only be able to open box on assumption
 addBox :: Nd -> Nd
-addBox (Nd nd@{ proofs, boxStarts })
-  = Nd $ nd { boxStarts = (Array.length proofs):boxStarts }
+addBox (Nd nd@{ proofs, boxes })
+  = Nd $ nd { boxes = { startIdx: Array.length proofs }:boxes }
 
 closeBox :: Nd -> Nd
-closeBox (Nd nd@{ proofs, discarded, boxStarts })
-  = Nd $ nd { discarded = discarded <> newDiscards }
+closeBox (Nd nd@{ proofs, discarded, boxes })
+  = Nd $ nd { discarded = discarded <> newDiscards
+            , boxes = boxes' }
   where
-    { head: startIdx, tail: boxStarts' } = unsafePartial $ fromJust
-        $ List.uncons boxStarts
+    { head: box, tail: boxes' } = unsafePartial $ fromJust
+        $ List.uncons boxes
+    startIdx = box.startIdx
     endIdx = Array.length proofs
     newDiscards = Set.fromFoldable $ Array.range startIdx endIdx
 

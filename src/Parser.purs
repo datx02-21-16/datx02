@@ -5,7 +5,8 @@ import Prelude
 import Control.Alternative ((<|>))
 import Control.Lazy (fix)
 import Data.Array as Array
-import Data.Char.Unicode (isLower)
+import Data.String.CodePoints (codePointFromChar)
+import Data.CodePoint.Unicode (isLower)
 import Data.Either (Either)
 import Data.Identity (Identity)
 
@@ -36,7 +37,7 @@ token = makeTokenParser languageDef
 
 -- | Parse a lowercase letter.
 lower :: forall m. Monad m => ParserT String m Char
-lower = satisfy isLower <?> "lowercase letter"
+lower = satisfy (isLower <<< codePointFromChar) <?> "lowercase letter"
 
 variableSymbol :: Parser String String
 variableSymbol = lookAhead lower *> token.identifier

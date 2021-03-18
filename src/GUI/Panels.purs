@@ -1,19 +1,24 @@
 module GUI.Panels where
 
 import Prelude
-import GUI.Config.Text as GCT
-import GUI.Proof as GP
+import Data.Array as Array
+import Partial.Unsafe (unsafePartial)
+
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
+import Halogen.HTML.Events as HE
+
+import GUI.Config.Text as GCT
+import GUI.Proof as GP
 
 type Panel
-  = H.Component HH.HTML
+  = H.Component
 
-proofPanel :: forall t11 t12 t31 t34. Panel t34 t31 t12 t11
+proofPanel :: forall query input output m. H.Component query input output m
 proofPanel =
   H.mkComponent
-    { initialState: \_ -> unit
+    { initialState: identity
     , render
     , eval: H.mkEval H.defaultEval
     }
