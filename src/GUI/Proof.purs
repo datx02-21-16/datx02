@@ -14,6 +14,7 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 
+import GUI.SymbolInput as SI
 import GUI.SymbolInput (symbolInput)
 
 type Row
@@ -21,6 +22,9 @@ type Row
     , ruleText :: String
     , ruleArgs :: Array String
     }
+
+emptyRow :: Row
+emptyRow = { formulaText: "", ruleText: "", ruleArgs: [] }
 
 type State
   = { premises :: String
@@ -31,6 +35,7 @@ type State
 data Action
   = UpdateFormula Int String
   | UpdateRule Int String
+  | NewRowBelow Int
 
 _symbolInput = Proxy :: Proxy "symbolInput"
 
@@ -44,13 +49,11 @@ proof =
   where
   initialState _ = { premises: ""
                    , conclusion: ""
-                   , rows: [
-                     { formulaText: "", ruleText: "", ruleArgs: []}
-                           ] }
+                   , rows: [ emptyRow ] }
 
   render st =
       HH.div
-          [ HP.classes [ HH.ClassName "panel-block" ] ]
+          [ HP.classes [] ]
           (mapWithIndex row st.rows)
 
   row i { formulaText, ruleText }
@@ -64,11 +67,16 @@ proof =
             ]
         , HH.div
             [ HP.classes [ HH.ClassName "column", HH.ClassName "is-three-quarters" ] ]
-            [ (HH.slot _symbolInput (2*i) (symbolInput "Enter formula") formulaText $ UpdateFormula i)
+            [ HH.slot _symbolInput (2*i) (symbolInput "Enter formula") formulaText $ case _ of
+                 SI.NewValue s -> UpdateFormula i s
+                 SI.EnterPressed -> NewRowBelow i
             ]
         , HH.div
             [ HP.classes [ HH.ClassName "column", HH.ClassName "is-one-fifth" ] ]
-            [ HH.slot _symbolInput (2*i+1) (symbolInput "Rule") ruleText $ UpdateRule i ]
+            [ HH.slot _symbolInput (2*i+1) (symbolInput "Rule") ruleText $ case _ of
+                 SI.NewValue s -> UpdateRule i s
+                 SI.EnterPressed -> NewRowBelow i
+            ]
         ]
       )
 
@@ -79,4 +87,8 @@ proof =
     UpdateRule i s ->
       H.modify_
          \st -> st { rows = unsafePartial $ fromJust $ Array.modifyAt i _ { ruleText = s } st.rows }
+    NewRowBelow i ->
+      H.modify_ \st -> st { rows = unsafePartial $ fromJust $ Array.insertAt
+                                   (i+1) emptyRow st.rows
+                          }
     _ -> unsafeCrashWith "unimpl"

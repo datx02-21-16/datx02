@@ -1,4 +1,4 @@
-module GUI.SymbolInput (symbolInput) where
+module GUI.SymbolInput (Output(..), symbolInput) where
 
 import Prelude
 import Data.Array (foldl)
@@ -12,6 +12,8 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Web.HTML.HTMLInputElement as HIE
+import Web.UIEvent.KeyboardEvent as KeyboardEvent
+import Web.UIEvent.KeyboardEvent (KeyboardEvent)
 
 import Data.String.Regex (replace)
 import Data.Tuple (Tuple(..))
@@ -34,15 +36,19 @@ substitute = foldl (<<<) identity
 
 type Input = String
 
+data Output = NewValue String
+            | EnterPressed
+
 data Action
   = OnInput String
   | Receive Input
+  | KeyDown KeyboardEvent
 
 ref :: H.RefLabel
 ref = H.RefLabel "inputRef"
 
 -- | Text field component with abbreviations for logic symbols.
-symbolInput :: forall query m. MonadEffect m => String -> H.Component query Input String m
+symbolInput :: forall query m. MonadEffect m => String -> H.Component query Input Output m
 symbolInput placeholder
   = H.mkComponent
     { initialState
@@ -59,6 +65,7 @@ symbolInput placeholder
         , HP.type_ HP.InputText
         , HP.ref ref
         , HE.onValueInput OnInput
+        , HE.onKeyDown KeyDown
         ]
     setStr s' = do
         { s, cursor } <- H.get
@@ -85,5 +92,7 @@ symbolInput placeholder
           _ -> unsafeCrashWith "not yet rendered"
 
         let s' = substitute s
-        H.raise s' -- Output the new value
+        H.raise $ NewValue s' -- Output the new value
       Receive s' -> setStr s'
+      KeyDown ev -> when (KeyboardEvent.key ev == "Enter")
+                    $ H.raise EnterPressed
