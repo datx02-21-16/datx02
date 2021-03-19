@@ -11,7 +11,6 @@ import Effect.Console (logShow)
 
 import Halogen as H
 import Halogen.HTML as HH
-import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 
 import GUI.SymbolInput as SI
@@ -87,8 +86,11 @@ proof =
     UpdateRule i s ->
       H.modify_
          \st -> st { rows = unsafePartial $ fromJust $ Array.modifyAt i _ { ruleText = s } st.rows }
-    NewRowBelow i ->
+    NewRowBelow i -> do
       H.modify_ \st -> st { rows = unsafePartial $ fromJust $ Array.insertAt
                                    (i+1) emptyRow st.rows
                           }
+      -- Focus the newly added row
+      H.tell _symbolInput (2*(i+1)) SI.Focus
+
     _ -> unsafeCrashWith "unimpl"

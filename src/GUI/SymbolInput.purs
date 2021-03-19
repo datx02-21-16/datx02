@@ -1,4 +1,4 @@
-module GUI.SymbolInput (Output(..), symbolInput) where
+module GUI.SymbolInput (Output(..), Query(..), symbolInput) where
 
 import Prelude
 import Data.Array (foldl)
@@ -11,7 +11,8 @@ import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
-import Web.HTML.HTMLInputElement as HIE
+import Web.HTML.HTMLElement as HTMLElement
+import Web.HTML.HTMLInputElement as HTMLInputElement
 import Web.UIEvent.KeyboardEvent as KeyboardEvent
 import Web.UIEvent.KeyboardEvent (KeyboardEvent)
 
@@ -34,6 +35,8 @@ substitute = foldl (<<<) identity
          , Tuple "bo" "⊥"
          ]
 
+data Query a = Focus a
+
 type Input = String
 
 data Output = NewValue String
@@ -48,13 +51,14 @@ ref :: H.RefLabel
 ref = H.RefLabel "inputRef"
 
 -- | Text field component with abbreviations for logic symbols.
-symbolInput :: forall query m. MonadEffect m => String -> H.Component query Input Output m
+symbolInput :: forall m. MonadEffect m => String -> H.Component Query Input Output m
 symbolInput placeholder
   = H.mkComponent
     { initialState
       , render
       , eval: H.mkEval H.defaultEval { handleAction = handleAction
-                                     , receive = Just <<< Receive }}
+                                     , receive = Just <<< Receive
+                                     , handleQuery = handleQuery }}
   where
     initialState s = { s, cursor: String.length s }
     render st
@@ -76,18 +80,18 @@ symbolInput placeholder
 
         -- Reset the cursor position
         el <- H.getHTMLElementRef ref
-        case el >>= HIE.fromHTMLElement of
+        case el >>= HTMLInputElement.fromHTMLElement of
           Just x -> H.liftEffect do
-            HIE.setSelectionStart cursor' x
-            HIE.setSelectionEnd cursor' x
+            HTMLInputElement.setSelectionStart cursor' x
+            HTMLInputElement.setSelectionEnd cursor' x
           _ -> unsafeCrashWith "not yet rendered"
 
     handleAction = case _ of
       OnInput s -> do
         el <- H.getHTMLElementRef ref
-        case el >>= HIE.fromHTMLElement of
+        case el >>= HTMLInputElement.fromHTMLElement of
           Just x -> do
-            selectionStart <- H.liftEffect $ HIE.selectionStart x
+            selectionStart <- H.liftEffect $ HTMLInputElement.selectionStart x
             H.modify_ _ { s = s, cursor = selectionStart }
           _ -> unsafeCrashWith "not yet rendered"
 
@@ -96,3 +100,12 @@ symbolInput placeholder
       Receive s' -> setStr s'
       KeyDown ev -> when (KeyboardEvent.key ev == "Enter")
                     $ H.raise EnterPressed
+
+    handleQuery :: forall action a. Query a -> H.HalogenM _ action () _ m (Maybe a)
+    handleQuery = case _ of
+      Focus a -> do
+        el <- H.getHTMLElementRef ref
+        case el >>= HTMLInputElement.fromHTMLElement of
+          Just x -> H.liftEffect $ HTMLElement.focus (HTMLInputElement.toHTMLElement x)
+          _ -> unsafeCrashWith "not yet rendered"
+        pure $ Just a
