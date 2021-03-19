@@ -15,27 +15,22 @@ import Web.HTML.HTMLInputElement as HIE
 
 import Data.String.Regex (replace)
 import Data.Tuple (Tuple(..))
-import GUI.Config.Syntax as Syntax
 
 import GUI.Utils (makeRegex)
 
-substituteAll :: String -> String
-substituteAll s = foldl substitute s substitutions
-
-substitute :: String -> Tuple String String -> String
-substitute str (Tuple from to) = replace (makeRegex from) to str
-
-substitutions :: Array (Tuple String String)
-substitutions =
-  [ Tuple "an" "∧"
-  , Tuple ("""\W+""" <> Syntax.orText <> """\W+""") " v "
-  , Tuple ("""\W+""" <> Syntax.impText <> """\W+""") " -> "
-  , Tuple ("""\W+""" <> Syntax.notText <> """\W+""") " ¬"
-  -- Quantifiers
-  , Tuple ("""\W+""" <> Syntax.forAllText <> """\W+""") "∀"
-  , Tuple ("""\W+""" <> Syntax.existsText <> """\W+""") "∃"
-  , Tuple ("""\W+""" <> Syntax.bottomText <> """\W+""") "⊥"
-  ]
+substitute :: String -> String
+substitute = foldl (<<<) identity
+             $ (\(Tuple from to) -> replace (makeRegex from) to) <$> ss
+  where
+    ss = [ Tuple "an" "∧"
+         , Tuple "or" "∨"
+         , Tuple "->" "→"
+         , Tuple "no" "¬"
+           -- Quantifiers
+         , Tuple "f[ao]" "∀"
+         , Tuple "ex|te" "∃"
+         , Tuple "bo" "⊥"
+         ]
 
 type Input = String
 
@@ -67,9 +62,12 @@ symbolInput placeholder
         ]
     setStr s' = do
         { s, cursor } <- H.get
+        -- Note: Assumes all edits happen before cursor
         let cursor' = cursor + String.length s' - String.length s
+        -- Update the value: This will prompt a redraw
         H.modify_ _ { s = s', cursor = cursor' }
 
+        -- Reset the cursor position
         el <- H.getHTMLElementRef ref
         case el >>= HIE.fromHTMLElement of
           Just x -> H.liftEffect do
@@ -86,6 +84,6 @@ symbolInput placeholder
             H.modify_ _ { s = s, cursor = selectionStart }
           _ -> unsafeCrashWith "not yet rendered"
 
-        let s' = substituteAll s
+        let s' = substitute s
         H.raise s' -- Output the new value
       Receive s' -> setStr s'

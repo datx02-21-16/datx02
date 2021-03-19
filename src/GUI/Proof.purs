@@ -45,7 +45,7 @@ proof =
   initialState _ = { premises: ""
                    , conclusion: ""
                    , rows: [
-                     { formulaText: "fin", ruleText: "fin", ruleArgs: []}
+                     { formulaText: "", ruleText: "", ruleArgs: []}
                            ] }
 
   render st =
