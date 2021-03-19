@@ -30,7 +30,7 @@ type State
 
 data Action
   = UpdateFormula Int String
-  | UpdateRule Int
+  | UpdateRule Int String
 
 _symbolInput = Proxy :: Proxy "symbolInput"
 
@@ -64,24 +64,19 @@ proof =
             ]
         , HH.div
             [ HP.classes [ HH.ClassName "column", HH.ClassName "is-three-quarters" ] ]
-            [ (HH.slot _symbolInput i (symbolInput "Enter formula") formulaText $ UpdateFormula i)
+            [ (HH.slot _symbolInput (2*i) (symbolInput "Enter formula") formulaText $ UpdateFormula i)
             ]
         , HH.div
             [ HP.classes [ HH.ClassName "column", HH.ClassName "is-one-fifth" ] ]
-            [ HH.input
-                [ HP.value ruleText
-                , HP.placeholder "Rule"
-                , HP.classes [ HH.ClassName "input", HH.ClassName "is-primary" ]
-                , HP.type_ HP.InputText
-                , HE.onKeyUp \_ -> UpdateRule 0
-                ]
-            ]
+            [ HH.slot _symbolInput (2*i+1) (symbolInput "Rule") ruleText $ UpdateRule i ]
         ]
       )
 
   handleAction = case _ of
-    UpdateFormula i s -> do
+    UpdateFormula i s ->
       H.modify_
          \st -> st { rows = unsafePartial $ fromJust $ Array.modifyAt i _ { formulaText = s } st.rows }
-    -- UpdateRule _ -> H.modify_ \state -> state { ruleText = substituteAll state.ruleText }
+    UpdateRule i s ->
+      H.modify_
+         \st -> st { rows = unsafePartial $ fromJust $ Array.modifyAt i _ { ruleText = s } st.rows }
     _ -> unsafeCrashWith "unimpl"
