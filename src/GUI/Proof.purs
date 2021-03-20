@@ -52,6 +52,16 @@ proof =
 
   render st =
       HH.div
+          [ HP.classes [ HH.ClassName "proof-box" ] ]
+          [ row 0 { formulaText: "A", ruleText: "" }
+          , HH.div [ HP.classes [ HH.ClassName "proof-box" ] ]
+            [ row 1 { formulaText: "B", ruleText: "" }
+            , row 2 { formulaText: "A", ruleText: "" } ]
+          , row 3 { formulaText: "A", ruleText: "" }
+          ]
+
+  _render st =
+      HH.div
           [ HP.classes [] ]
           (mapWithIndex row st.rows)
 
@@ -59,22 +69,24 @@ proof =
     = HH.div
       [ HP.classes [ HH.ClassName "columns", HH.ClassName "is-mobile" ] ]
       ( [ HH.div
-            [ HP.classes [ HH.ClassName "column" ] ]
+            [ HP.classes [ HH.ClassName "column", HH.ClassName "is-narrow" ] ]
             [ HH.h4
-                [ HP.classes [ HH.ClassName "title", HH.ClassName "is-4" ] ]
-                [ HH.text (show i) ]
+                [ HP.classes [ HH.ClassName "title" ] ]
+                [ HH.text (show (1+i)) ]
             ]
         , HH.div
-            [ HP.classes [ HH.ClassName "column", HH.ClassName "is-three-quarters" ] ]
+            [ HP.classes [ HH.ClassName "column" ] ]
             [ HH.slot _symbolInput (2*i) (symbolInput "Enter formula") formulaText $ case _ of
                  SI.NewValue s -> UpdateFormula i s
                  SI.EnterPressed -> NewRowBelow i
             ]
         , HH.div
-            [ HP.classes [ HH.ClassName "column", HH.ClassName "is-one-fifth" ] ]
-            [ HH.slot _symbolInput (2*i+1) (symbolInput "Rule") ruleText $ case _ of
+            [ HP.classes [ HH.ClassName "column", HH.ClassName "is-narrow" ] ]
+            [ HH.span
+              [ HP.classes [ HH.ClassName "rule-field" ] ]
+              [ HH.slot _symbolInput (2*i+1) (symbolInput "Rule") ruleText $ case _ of
                  SI.NewValue s -> UpdateRule i s
-                 SI.EnterPressed -> NewRowBelow i
+                 SI.EnterPressed -> NewRowBelow i ]
             ]
         ]
       )

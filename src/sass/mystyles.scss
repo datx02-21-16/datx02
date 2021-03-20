@@ -40,3 +40,42 @@ $input-shadow: $primary;
 @import "../../node_modules/bulma/sass/layout/hero.sass";
 @import "../../node_modules/bulma/sass/layout/section.sass";
 @import "../../node_modules/bulma/sass/components/panel.sass";
+
+.proof-box {
+	position: relative;
+	width: 100%;
+	/* Leave space for box indicator on the left */
+	padding: /* top */ 0.5em
+			 /* right */ 0
+			 /* bottom */ calc(0.5em + 0.5em)
+			 /* left */ calc(0.75em + 1em);
+	margin-bottom: 1rem;
+
+	border-color: $black;
+	border-bottom: solid;
+}
+
+/* Work around Bulma .column negative margin */
+.proof-box:not(:first-child) {
+	margin-top: -0.75rem;
+}
+
+.proof-box::before {
+	content: '';
+	position: absolute;
+
+	top: 1.5em;
+	height: calc(100% - 1.5em);
+	left: 0;
+	width: 0.7em;
+
+	border-style: solid none none solid;
+	border-color: inherit;
+	border-width: medium;
+}
+
+.rule-field {
+	/* Fixed width in order for rules column to line up */
+	display: inline flow-root;
+	width: 5rem;
+}
