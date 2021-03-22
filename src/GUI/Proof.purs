@@ -27,6 +27,10 @@ import GUI.SymbolInput (symbolInput)
 data Rule = Rule String
           | Assumption { boxEndIdx :: Int }
 
+instance showRule :: Show Rule where
+  show (Rule s) = s
+  show (Assumption { boxEndIdx }) = "Assumption (box ends at " <> show boxEndIdx <> ")"
+
 ruleText :: Rule -> String
 ruleText (Rule s) = s
 ruleText (Assumption _) = "Ass."
@@ -65,27 +69,26 @@ proof =
   where
   initialState _ = { premises: ""
                    , conclusion: ""
-                   , rows: [ emptyRow ] }
+                   , rows: [ {formulaText: "", rule: Assumption {boxEndIdx: 1}, ruleArgs: [] }, emptyRow, {formulaText: "", rule: Assumption {boxEndIdx: 2}, ruleArgs: [] } ] }
 
   render st =
       HH.div
           [ HP.classes [ HH.ClassName "proof-rows" ] ]
           (NonEmpty.head $ foldlWithIndex
              (\i (currentBox@{ elems }:|parentBoxes) proofRow
-              -> let
-                closeBoxesIfPossible = case _ of
-                  {elems: currentElems, endIdx}:|parent:rest
-                    | endIdx == i -> parent { elems = Array.snoc parent.elems
-                                                      $ HH.div [ HP.classes [ HH.ClassName "proof-box" ] ]
-                                                      currentElems }:|rest
-                  x -> x
+              -> let closeBoxesIfPossible = case _ of
+                       {endIdx}:|_ | endIdx < i -> unsafeCrashWith "Unreachable (box ends outside of parent)"
 
-                next = case proofRow.rule of
+                       {elems: currentElems, endIdx}:|parent:rest
+                       | endIdx == i -> closeBoxesIfPossible $ parent
+                                        { elems = Array.snoc parent.elems
+                                                  $ HH.div [ HP.classes [ HH.ClassName "proof-box" ] ] currentElems }:|rest
+                       x -> x
+                in closeBoxesIfPossible case proofRow.rule of
                        Rule s -> (currentBox { elems = Array.snoc elems $ row i proofRow }):|parentBoxes
                        Assumption { boxEndIdx }
                          -> { elems: [row i proofRow], endIdx: boxEndIdx }
                             :|currentBox:parentBoxes
-                 in closeBoxesIfPossible next
              )
              ({ elems: [], endIdx: Array.length st.rows }:|Nil)
              st.rows).elems
@@ -122,14 +125,18 @@ proof =
       H.modify_
          \st -> st { rows = unsafePartial $ fromJust $ Array.modifyAt i _ { formulaText = s } st.rows }
     UpdateRule i s ->
-      H.modify_
-      \st -> st { rows = unsafePartial $ fromJust
+      H.modify_ \st -> st { rows = unsafePartial $ fromJust
                          $ Array.modifyAt i _ { rule = ruleFromString s i }
                          st.rows }
     NewRowBelow i -> do
-      H.modify_ \st -> st { rows = unsafePartial $ fromJust $ Array.insertAt
-                                   (i+1) emptyRow st.rows
-                          }
+      H.modify_
+        \st -> let
+        incrBoxEnds = mapWithIndex \j -> case _ of
+          row@{ rule: Assumption { boxEndIdx } } | i <= boxEndIdx
+            -> row { rule = Assumption { boxEndIdx: boxEndIdx + 1 } }
+          x -> x
+        in st { rows = unsafePartial $ fromJust $ Array.insertAt (i+1) emptyRow
+                  $ incrBoxEnds st.rows }
       -- Focus the newly added row
       H.tell _symbolInput (2*(i+1)) SI.Focus
 
