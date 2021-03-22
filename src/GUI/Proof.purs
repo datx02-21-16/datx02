@@ -83,10 +83,16 @@ proof =
   handleQuery :: forall a state action. Query a -> H.HalogenM state action Slots output m (Maybe a)
   handleQuery (Tell command a) = case command of
     R.AndElim1 -> do
-      H.liftEffect $ logShow "hereeeeeeeeee"
+      H.liftEffect $ logShow "and elim 1"
       -- When we are here the button click from AndElim1 has been propagated all
       -- the way to the proof component, and we can now update the state accordingly,
       -- inserting new rows etc.
+      pure Nothing
+    R.AndElim2 -> do
+      H.liftEffect $ logShow "and elim 2"
+      pure Nothing
+    R.AndIntro -> do
+      H.liftEffect $ logShow "and introduction"
       pure Nothing
     _ -> pure Nothing
 

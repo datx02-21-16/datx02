@@ -1,31 +1,24 @@
-module GUI.Panels where
+module GUI.RulesPanel where
 
-import Prelude
+import Prelude (Unit, Void, discard, identity, pure, ($))
 import Type.Proxy (Proxy(..))
 import Effect.Class (class MonadEffect)
-import Effect.Console (log)
 
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
 import Halogen.HTML.Events as HE
-import Halogen.Subscription as HS
 
-import GUI.Config.Text as GCT
 import GUI.Proof as GP
 import GUI.Rules as R
 
 import Data.Maybe
 
-type Panel
-  = H.Component
-
--- why do we need to specify Query type for everyone? What exactly are slots?
-type Slots = ( proofPanel :: H.Slot Query Void Int
-             , proof :: forall output. H.Slot GP.Query output Int)
+type Slots = ( proofPanel ::                H.Slot Query Void Int
+             , proof      :: forall output. H.Slot GP.Query output Int)
 
 _proofPanel = Proxy :: Proxy "proofPanel"
-_proof = Proxy :: Proxy "proof"
+_proof      = Proxy :: Proxy "proof"
 
 data Query a = Tell Output a
 
@@ -40,10 +33,10 @@ proofPanel =
   
   handleQuery :: forall a state action. Query a -> H.HalogenM state action Slots output m (Maybe a)
   handleQuery (Tell command a) = do
-    -- do the stuff
     H.tell _proof 0 (GP.Tell command)
     pure (Just a)
 
+  render :: forall state action. state -> H.ComponentHTML action Slots m
   render _ =
     HH.div
       [ HP.classes [ HH.ClassName "panel", HH.ClassName "is-primary" ] ]
@@ -55,23 +48,19 @@ proofPanel =
           [ HH.slot_ _proof 0 GP.proof { } ]
       ]
 
-data State = St Int
-type Action = R.Rules --AndElim1 | AndElim2 | AndIntro | DoNothing
+type Action = R.Rules
 type Output = R.Rules
---data Output = Clicked
-
 
 ruleButtonPanel :: forall query m . MonadEffect m => H.Component query Int Output m
 ruleButtonPanel =
   H.mkComponent
-    { initialState
+    { initialState: identity
     , render
     , eval: H.mkEval H.defaultEval { handleAction = handleAction}
     }
   where
-  initialState i = St i
 
-  render (St st) =
+  render _ =
     HH.div
       [ HP.classes [ HH.ClassName "panel", HH.ClassName "is-primary" ] ]
       [ HH.p
@@ -97,32 +86,5 @@ ruleButtonPanel =
           [ HH.text "∧i" ]
       ]
     
-  handleAction :: Action -> H.HalogenM State Action () Output m Unit
-  handleAction = case _ of
-      R.AndElim1 -> do
-          H.liftEffect $ log "and elim 1"
-          H.modify_ \st -> st
-          H.raise R.AndElim1 --Clicked
-      R.AndElim2 -> H.modify_ \st -> st --GP.handleAction UpdateRule
-      R.AndIntro -> H.modify_ \st -> st
-      _ -> H.modify_ \st -> st
-
-settingsPanel :: forall t11 t12 t31 t34. Panel t34 t31 t12 t11
-settingsPanel =
-  H.mkComponent
-    { initialState: identity
-    , render
-    , eval: H.mkEval H.defaultEval
-    }
-  where
-  render state =
-    HH.div
-      [ HP.classes [ HH.ClassName "panel", HH.ClassName "is-primary" ] ]
-      [ HH.p
-          [ HP.classes [ HH.ClassName "panel-heading" ] ]
-          [ HH.text "Settings" ]
-      , HH.div
-          [ HP.classes [ HH.ClassName "panel-block" ] ]
-          [ HH.text GCT.panelNotImplemented ]
-      ]
-
+  handleAction :: forall state. Action -> H.HalogenM state Action () Output m Unit
+  handleAction action = H.raise action
