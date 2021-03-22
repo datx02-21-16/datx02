@@ -2,7 +2,7 @@ module GUI.Proof where
 
 import Prelude
 import Type.Proxy (Proxy(..))
-import Data.Maybe (fromJust)
+import Data.Maybe (Maybe(..), fromJust)
 import Partial.Unsafe (unsafePartial, unsafeCrashWith)
 import Data.Array as Array
 import Data.FunctorWithIndex (mapWithIndex)
@@ -23,6 +23,8 @@ import Halogen.HTML.Properties as HP
 
 import GUI.SymbolInput as SI
 import GUI.SymbolInput (symbolInput)
+--import GUI.Panels as P
+import GUI.Rules as R
 
 data Rule = Rule String
           | Assumption { boxEndIdx :: Int }
@@ -59,17 +61,34 @@ data Action
 
 _symbolInput = Proxy :: Proxy "symbolInput"
 
-proof :: forall query input output m. MonadEffect m => H.Component query input output m
+data Query a = Tell R.Rules a
+
+type Slots = ( proof :: forall output. H.Slot Query output Int
+             , symbolInput :: H.Slot SI.Query SI.Output Int)
+
+proof :: forall input output m. MonadEffect m => H.Component Query input output m
 proof =
   H.mkComponent
     { initialState
     , render
-    , eval: H.mkEval H.defaultEval { handleAction = handleAction }
+    , eval: H.mkEval H.defaultEval { handleAction = handleAction
+                                   , handleQuery = handleQuery
+                                   }
     }
   where
   initialState _ = { premises: ""
                    , conclusion: ""
                    , rows: [ {formulaText: "", rule: Assumption {boxEndIdx: 1}, ruleArgs: [] }, emptyRow, {formulaText: "", rule: Assumption {boxEndIdx: 2}, ruleArgs: [] } ] }
+
+  handleQuery :: forall a state action. Query a -> H.HalogenM state action Slots output m (Maybe a)
+  handleQuery (Tell command a) = case command of
+    R.AndElim1 -> do
+      H.liftEffect $ logShow "hereeeeeeeeee"
+      -- When we are here the button click from AndElim1 has been propagated all
+      -- the way to the proof component, and we can now update the state accordingly,
+      -- inserting new rows etc.
+      pure Nothing
+    _ -> pure Nothing
 
   render st =
       HH.div
