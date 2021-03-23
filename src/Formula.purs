@@ -50,7 +50,6 @@ derive instance ordTerm :: Ord Term
 
 instance showTerm :: Show Term where
   show (Var v) = show v
-  show (App p []) = p
   show (App p args) = p <> "(" <> (joinWith ", " (show <$> args)) <> ")"
 
 -- | A formula in first-order logic.
@@ -65,15 +64,25 @@ data Formula
 
 derive instance eqFormula :: Eq Formula
 
+-- | Shows formulas using least amount of parentheses wrt. precedence.
 instance showFormula :: Show Formula where
-  show (Predicate p []) = p
-  show (Predicate p args) = p <> "(" <> (joinWith ", " (show <$> args)) <> ")"
-  show (Not phi) = "Not" <> (show phi)                                        -- Får konstiga prints i spago repl, ändrar till icke special tecken. Ändrar tillbaka senare.
-  show (And a b) = "(" <> (show a) <> " ^ " <> (show b) <> ")"              -- Får konstiga prints i spago repl, ändrar till icke special tecken. Ändrar tillbaka senare.
-  show (Or a b) = "(" <> (show a) <> " v " <> (show b) <> ")"                -- Får konstiga prints i spago repl, ändrar till icke special tecken. Ändrar tillbaka senare.
-  show (Implies a b) = "(" <> (show a) <> " -> " <> (show b) <> ")"      -- Får konstiga prints i spago repl, ändrar till icke special tecken. Ändrar tillbaka senare.
-  show (Forall x phi) = "∀" <> (show x) <> " " <> (show phi)
-  show (Exists x phi) = "∃" <> (show x) <> " " <> (show phi)
+  show = showPrec 1
+    where
+      parens s = "(" <> s <> ")"
+      optParens b s = if b then parens s else s
+      showPrec _ (Predicate p []) = p
+      showPrec _ (Predicate p args) = p <> parens (joinWith ", " (show <$> args))
+
+      showPrec _ (Not f) = "¬" <> showPrec 4 f
+      showPrec _ (Forall x f) = "∀" <> show x <> " " <> showPrec 4 f
+      showPrec _ (Exists x f) = "∃" <> show x <> " " <> showPrec 4 f
+
+      showPrec n (And a b) = optParens (n>3)
+                             $ showPrec 3 a <> " ∧ " <> showPrec 4 b
+      showPrec n (Or a b) = optParens (n>2)
+                             $ showPrec 2 a <> " ∨ " <> showPrec 3 b
+      showPrec n (Implies a b) = optParens (n>1)
+                             $ showPrec 2 a <> " → " <> showPrec 1 b
 
 bottom :: Formula
 bottom = Predicate "⊥" []
