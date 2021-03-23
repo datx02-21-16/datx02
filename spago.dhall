@@ -11,7 +11,7 @@ You can edit this file as you like.
   , "psci-support"
   , "spec"
   , "spec-discovery"
-	, "spec-quickcheck"
+  , "spec-quickcheck"
   ]
 , packages = ./packages.dhall
 , sources = [ "src/**/*.purs", "test/**/*.purs" ]
