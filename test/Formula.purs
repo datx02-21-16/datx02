@@ -10,6 +10,7 @@ import Test.QuickCheck.Gen (Gen, oneOf, vectorOf, sized, chooseInt, resize)
 import Data.List as List
 import Data.List (List(Nil, Cons))
 import Data.NonEmpty (NonEmpty(NonEmpty))
+import Data.Array.NonEmpty as NonEmptyArray
 import Data.Set as Set
 import Data.Foldable (fold)
 import Data.Maybe (Maybe(..), fromJust)
@@ -53,7 +54,7 @@ derive instance newtypeTTerm :: Newtype TTerm _
 instance arbitraryTTerm :: Arbitrary TTerm where
   arbitrary = sized $ fix f
     where
-      f p n | n > 0 = TTerm <$> (oneOf $ NonEmpty (Var <$> variable) [term])
+      f p n | n > 0 = TTerm <$> (oneOf $ NonEmptyArray.fromNonEmpty $ NonEmpty (Var <$> variable) [term])
         where
           term = do
             m <- chooseInt 0 (n/2)
@@ -73,7 +74,7 @@ instance arbitraryTFormula :: Arbitrary TFormula where
             atom = lift2 Predicate upper args
             in if n <= 0 then atom
                else let arbFormula = unwrap <$> p (n/2)
-                    in oneOf $ NonEmpty atom
+                    in oneOf $ NonEmptyArray.fromNonEmpty $ NonEmpty atom
                        [ Not <$> arbFormula
                        , lift2 And arbFormula arbFormula
                        , lift2 Or arbFormula arbFormula
