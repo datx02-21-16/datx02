@@ -7,6 +7,7 @@ module Formula ( Variable(..)
                , substitute
                , disagreementSet
                , unify
+               , containsTerm
                ) where
 
 import Prelude
@@ -21,7 +22,10 @@ import Data.Map as Map
 import Data.Map (Map)
 import Data.Set as Set
 import Data.Set (Set)
-import Data.Foldable (any)
+
+import Data.Foldable (any, or)
+
+
 import Data.Unfoldable as Unfoldable
 
 -- | A variable symbol.
@@ -79,6 +83,9 @@ instance showFormula :: Show Formula where
                              $ showPrec 2 a <> " ∨ " <> showPrec 3 b
       showPrec n (Implies a b) = optParens (n>1)
                              $ showPrec 2 a <> " → " <> showPrec 1 b
+
+bottom :: Formula
+bottom = Predicate "⊥" []
 
 -- | A substitution {t₁/v₁, ..., tₙ/vₙ}.
 -- |
@@ -177,3 +184,13 @@ unify = go mempty
         t <- ds
         Unfoldable.fromMaybe $ singleSub v t
       in sub >>= (\λ -> go (σ <> λ) (Set.map (map (substitute λ)) w))
+
+containsTerm :: Formula -> Term -> Boolean
+containsTerm f t = case f of
+  Predicate n args -> or $ map (\t' -> t == t') args
+  Not f'           -> containsTerm f' t
+  And f1 f2        -> containsTerm f1 t || containsTerm f2 t
+  Or f1 f2         -> containsTerm f1 t || containsTerm f2 t
+  Implies f1 f2    -> containsTerm f1 t || containsTerm f2 t
+  Forall x f'      -> containsTerm f' t
+  Exists x f'      -> containsTerm f' t
