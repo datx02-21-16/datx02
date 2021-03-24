@@ -41,6 +41,22 @@ $input-shadow: $primary;
 @import "../../node_modules/bulma/sass/layout/section.sass";
 @import "../../node_modules/bulma/sass/components/panel.sass";
 
+.proof {
+	width: 100%;
+	height: 100%;
+}
+
+.proof-header {
+	display: flex;
+	justify-content: space-around;
+	align-items: center;
+
+	margin: 1rem auto;
+	width: 50%;
+
+	white-space: nowrap;
+}
+
 .proof-rows {
 	display: flex;
 	flex-grow: 1;

@@ -18,6 +18,7 @@ import Data.NonEmpty as NonEmpty
 import Data.NonEmpty (NonEmpty, (:|))
 import Data.MediaType (MediaType(MediaType))
 import Data.Int as Int
+import Data.String.Common (joinWith)
 
 import Halogen as H
 import Halogen.HTML as HH
@@ -42,6 +43,8 @@ data Rule = Rule String
           | Assumption { boxEndIdx :: Int -- Inclusive end of box
                        }
 
+derive instance eqRule :: Eq Rule
+
 instance showRule :: Show Rule where
   show (Rule s) = s
   show (Assumption { boxEndIdx }) = "Assumption (box ends at " <> show boxEndIdx <> ")"
@@ -62,8 +65,7 @@ emptyRow = { formulaText: "", rule: Rule "", ruleArgs: [] }
 
 -- | Only stores endpoints of boxes since assumptions naturally define start points.
 type State
-  = { premises :: String
-    , conclusion :: String
+  = { conclusion :: String
     , rows :: Array ProofRow
     , draggingOver :: Maybe Int
     }
@@ -78,6 +80,7 @@ data Action
   | DragLeave Int DragEvent
   | DragEnd Int DragEvent
   | Drop Int DragEvent
+  | UpdateConclusion String
 
 _symbolInput = Proxy :: Proxy "symbolInput"
 
@@ -96,8 +99,7 @@ proof =
                                    }
     }
 
-initialState _ = { premises: ""
-                 , conclusion: ""
+initialState _ = { conclusion: ""
                  , rows: [ emptyRow ]
                  , draggingOver: Nothing }
 
@@ -117,29 +119,44 @@ handleQuery (Tell command a) = case command of
     pure Nothing
   _ -> pure Nothing
 
-render st =
-    HH.div
-        [ HP.classes [ HH.ClassName "proof-rows" ] ]
-        (NonEmpty.head $ foldlWithIndex
-           (\i (currentBox@{ elems }:|parentBoxes) proofRow
-            -> let closeBoxesIfPossible = case _ of
-                     {endIdx}:|_ | endIdx < i -> unsafeCrashWith "Unreachable (box ends outside of parent)"
-
-                     {elems: currentElems, endIdx}:|parent:rest
-                     | endIdx == i -> closeBoxesIfPossible $ parent
-                                      { elems = Array.snoc parent.elems
-                                                $ HH.div [ HP.classes [ HH.ClassName "proof-box" ] ] currentElems }:|rest
-                     x -> x
-              in closeBoxesIfPossible case proofRow.rule of
-                     Rule s -> (currentBox { elems = Array.snoc elems $ row i proofRow }):|parentBoxes
-                     Assumption { boxEndIdx }
-                       -> { elems: [row i proofRow], endIdx: boxEndIdx }
-                          :|currentBox:parentBoxes
-           )
-           ({ elems: [], endIdx: Array.length st.rows }:|Nil)
-           st.rows).elems
+render st = HH.div [ HP.classes [ HH.ClassName "proof" ] ]
+            [ proofHeader, proofRows ]
 
   where
+    proofHeader
+      = HH.div
+        [ HP.classes [ HH.ClassName "proof-header" ] ]
+        [ HH.span [] [ HH.text premises, HH.text " ⊢ " ]
+        , HH.slot _symbolInput (-1) (symbolInput "Conclusion") st.conclusion $ case _ of
+          SI.NewValue s -> UpdateConclusion s
+          _ -> unsafeCrashWith "todo" ]
+
+    premises
+      = joinWith ", "
+        $ _.formulaText <$> Array.takeWhile ((_ == Rule "Premise") <<< _.rule) st.rows
+
+    proofRows :: HH.HTML _ _
+    proofRows = HH.div
+      [ HP.classes [ HH.ClassName "proof-rows" ] ]
+      (NonEmpty.head $ foldlWithIndex
+         (\i (currentBox@{ elems }:|parentBoxes) proofRow
+          -> let closeBoxesIfPossible = case _ of
+                   {endIdx}:|_ | endIdx < i -> unsafeCrashWith "Unreachable (box ends outside of parent)"
+
+                   {elems: currentElems, endIdx}:|parent:rest
+                   | endIdx == i -> closeBoxesIfPossible $ parent
+                                    { elems = Array.snoc parent.elems
+                                              $ HH.div [ HP.classes [ HH.ClassName "proof-box" ] ] currentElems }:|rest
+                   x -> x
+            in closeBoxesIfPossible case proofRow.rule of
+                   Rule s -> (currentBox { elems = Array.snoc elems $ row i proofRow }):|parentBoxes
+                   Assumption { boxEndIdx }
+                     -> { elems: [row i proofRow], endIdx: boxEndIdx }
+                        :|currentBox:parentBoxes
+         )
+         ({ elems: [], endIdx: Array.length st.rows }:|Nil)
+         st.rows).elems
+
     row :: Int -> ProofRow -> HH.HTML _ _
     row i { formulaText, rule }
       = HH.div
@@ -242,6 +259,8 @@ handleAction = case _ of
 
         rows' = moveWithin target start end $ updateBoxes st.rows
         in st { rows = rows' }
+
+  UpdateConclusion s -> H.modify_ \st -> st { conclusion = s }
   where
     -- | Inclusive-exclusive interval of the rows that are currently being dragged.
     draggedRows :: DragEvent -> H.HalogenM _ _ _ _ _ { start :: Int, end :: Int }
@@ -261,4 +280,5 @@ handleAction = case _ of
 ruleFromString :: String -> Int -> Rule
 ruleFromString s rowIdx
   | s == "Ass." || s == "as" = Assumption { boxEndIdx: rowIdx }
+  | s == "pr" = Rule "Premise"
   | otherwise = Rule s
