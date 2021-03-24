@@ -12,6 +12,7 @@ You can edit this file as you like.
   , "spec"
   , "spec-discovery"
   , "spec-quickcheck"
+  , "debug"
   ]
 , packages = ./packages.dhall
 , sources = [ "src/**/*.purs", "test/**/*.purs" ]

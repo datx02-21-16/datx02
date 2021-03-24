@@ -1,9 +1,15 @@
 module Util where
 
 import Prelude
+import Data.Array as Array
+import Data.Maybe (Maybe)
+import Partial.Unsafe (unsafePartial)
+import Data.Traversable (mapAccumL, class Traversable)
+import Debug (class DebugWarning, trace)
 
--- | The Haskell '>>' operator.
-semicolon :: forall b a c. Bind b => b a -> b c -> b c
-semicolon a c = do _ <- a
-                   c
-infixl 1 semicolon as >>
+findLast :: forall a. (a -> Boolean) -> Array a -> Maybe a
+findLast f xs = (\i -> unsafePartial $ Array.unsafeIndex xs i)
+                <$> Array.findLastIndex f xs
+
+traceShowId :: forall a. DebugWarning => Show a => a -> a
+traceShowId x = trace (show x) \_ -> x
