@@ -5,7 +5,6 @@ import Type.Proxy (Proxy(..))
 import Data.Maybe (Maybe(..), fromJust)
 import Partial.Unsafe (unsafePartial, unsafeCrashWith)
 import Data.Array as Array
-import Data.FunctorWithIndex (mapWithIndex)
 import Effect.Class (class MonadEffect)
 import Effect.Console (logShow)
 import Data.Set as Set
@@ -32,9 +31,9 @@ instance showRule :: Show Rule where
   show (Assumption { boxEndIdx }) = "Assumption (box ends at " <> show boxEndIdx <> ")"
 
 ruleText :: Rule -> String
-ruleText (Rule s) = s
-
-ruleText (Assumption _) = "Ass."
+ruleText r = case r of
+  (Rule s) -> s
+  (Assumption _) -> "Ass."
 
 type Row
   = { formulaText :: String
@@ -50,7 +49,6 @@ type State
   = { premises :: String
     , conclusion :: String
     , rows :: Array Row
-    , boxEnds :: Set Int
     }
 
 data Action
@@ -82,6 +80,7 @@ proof =
             }
     }
   where
+  initialState :: forall m. m -> State
   initialState _ =
     { premises: ""
     , conclusion: ""
@@ -195,12 +194,15 @@ proof =
       H.tell _symbolInput (2 * (i + 1)) SI.Focus
     _ -> unsafeCrashWith "unimpl"
     where
+    createBelow :: Int -> State -> State
     createBelow i st = st { rows = unsafePartial $ fromJust $ Array.insertAt (i + 1) emptyRow $ (incrBoxEnds i) st.rows }
 
+    exitBox :: Int -> State -> State
     exitBox i st = st { rows = unsafePartial $ fromJust $ Array.insertAt (i + 1) emptyRow $ (incrBoxEnds (i + 1)) st.rows }
 
+    incrBoxEnds :: Int -> Array Row -> Array Row
     incrBoxEnds i =
-      mapWithIndex \j -> case _ of
+      map \r -> case r of
         row@{ rule: Assumption { boxEndIdx } }
           | i <= boxEndIdx -> row { rule = Assumption { boxEndIdx: boxEndIdx + 1 } }
         x -> x
