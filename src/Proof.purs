@@ -1,23 +1,25 @@
-module Proof (NdError,
-              Rule,
-              Nd,
-              proofRef,
-              addProof,
-              addBox,
-              closeBox) where
+module Proof
+  ( NdError
+  , Rule
+  , Nd
+  , emptyProof
+  , addProof
+  , addBox
+  , closeBox
+  ) where
 
 import Prelude
-import Control.Monad.State (State, modify_, gets)
-import Data.Array (snoc, (!!))
-import Data.Either (Either(..), note)
+import Data.Either (Either(..), note, hush)
 import Data.Maybe (Maybe(..), fromJust)
 import Partial.Unsafe (unsafePartial, unsafeCrashWith)
 import Data.Array as Array
+import Data.Array (snoc, (!!), (..))
 import Data.List as List
 import Data.List (List(Nil), (:))
 import Data.Set as Set
 import Data.Set (Set)
-
+import Control.Monad.State (State, class MonadState, modify_, gets)
+import Control.Monad.Except.Trans (ExceptT, runExceptT, throwError, except)
 import Formula (Formula(..))
 
 data Rule
@@ -34,7 +36,6 @@ data Rule
   | ModusTollens
   | DoubleNegIntro
 
---data RuleApp = {rule :: Rule , formulas :: Array Formula}
 instance showRule :: Show Rule where
   show Premise = "Premise"
   show Assumption = "Assumption"
@@ -49,75 +50,106 @@ instance showRule :: Show Rule where
   show (ModusTollens) = "MT"
   show (DoubleNegIntro) = "Double neg introduction"
 
-data NdError = BadRef | RefDiscarded | BadRule | BadFormula | FormulaMismatch
+data NdError
+  = BadRef
+  | RefDiscarded
+  | BadRule
+  | BadFormula
+  | FormulaMismatch
 
-type Proof = { formula :: Maybe Formula
-             , rule :: Rule
-             , error :: Maybe NdError
-             }
+type ProofRow
+  = { formula :: Maybe Formula
+    , rule :: Rule
+    , error :: Maybe NdError
+    }
 
-type Box = { startIdx :: Int
-             -- TODO Store accessible sub-boxes for →i/BottomElim
-           }
+type Box
+  = { startIdx :: Int
+    -- TODO Store accessible sub-boxes for →i/BottomElim
+    }
 
 -- | Partial or completed ND derivation.
-newtype Nd = Nd { proofs :: Array Proof
-                , discarded :: Set Int
-                , boxes :: List Box -- Stack of nested boxes
-                , consequent :: Formula
-                }
+type Proof
+  = { rows :: Array ProofRow
+    , discarded :: Set Int
+    , boxes :: List Box -- Stack of nested boxes
+    , conclusion :: Formula
+    }
 
-newNd :: Array Formula -> Formula -> Nd
-newNd premises consequent
-  = Nd { proofs: ({ formula: _
-                  , rule: Premise
-                  , error: Nothing } <<< Just) <$> premises
-       , discarded: Set.empty
-       , boxes: Nil
-       , consequent
-       }
+newtype Nd a
+  = Nd (State Proof a)
 
-proofRef :: Int -> Nd -> Either NdError (Maybe Formula)
-proofRef i (Nd { proofs, discarded }) = do
-  { formula } <- note BadRef $ proofs !! i
-  when (i `Set.member` discarded) $ Left RefDiscarded
+derive newtype instance functorNd :: Functor Nd
+
+derive newtype instance applyNd :: Apply Nd
+
+derive newtype instance applicativeNd :: Applicative Nd
+
+derive newtype instance bindNd :: Bind Nd
+
+derive newtype instance monadNd :: Monad Nd
+
+derive newtype instance monadStateNd :: MonadState Proof Nd
+
+emptyProof :: Formula -> Proof
+emptyProof conclusion =
+  { rows: []
+  , discarded: Set.empty
+  , boxes: Nil
+  , conclusion
+  }
+
+proofRef :: Int -> ExceptT NdError Nd (Maybe Formula)
+proofRef i = do
+  rows <- gets _.rows
+  discarded <- gets _.discarded
+  { formula } <- except $ note BadRef $ rows !! i
+  when (i `Set.member` discarded) $ throwError RefDiscarded
   pure formula
 
 -- TODO Should only be able to open box on assumption
-addBox :: Nd -> Nd
-addBox (Nd nd@{ proofs, boxes })
-  = Nd $ nd { boxes = { startIdx: Array.length proofs }:boxes }
+-- Need to check that two boxes are not opened on each other without formula in between
+addBox :: Nd Unit
+addBox = modify_ \proof -> proof { boxes = { startIdx: Array.length proof.rows } : proof.boxes }
 
-closeBox :: Nd -> Nd
-closeBox (Nd nd@{ proofs, discarded, boxes })
-  = Nd $ nd { discarded = discarded <> newDiscards
-            , boxes = boxes' }
-  where
-    { head: box, tail: boxes' } = unsafePartial $ fromJust
-        $ List.uncons boxes
-    startIdx = box.startIdx
-    endIdx = Array.length proofs
-    newDiscards = Set.fromFoldable $ Array.range startIdx endIdx
+closeBox :: Nd Unit
+closeBox = do
+  modify_ \proof ->
+    let
+      { head: box, tail: boxes' } = unsafePartial $ fromJust $ List.uncons proof.boxes
+
+      startIdx = box.startIdx
+
+      endIdx = Array.length proof.rows - 1
+
+      newDiscards = Set.fromFoldable $ startIdx .. endIdx
+    in
+      proof
+        { discarded = proof.discarded <> newDiscards
+        , boxes = boxes'
+        }
 
 -- | Takes a user-provided formula and ND state and tries to apply the rule.
-applyRule :: Rule -> Maybe Formula -> Nd -> Either NdError Formula
-applyRule rule formula nd = case rule of
+applyRule :: Rule -> Maybe Formula -> ExceptT NdError Nd Formula
+applyRule rule formula = case rule of
   AndElimE1 i -> do
-    a <- proofRef i nd
+    a <- proofRef i
     case a of
       Just (And x _) -> pure x
-      _ -> Left BadRule
+      _ -> throwError BadRule
   _ -> unsafeCrashWith "unimplemented"
 
-addProof :: Maybe Formula -> Rule -> Nd -> Nd
-addProof formula rule (Nd nd@{ proofs }) = let
-  ruleResult = do
-    ruleFormula <- applyRule rule formula (Nd nd)
-    case formula of
-      Nothing -> Left BadFormula
-      Just f | f /= ruleFormula -> Left FormulaMismatch
-      _ -> pure ruleFormula
-  error = case ruleResult of
-    Left x -> Just x
-    _ -> Nothing
-  in Nd $ nd { proofs = snoc proofs { formula, rule, error } }
+addProof :: { formula :: Maybe Formula, rule :: Rule } -> Nd Unit
+addProof { formula: inputFormula, rule } = do
+  -- Try to apply the rule (and get the correct formula)
+  result <- runExceptT $ applyRule rule inputFormula
+  let
+    formula = hush result
+
+    error = case inputFormula, result of
+      _, Left e -> Just e
+      Nothing, Right _ -> Just BadFormula
+      Just f, Right g
+        | f == g -> Nothing
+        | otherwise -> Just FormulaMismatch
+  modify_ \proof -> proof { rows = snoc proof.rows { formula, rule, error } }
