@@ -3,7 +3,7 @@ module GUI.Proof (Query(..), proof) where
 import Prelude
 import Type.Proxy (Proxy(..))
 import Data.Maybe (Maybe(..), fromJust, maybe)
-import Data.Either (isRight)
+import Data.Either (isRight, Either(..))
 import Partial.Unsafe (unsafePartial, unsafeCrashWith)
 import Data.Array as Array
 import Data.Array ((!!), unsafeIndex)
@@ -15,13 +15,14 @@ import Data.List (List(Nil), (:))
 import Data.NonEmpty ((:|))
 import Data.MediaType (MediaType(MediaType))
 import Data.Int as Int
+import Data.Set (Set)
+import Data.Set as Set
 import Data.String.Common (joinWith)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
 import Halogen.HTML.Events as HE
 import Web.Event.Event as Event
-import Web.UIEvent.KeyboardEvent as KeyboardEvent
 import Web.UIEvent.KeyboardEvent (KeyboardEvent)
 import Web.HTML.Event.DragEvent as DragEvent
 import Web.HTML.Event.DragEvent (DragEvent)
@@ -31,6 +32,7 @@ import Parser (parseFormula)
 import GUI.SymbolInput as SI
 import GUI.SymbolInput (symbolInput)
 import GUI.Rules as R
+import Formula (Formula(..))
 
 -- For GUI proof state we use a representation that is easy to modify,
 -- i.e. has a single contiguous array of all rows. When rendering or
@@ -58,19 +60,31 @@ ruleText (Assumption _) = "Ass."
 
 type ProofRow
   = { formulaText :: String
-    , rule :: Rule
-    , ruleArgs :: Array String
+    {- For elimination rules we need to be able to inspect the formula and extract the
+       components that we need from it. This will be nothing if the formula in the field
+       is either empty or ill-formed.
+       The idea is that if this field is Nothing and the formulaText is not empty, we can
+       do something to signal to the user that the formula is ill-formed. Red text is not
+       visible for everyone, so perhaps something else. -}
+    , formulaIR   :: Maybe Formula
+    , rule        :: Rule
+    , ruleArgs    :: Array String
     }
 
 -- | A newly added row.
 emptyRow :: ProofRow
-emptyRow = { formulaText: "", rule: Rule "", ruleArgs: [] }
+emptyRow = { formulaText: "", formulaIR: Nothing, rule: Rule "", ruleArgs: [] }
 
 -- | Only stores endpoints of boxes since assumptions naturally define start points.
 type State
-  = { conclusion :: String
-    , rows :: Array ProofRow
+  = { premises     :: String
+    , conclusion   :: String
+    , rows         :: Array ProofRow
     , draggingOver :: Maybe Int
+    , boxEnds      :: Set Int
+    , expectsArgs  :: Int            -- How many more operands needs to be selected
+    , clicked      :: Array Int      -- Which operands have already been selected
+    , clickedRule  :: Maybe R.Rules  -- The rule that we want to apply the operands to
     }
 
 data Action
@@ -84,6 +98,14 @@ data Action
   | DragEnd Int DragEvent
   | Drop Int DragEvent
   | UpdateConclusion String
+  {- Just to have something that works for now I have made it so that a user selects
+     the operands to apply to a rule by clicking the row number. This action will notify
+     the handleAction function which row was clicked. Perhaps this is not optimal, but
+     this is a prototype so it can always be changed for something more suitable later.
+     
+     Ideally the number would be highlighted or something if you hover over it, to signal
+     to the user that it can be clicked, but right now nothing happens. Those who know, knows! -}
+  | ClickedRow Int
 
 _symbolInput = Proxy :: Proxy "symbolInput"
 
@@ -108,28 +130,76 @@ proof =
             }
     }
 
-initialState :: forall input. input -> State
 initialState _ =
-  { conclusion: ""
+  { premises: ""
+  , conclusion: ""
   , rows: [ emptyRow ]
   , draggingOver: Nothing
+  , boxEnds: Set.empty
+  , expectsArgs: 0
+  , clicked: []
+  , clickedRule: Nothing
   }
 
-handleQuery :: forall a state action output m. MonadEffect m => Query a -> H.HalogenM state action Slots output m (Maybe a)
+-- When we end up here a button has been clicked in the rules panel
+handleQuery :: forall a action output m. MonadEffect m => Query a -> H.HalogenM State action Slots output m (Maybe a)
 handleQuery (Tell command a) = case command of
   R.AndElim1 -> do
     H.liftEffect $ logShow "and elim 1"
-    -- When we are here the button click from AndElim1 has been propagated all
-    -- the way to the proof component, and we can now update the state accordingly,
-    -- inserting new rows etc.
+    {- When we enter one of these cases the user has chosen to apply a rule. However,
+       we don't yet know which operands to apply the rule to. We modify the state to
+       remember which rule was clicked and how many operands is required.
+       
+       Perhaps when we enter a state like this, all the other functionality in the
+       editor could be disabled until the right amount of operands have been selected.
+       Nothing stops a user from initiating an and introduction and then initiating an
+       and elimination before the and introduction is complete. -}
+    H.modify_ \st ->
+      st
+        { expectsArgs = 1
+        , clicked = []
+        , clickedRule = Just R.AndElim1
+        }
     pure Nothing
   R.AndElim2 -> do
     H.liftEffect $ logShow "and elim 2"
+    H.modify_ \st ->
+      st
+        { expectsArgs = 1
+        , clicked = []
+        , clickedRule = Just R.AndElim2
+        }
     pure Nothing
   R.AndIntro -> do
     H.liftEffect $ logShow "and introduction"
     pure Nothing
-  _ -> pure Nothing
+  R.OrIntro -> do
+    H.liftEffect $ logShow "or intro"
+    H.modify_ \st ->
+      st
+        { expectsArgs = 2
+        , clicked = []
+        , clickedRule = Just R.OrIntro
+        }
+    pure Nothing
+  R.NotIntro -> do
+    H.liftEffect $ logShow "not intro"
+    H.modify_ \st ->
+      st
+        { expectsArgs = 1 -- Actually this should be applied to a box and not just an operand, but I don't know how to do this now
+        , clicked = []
+        , clickedRule = Just R.NotIntro
+        }
+    pure Nothing
+  R.NotElim -> do
+    H.liftEffect $ logShow "not elim"
+    H.modify_ \st ->
+      st
+        { expectsArgs = 1 -- Same as for not intro, should be a box
+        , clicked = []
+        , clickedRule = Just R.NotElim
+        }
+    pure Nothing
 
 -- | Tree representation of a ND proof,
 -- |
@@ -244,7 +314,184 @@ rowMediaType = MediaType "application/x.row"
 
 handleAction :: forall output m. MonadEffect m => Action -> H.HalogenM State Action Slots output m Unit
 handleAction = case _ of
-  UpdateFormula i s -> H.modify_ \st -> st { rows = unsafePartial $ fromJust $ Array.modifyAt i _ { formulaText = s } st.rows }
+  -- This gigantic case is run when a user has selected an operand
+  ClickedRow i -> do
+    H.liftEffect $ logShow $ "clicked row: " <> show i
+    st <- H.get
+    -- If this is _not_ the final operand, we just update the state accordingly (look below, in the then)
+    if st.expectsArgs > 0 then
+      -- If this is the last operand, however, we are ready to apply a rule and create a new row
+      if st.expectsArgs == 1 then case st.clickedRule of
+        Just R.AndIntro ->
+          let
+            h1 = unsafePartial $ fromJust $ Array.head $ st.clicked
+
+            row1 = fetchRow st h1
+
+            row2 = fetchRow st i
+
+            {- Right now it is assumed that the selected operands are well-formed (and thus
+               also parsed correctly), but we should actually have a check here to make sure
+               that the operands are OK. We can and-intro any two formulas so we don't need to
+               inspect what the formulas actually are. -}
+            ir1 = unsafePartial $ fromJust $ row1.formulaIR
+
+            ir2 = unsafePartial $ fromJust $ row2.formulaIR
+
+            formula = And ir1 ir2
+
+            newrow =
+              { formulaText: show formula
+              , formulaIR: Just formula
+              , rule: Rule "∧i"
+              , ruleArgs: [ show (h1 + 1), show (i + 1) ]
+              }
+          in
+            do
+              {- When we add the new row we have finished applying a rule, so we need to
+                 also modify the state to not expect more operands etc. -}
+              H.modify_ \st ->
+                st
+                  { expectsArgs = 0
+                  , clicked = []
+                  , clickedRule = Nothing
+                  -- This adds the new row below the current rows, but if the last row is an empty row it looks weird to add this row underneath an empty row. Maybe we need to have a check to see if the last row is empty (maybe because the user had thought to write it in themselves but then decided to use a button instead?) and in that case replace the empty row with this new row?
+                  , rows = Array.snoc st.rows newrow
+                  }
+        Just R.OrIntro ->
+          let
+            h1 = unsafePartial $ fromJust $ Array.head $ st.clicked
+
+            row1 = fetchRow st h1
+
+            row2 = fetchRow st i
+
+            ir1 = unsafePartial $ fromJust $ row1.formulaIR
+
+            ir2 = unsafePartial $ fromJust $ row2.formulaIR
+
+            formula = Or ir1 ir2
+
+            {- This might be a little weird, will user actually apply OrIntro to a couple of rows? Isn't it usually so that you can pick anything to be introduced on the one of the sides of an OrIntro -
+            i.e. 
+             row 1   A                Premise
+             row 2   A ∨ "anything"   ∨i, 1 -}
+            newrow =
+              { formulaText: show formula -- not sure if this renders properly, lack of parentheses
+              , formulaIR: Just formula
+              , rule: Rule "∨i"
+              , ruleArgs: [ show (h1 + 1), show (i + 1) ]
+              }
+          in
+            do
+              H.modify_ \st ->
+                st
+                  { expectsArgs = 0
+                  , clicked = []
+                  , clickedRule = Nothing
+                  , rows = Array.snoc st.rows newrow
+                  }
+        Just R.NotIntro ->
+          let
+            row = fetchRow st i
+
+            f = row.formulaText
+
+            ir = unsafePartial $ fromJust $ row.formulaIR
+
+            formula = Not ir
+
+            newrow =
+              { formulaText: show formula
+              , formulaIR: Just formula
+              , rule: Rule "¬i"
+              , ruleArgs: [ show (i + 1) ]
+              }
+          in
+            do
+              H.modify_ \st ->
+                st
+                  { expectsArgs = 0
+                  , clicked = []
+                  , clickedRule = Nothing
+                  , rows = Array.snoc st.rows newrow
+                  }
+        Just R.AndElim1 -> do
+          st <- H.get
+          let
+            row = fetchRow st i
+          {- When we apply the elimination rules we need to check that we are performing
+             valid eliminations. In this example, to perform an and elimination the operand has
+             to be a conjunction. -}
+          case row.formulaIR of
+            Just (And e1 _) ->
+              let
+                newrow =
+                  { formulaText: show e1
+                  , formulaIR: Just e1
+                  , rule: Rule "∧e1"
+                  , ruleArgs: [ show (i + 1) ]
+                  }
+              in
+                H.modify_ \st ->
+                  st
+                    { expectsArgs = 0
+                    , clicked = []
+                    , clickedRule = Nothing
+                    , rows = Array.snoc st.rows newrow
+                    }
+            -- This is when someone tries to and-elim something that is not a conjunction
+            Just _ -> pure unit
+            -- This is when someone tries to and-elim an illformed formula. We should report errors here.
+            Nothing -> pure unit
+        Just R.AndElim2 -> do
+          st <- H.get
+          let
+            row = fetchRow st i
+          case row.formulaIR of
+            Just (And _ e2) ->
+              let
+                newrow =
+                  { formulaText: show e2
+                  , formulaIR: Just e2
+                  , rule: Rule "∧e2"
+                  , ruleArgs: [ show (i + 1) ]
+                  }
+              in
+                H.modify_ \st ->
+                  st
+                    { expectsArgs = 0
+                    , clicked = []
+                    , clickedRule = Nothing
+                    , rows = Array.snoc st.rows newrow
+                    }
+            Just _ -> pure unit
+            Nothing -> pure unit
+        _ -> pure unit
+      else
+        H.modify_ \st ->
+          st
+            { expectsArgs = st.expectsArgs - 1
+            , clicked = Array.snoc st.clicked i
+            }
+    else
+      -- If the user clicked an operand when we are not expecting any we just don't do anything
+      pure unit
+  UpdateFormula i s -> do
+    st <- H.get
+    let
+      row = unsafePartial $ fromJust $ Array.index st.rows i
+    case parseFormula s of
+      Left err ->
+        let
+          newrows = myupdateAt i st.rows (row { formulaText = s, formulaIR = Nothing })
+        in
+          H.modify_ \st -> st { rows = newrows }
+      Right formula ->
+        let
+          newrows = myupdateAt i st.rows (row { formulaText = s, formulaIR = Just formula })
+        in
+          H.modify_ \st -> st { rows = newrows }
   UpdateRule i s ->
     H.modify_ \st ->
       st
@@ -253,9 +500,6 @@ handleAction = case _ of
             $ Array.modifyAt i _ { rule = ruleFromString s i }
                 st.rows
         }
-  RowKeyEvent i ev -> case KeyboardEvent.key ev of
-    "Enter" -> addRowBelow i
-    _ -> pure unit
   DragStart i ev -> do
     H.liftEffect $ DataTransfer.setData rowMediaType (show i)
       $ DragEvent.dataTransfer ev
@@ -300,6 +544,7 @@ handleAction = case _ of
       in
         st { rows = rows' }
   UpdateConclusion s -> H.modify_ \st -> st { conclusion = s }
+  _ -> pure unit
   where
   addRowBelow i = do
     H.modify_ \st ->
@@ -333,6 +578,12 @@ handleAction = case _ of
     pure { start, end }
 
   isValidDropZone i ev = (\{ start, end } -> not (start <= i && i < end)) <$> draggedRows ev
+
+  -- I hate writing so many unsafePartial $ fromJust's
+  fetchRow st row = unsafePartial $ fromJust $ Array.index st.rows row
+
+  myupdateAt :: forall a. Int -> Array a -> a -> Array a
+  myupdateAt i arr a = unsafePartial $ fromJust $ Array.updateAt i a arr
 
 ruleFromString :: String -> Int -> Rule
 ruleFromString s rowIdx
