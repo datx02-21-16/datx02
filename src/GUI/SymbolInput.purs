@@ -65,7 +65,7 @@ symbolInput placeholder
       = HH.input
         [ HP.value st.s
         , HP.placeholder placeholder
-        , HP.classes [ HH.ClassName "input", HH.ClassName "is-primary" ]
+        , HP.classes [ HH.ClassName "input", HH.ClassName "is-primary"]
         , HP.type_ HP.InputText
         , HP.ref ref
         , HE.onValueInput OnInput

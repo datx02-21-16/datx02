@@ -1,4 +1,4 @@
-module Util (moveWithin) where
+module Util (moveWithin, findLast) where
 
 import Prelude
 import Data.Maybe (Maybe)
