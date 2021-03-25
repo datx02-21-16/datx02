@@ -20,7 +20,6 @@ import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
 import GUI.SymbolInput as SI
 import GUI.SymbolInput (symbolInput)
---import GUI.Panels as P
 import GUI.Rules as R
 
 data Rule
@@ -195,12 +194,27 @@ proof =
       H.tell _symbolInput (2 * (i + 1)) SI.Focus
     _ -> unsafeCrashWith "unimpl"
     where
+    -- | Creates a new row directly below the given index.
     createBelow :: Int -> State -> State
     createBelow i st = st { rows = unsafePartial $ fromJust $ Array.insertAt (i + 1) emptyRow $ (incrBoxEnds i) st.rows }
 
+    -- | Creates a new row directly below the current index. If the current
+    --   index is at the end of a box, the new row is created outside the box.
     exitBox :: Int -> State -> State
-    exitBox i st = st { rows = unsafePartial $ fromJust $ Array.insertAt (i + 1) emptyRow $ (incrBoxEndsWithEx i (scopeStart i st)) st.rows }
+    exitBox i st =
+      st
+        { rows =
+          unsafePartial $ fromJust $ Array.insertAt (i + 1) emptyRow
+            $ ( if i `Array.elem` (getAllEndings st) then
+                  incrBoxEndsWithEx i (scopeStart i st)
+                else
+                  incrBoxEnds i
+              )
+                st.rows
+        }
 
+    -- | Takes an index and an array of rows. Increases the ending position of
+    --   all boxes which end after the given index by one.
     incrBoxEnds :: Int -> Array Row -> Array Row
     incrBoxEnds i =
       map \r -> case r of
@@ -208,6 +222,9 @@ proof =
           | i <= boxEndIdx -> row { rule = Assumption { boxEndIdx: boxEndIdx + 1 } }
         x -> x
 
+    -- | Takes an index and an array of rows. Increases the ending position of
+    --   all boxes which end after the given index by one, except any box which
+    --   starts at the exception position.
     incrBoxEndsWithEx :: Int -> Int -> Array Row -> Array Row
     incrBoxEndsWithEx i e rs =
       map
@@ -221,31 +238,41 @@ proof =
         )
         (indexRows rs)
 
+  -- | Takes an index and a state and returns the starting position of the
+  --   innermost box which contains the index.
   scopeStart :: Int -> State -> Int
   scopeStart i st = fst $ innermostScope i st
     where
+    -- | Gets the innermost box in a state which contains the given index.
     innermostScope :: Int -> State -> Tuple Int Int
     innermostScope i st = unsafePartial $ fromJust $ Array.last $ inBoxes i (allBoxLimits st)
 
+    -- | Gets a list of all the boxes which a given position is in.
     inBoxes :: Int -> Array (Tuple Int Int) -> Array (Tuple Int Int)
     inBoxes i bs = Array.filter (inBox i) bs
 
+    -- | Checks if a position is inside a box.
     inBox :: Int -> Tuple Int Int -> Boolean
     inBox i (Tuple lo hi) = i >= lo && i <= hi
 
+    -- | Extracts all boxes along with their index from a list of indexed rows.
     indexedBoxes :: State -> Array (Tuple Int Row)
     indexedBoxes st = Array.filter (\(Tuple i r) -> isBox r) (indexRows st.rows)
 
+    -- | Takes a row, assumed to be the start of a box, along with it's
+    --   position in the proof. Returns a tuple with the limits of the box.
     boxLimits :: Tuple Int Row -> Tuple Int Int
     boxLimits (Tuple i r) = case r.rule of
       (Assumption { boxEndIdx }) -> Tuple i boxEndIdx
       _ -> unsafeCrashWith "Not a box."
 
+    -- | Get a list of all boxes in a state as tuples.
     allBoxLimits :: State -> Array (Tuple Int Int)
     allBoxLimits st = map boxLimits $ indexedBoxes st
 
-  indexRows :: Array Row -> Array (Tuple Int Row)
-  indexRows rs = Array.zip (0 Array... (Array.length rs)) rs
+  -- | Tags each line in an array with it's index in the array.
+  indexRows :: forall t. Array t -> Array (Tuple Int t)
+  indexRows arr = Array.zip (0 Array... (Array.length arr)) arr
 
   getAllEndings :: State -> Array Int
   getAllEndings st = map rToE $ boxes st
@@ -258,6 +285,7 @@ proof =
   boxes :: State -> Array Row
   boxes st = Array.filter isBox st.rows
 
+  -- | Check if a row is the start of a box.
   isBox :: Row -> Boolean
   isBox r = case r.rule of
     Assumption _ -> true
