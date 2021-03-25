@@ -119,13 +119,22 @@ proof =
                               $ parent
                                   { elems =
                                     Array.snoc parent.elems
-                                      $ HH.div [ HP.classes [ HH.ClassName "proof-box" ] ] currentElems
+                                      $ HH.div
+                                          [ HP.classes [ HH.ClassName "proof-box" ] ]
+                                          currentElems
                                   }
                               :| rest
                         x -> x
                     in
                       closeBoxesIfPossible case proofRow.rule of
-                        Rule s -> (currentBox { elems = Array.snoc elems $ row i proofRow }) :| parentBoxes
+                        Rule s ->
+                          ( currentBox
+                              { elems =
+                                Array.snoc elems
+                                  $ row i proofRow
+                              }
+                          )
+                            :| parentBoxes
                         Assumption { boxEndIdx } ->
                           { elems: [ row i proofRow ], endIdx: boxEndIdx }
                             :| currentBox
@@ -196,7 +205,14 @@ proof =
     where
     -- | Creates a new row directly below the given index.
     createBelow :: Int -> State -> State
-    createBelow i st = st { rows = unsafePartial $ fromJust $ Array.insertAt (i + 1) emptyRow $ (incrBoxEnds i) st.rows }
+    createBelow i st =
+      st
+        { rows =
+          unsafePartial
+            $ fromJust
+            $ Array.insertAt (i + 1) emptyRow
+            $ (incrBoxEnds i) st.rows
+        }
 
     -- | Creates a new row directly below the current index. If the current
     --   index is at the end of a box, the new row is created outside the box.
