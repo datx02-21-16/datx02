@@ -1,18 +1,16 @@
 module GUI.RulesPanel where
 
-import Prelude (Unit, Void, discard, identity, pure, ($))
-import Type.Proxy (Proxy(..))
+import Data.Maybe
+
 import Effect.Class (class MonadEffect)
-
-import Halogen as H
-import Halogen.HTML as HH
-import Halogen.HTML.Properties as HP
-import Halogen.HTML.Events as HE
-
 import GUI.Proof as GP
 import GUI.Rules as R
-
-import Data.Maybe
+import Halogen as H
+import Halogen.HTML as HH
+import Halogen.HTML.Events as HE
+import Halogen.HTML.Properties as HP
+import Prelude (Unit, Void, discard, identity, pure, ($))
+import Type.Proxy (Proxy(..))
 
 type Slots = ( proofPanel ::                H.Slot Query Void Int
              , proof      :: forall output. H.Slot GP.Query output Int)
@@ -84,7 +82,26 @@ ruleButtonPanel =
           , HE.onClick (\_ -> R.AndIntro)
           ]
           [ HH.text "∧i" ]
+      , HH.button
+          [ HP.classes [ HH.ClassName "button" ]
+          , HP.type_ HP.ButtonSubmit
+          , HE.onClick (\_ -> R.OrIntro)
+          ]
+          [ HH.text "∨i" ]
+      , HH.button
+          [ HP.classes [ HH.ClassName "button" ]
+          , HP.type_ HP.ButtonSubmit
+          , HE.onClick (\_ -> R.NotIntro)
+          ]
+          [ HH.text "¬i" ]
+      , HH.button 
+          [ HP.classes [ HH.ClassName "button"]
+          , HP.type_ HP.ButtonSubmit
+          , HE.onClick (\_ -> R.NotElim)
+          ]
+          [ HH.text "¬e"] 
       ]
+
     
   handleAction :: forall state. Action -> H.HalogenM state Action () Output m Unit
   handleAction action = H.raise action

@@ -9,3 +9,6 @@ to differentiate between clicks on different buttons.
 data Rules = AndElim1
            | AndElim2
            | AndIntro
+           | OrIntro
+           | NotIntro
+           | NotElim

@@ -13,16 +13,18 @@ import Data.Set as Set
 import Data.Set (Set)
 import Data.FoldableWithIndex (foldlWithIndex)
 import Data.List as List
+
 import Data.List (List(Nil), (:))
-import Data.NonEmpty as NonEmpty
+import Data.Maybe (Maybe(..), fromJust)
 import Data.NonEmpty (NonEmpty, (:|))
 import Data.MediaType (MediaType(MediaType))
 import Data.Int as Int
 
+import Data.NonEmpty as NonEmpty
 import Halogen as H
 import Halogen.HTML as HH
-import Halogen.HTML.Properties as HP
 import Halogen.HTML.Events as HE
+import Halogen.HTML.Properties as HP
 import Web.Event.Event as Event
 import Web.HTML.Event.DragEvent as DragEvent
 import Web.HTML.Event.DragEvent (DragEvent)
@@ -33,6 +35,8 @@ import Util (moveWithin)
 import GUI.SymbolInput as SI
 import GUI.SymbolInput (symbolInput)
 import GUI.Rules as R
+import Partial.Unsafe (unsafeCrashWith, unsafePartial)
+import Type.Proxy (Proxy(..))
 
 -- For GUI proof state we use a representation that is easy to modify,
 -- i.e. has a single contiguous array of all rows. When rendering or
@@ -66,6 +70,10 @@ type State
     , conclusion :: String
     , rows :: Array ProofRow
     , draggingOver :: Maybe Int
+    , boxEnds :: Set Int
+    , expectsArgs :: Int
+    , clicked :: Array Int
+    , clickedRule :: Maybe R.Rules
     }
 
 data Action
@@ -78,6 +86,7 @@ data Action
   | DragLeave Int DragEvent
   | DragEnd Int DragEvent
   | Drop Int DragEvent
+  | ClickedRow Int
 
 _symbolInput = Proxy :: Proxy "symbolInput"
 
@@ -95,13 +104,16 @@ proof =
                                    , handleQuery = handleQuery
                                    }
     }
-
 initialState _ = { premises: ""
                  , conclusion: ""
                  , rows: [ emptyRow ]
-                 , draggingOver: Nothing }
+                 , draggingOver: Nothing
+                 , boxEnds: Set.empty
+                 , expectsArgs: 0
+                 , clicked: []
+                 , clickedRule: Nothing}
 
-handleQuery :: forall a state action output m. MonadEffect m => Query a -> H.HalogenM state action Slots output m (Maybe a)
+--handleQuery :: forall a action output m. MonadEffect m => Query a -> H.HalogenM State action Slots output m (Maybe a)
 handleQuery (Tell command a) = case command of
   R.AndElim1 -> do
     H.liftEffect $ logShow "and elim 1"
@@ -114,8 +126,32 @@ handleQuery (Tell command a) = case command of
     pure Nothing
   R.AndIntro -> do
     H.liftEffect $ logShow "and introduction"
+    H.modify_ \st -> st { expectsArgs = 2
+                        , clicked     = []
+                        , clickedRule = Just R.AndIntro
+                        }
     pure Nothing
-  _ -> pure Nothing
+  R.OrIntro -> do
+    H.liftEffect $ logShow "or intro"
+    H.modify_ \st -> st { expectsArgs = 2
+                        , clicked     = []
+                        , clickedRule = Just R.OrIntro
+                        }
+    pure Nothing
+  R.NotIntro -> do
+    H.liftEffect $ logShow "not intro"
+    H.modify_ \st -> st { expectsArgs = 1
+                        , clicked     = []
+                        , clickedRule = Just R.NotIntro
+                        }
+    pure Nothing
+  R.NotElim -> do
+    H.liftEffect $ logShow "not elim"
+    H.modify_ \st -> st { expectsArgs = 1
+                        , clicked      = []
+                        , clickedRule  = Just R.NotElim
+                        }
+    pure Nothing
 
 render st =
     HH.div
@@ -141,7 +177,7 @@ render st =
 
   where
     row :: Int -> ProofRow -> HH.HTML _ _
-    row i { formulaText, rule }
+    row i { formulaText, rule, ruleArgs }
       = HH.div
         [ HP.classes ([ HH.ClassName "columns", HH.ClassName "is-mobile", HH.ClassName "proof-row" ]
                       <> maybe [] (\j -> if i == j then [ HH.ClassName "dragged-over" ]
@@ -156,7 +192,7 @@ render st =
         ( [ HH.div
               [ HP.classes [ HH.ClassName "column", HH.ClassName "is-narrow" ] ]
               [ HH.h4
-                  [ HP.classes [ HH.ClassName "title", HH.ClassName "row-index" ] ]
+                  [ HP.classes [ HH.ClassName "title", HH.ClassName "row-index" ], HE.onClick \_ -> ClickedRow i ]
                   [ HH.text (show (1+i)) ]
               ]
           , HH.div
@@ -169,12 +205,15 @@ render st =
               [ HP.classes [ HH.ClassName "column", HH.ClassName "is-narrow" ] ]
               [ HH.span
                 [ HP.classes [ HH.ClassName "rule-field" ] ]
-                [ HH.slot _symbolInput (2*i+1) (symbolInput "Rule") (ruleText rule) $ case _ of
+                [ HH.slot _symbolInput (2*i+1) (symbolInput "Rule") (ruleText rule <> " " <> renderArgs ruleArgs) $ 
+                case _ of
                    SI.NewValue s -> UpdateRule i s
                    SI.EnterPressed -> NewRowBelow i ]
               ]
           ]
         )
+    renderArgs :: Array String -> String
+    renderArgs args = Array.intercalate ", " args
 
 -- | The media type for the index of a proof row as a string.
 rowMediaType :: MediaType
@@ -182,6 +221,47 @@ rowMediaType = MediaType "application/x.row"
 
 handleAction :: forall output m. MonadEffect m => Action -> H.HalogenM State Action Slots output m Unit
 handleAction = case _ of
+  ClickedRow i -> do
+    H.liftEffect $ logShow $ "clicked row: " <> show i
+    st <- H.get
+    if st.expectsArgs > 0
+      then if st.expectsArgs == 1
+             then case st.clickedRule of
+               Just R.AndIntro -> let h1 = unsafePartial  $ fromJust $ Array.head $ st.clicked
+                                      f1 = (unsafePartial $ fromJust $ Array.index st.rows h1).formulaText
+                                      f2 = (unsafePartial $ fromJust $ Array.index st.rows i).formulaText
+                                      newrow = { formulaText: f1 <> " ∧ " <> f2, rule: Rule "∧i", ruleArgs: [show (h1+1), show (i+1)]}
+                                  in do H.modify_ \st -> st { expectsArgs = 0
+                                                            , clicked     = []
+                                                            , clickedRule = Nothing
+                                                            -- This adds the new row below the current rows, but if the last row is an empty row it looks weird to add this row underneath an empty row. Maybe we need to have a check to see if the last row is empty (maybe because the user had thought to write it in themselves but then decided to use a button instead?) and in that case replace the empty row with this new row?
+                                                            , rows        = Array.snoc st.rows newrow
+                                                            }
+               Just R.OrIntro -> let h1 =  unsafePartial $ fromJust $ Array.head $ st.clicked
+                                     f1 = (unsafePartial $ fromJust $ Array.index st.rows h1).formulaText
+                                     f2 = (unsafePartial $ fromJust $ Array.index st.rows i).formulaText
+                                     -- This might be a little weird, will user actually apply OrIntro to a couple of rows? Isn't it usually so that you can pick anything to be introduced on the one of the sides of an OrIntro - i.e. 
+                                     -- row 1   A                Premise
+                                     ---row 2   A ∨ "anything"   ∨i, 1
+                                     newrow = { formulaText: f1 <> " ∨ " <> f2, rule: Rule "∨i", ruleArgs: [show (h1+1), show (i+1)]}
+                                 in do H.modify_ \st -> st { expectsArgs = 0
+                                                           , clicked     = []
+                                                           , clickedRule = Nothing
+                                                           , rows        = Array.snoc st.rows newrow
+                                                           }
+               Just R.NotIntro -> let f1 = (unsafePartial $ fromJust $ Array.index st.rows i).formulaText
+                                      newrow = { formulaText: "¬" <> f1, rule: Rule "¬i", ruleArgs: [show (i+1)]}
+                                  in do H.modify_ \st -> st { expectsArgs  = 0
+                                                            , clicked      = []
+                                                            , clickedRule  = Nothing
+                                                            , rows         = Array.snoc st.rows newrow
+                                                            }
+              --Just R.NotElim -> ??? Not sure how to do this, which might mean that actually the previous rows where not done in a suitable way either. We probably need to find out what the new formulaText will be by "actually applying the rule to a formula" - but how??
+               _ -> pure unit
+             else H.modify_ \st -> st { expectsArgs = st.expectsArgs - 1
+                                      , clicked     = Array.snoc st.clicked i
+                                      }
+      else pure unit
   UpdateFormula i s ->
     H.modify_
        \st -> st { rows = unsafePartial $ fromJust $ Array.modifyAt i _ { formulaText = s } st.rows }
