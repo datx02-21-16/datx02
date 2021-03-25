@@ -1,8 +1,8 @@
 module Proof
   ( NdError
   , Rule
-  , Nd
-  , emptyProof
+  , ND
+  , runND
   , addProof
   , addBox
   , closeBox
@@ -18,7 +18,7 @@ import Data.List as List
 import Data.List (List(Nil), (:))
 import Data.Set as Set
 import Data.Set (Set)
-import Control.Monad.State (State, class MonadState, modify_, gets)
+import Control.Monad.State (State, class MonadState, execState, modify_, gets)
 import Control.Monad.Except.Trans (ExceptT, runExceptT, throwError, except)
 import Formula (Formula(..))
 
@@ -76,30 +76,31 @@ type Proof
     , conclusion :: Formula
     }
 
-newtype Nd a
-  = Nd (State Proof a)
+newtype ND a
+  = ND (State Proof a)
 
-derive newtype instance functorNd :: Functor Nd
+derive newtype instance functorNd :: Functor ND
 
-derive newtype instance applyNd :: Apply Nd
+derive newtype instance applyNd :: Apply ND
 
-derive newtype instance applicativeNd :: Applicative Nd
+derive newtype instance applicativeNd :: Applicative ND
 
-derive newtype instance bindNd :: Bind Nd
+derive newtype instance bindNd :: Bind ND
 
-derive newtype instance monadNd :: Monad Nd
+derive newtype instance monadNd :: Monad ND
 
-derive newtype instance monadStateNd :: MonadState Proof Nd
+derive newtype instance monadStateNd :: MonadState Proof ND
 
-emptyProof :: Formula -> Proof
-emptyProof conclusion =
-  { rows: []
-  , discarded: Set.empty
-  , boxes: Nil
-  , conclusion
-  }
+runND :: forall a. Formula -> ND a -> Proof
+runND conclusion (ND m) =
+  execState m
+    { rows: []
+    , discarded: Set.empty
+    , boxes: Nil
+    , conclusion
+    }
 
-proofRef :: Int -> ExceptT NdError Nd (Maybe Formula)
+proofRef :: Int -> ExceptT NdError ND (Maybe Formula)
 proofRef i = do
   rows <- gets _.rows
   discarded <- gets _.discarded
@@ -109,10 +110,10 @@ proofRef i = do
 
 -- TODO Should only be able to open box on assumption
 -- Need to check that two boxes are not opened on each other without formula in between
-addBox :: Nd Unit
+addBox :: ND Unit
 addBox = modify_ \proof -> proof { boxes = { startIdx: Array.length proof.rows } : proof.boxes }
 
-closeBox :: Nd Unit
+closeBox :: ND Unit
 closeBox = do
   modify_ \proof ->
     let
@@ -130,7 +131,7 @@ closeBox = do
         }
 
 -- | Takes a user-provided formula and ND state and tries to apply the rule.
-applyRule :: Rule -> Maybe Formula -> ExceptT NdError Nd Formula
+applyRule :: Rule -> Maybe Formula -> ExceptT NdError ND Formula
 applyRule rule formula = case rule of
   AndElimE1 i -> do
     a <- proofRef i
@@ -139,7 +140,7 @@ applyRule rule formula = case rule of
       _ -> throwError BadRule
   _ -> unsafeCrashWith "unimplemented"
 
-addProof :: { formula :: Maybe Formula, rule :: Rule } -> Nd Unit
+addProof :: { formula :: Maybe Formula, rule :: Rule } -> ND Unit
 addProof { formula: inputFormula, rule } = do
   -- Try to apply the rule (and get the correct formula)
   result <- runExceptT $ applyRule rule inputFormula
