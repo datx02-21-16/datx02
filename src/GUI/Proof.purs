@@ -14,6 +14,7 @@ import Data.List as List
 import Data.List (List(Nil), (:))
 import Data.NonEmpty as NonEmpty
 import Data.NonEmpty (NonEmpty, (:|))
+import Data.Tuple (Tuple(..), fst)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
@@ -198,7 +199,7 @@ proof =
     createBelow i st = st { rows = unsafePartial $ fromJust $ Array.insertAt (i + 1) emptyRow $ (incrBoxEnds i) st.rows }
 
     exitBox :: Int -> State -> State
-    exitBox i st = st { rows = unsafePartial $ fromJust $ Array.insertAt (i + 1) emptyRow $ (incrBoxEnds (i + 1)) st.rows }
+    exitBox i st = st { rows = unsafePartial $ fromJust $ Array.insertAt (i + 1) emptyRow $ (incrBoxEndsWithEx i (scopeStart i st)) st.rows }
 
     incrBoxEnds :: Int -> Array Row -> Array Row
     incrBoxEnds i =
@@ -206,6 +207,45 @@ proof =
         row@{ rule: Assumption { boxEndIdx } }
           | i <= boxEndIdx -> row { rule = Assumption { boxEndIdx: boxEndIdx + 1 } }
         x -> x
+
+    incrBoxEndsWithEx :: Int -> Int -> Array Row -> Array Row
+    incrBoxEndsWithEx i e rs =
+      map
+        ( \(Tuple idx r) ->
+            if idx == e then
+              r
+            else case r of
+              row@{ rule: Assumption { boxEndIdx } }
+                | (i <= boxEndIdx) -> row { rule = Assumption { boxEndIdx: boxEndIdx + 1 } }
+              x -> x
+        )
+        (indexRows rs)
+
+  scopeStart :: Int -> State -> Int
+  scopeStart i st = fst $ innermostScope i st
+    where
+    innermostScope :: Int -> State -> Tuple Int Int
+    innermostScope i st = unsafePartial $ fromJust $ Array.last $ inBoxes i (allBoxLimits st)
+
+    inBoxes :: Int -> Array (Tuple Int Int) -> Array (Tuple Int Int)
+    inBoxes i bs = Array.filter (inBox i) bs
+
+    inBox :: Int -> Tuple Int Int -> Boolean
+    inBox i (Tuple lo hi) = i >= lo && i <= hi
+
+    indexedBoxes :: State -> Array (Tuple Int Row)
+    indexedBoxes st = Array.filter (\(Tuple i r) -> isBox r) (indexRows st.rows)
+
+    boxLimits :: Tuple Int Row -> Tuple Int Int
+    boxLimits (Tuple i r) = case r.rule of
+      (Assumption { boxEndIdx }) -> Tuple i boxEndIdx
+      _ -> unsafeCrashWith "Not a box."
+
+    allBoxLimits :: State -> Array (Tuple Int Int)
+    allBoxLimits st = map boxLimits $ indexedBoxes st
+
+  indexRows :: Array Row -> Array (Tuple Int Row)
+  indexRows rs = Array.zip (0 Array... (Array.length rs)) rs
 
   getAllEndings :: State -> Array Int
   getAllEndings st = map rToE $ boxes st
@@ -215,13 +255,13 @@ proof =
       Assumption { boxEndIdx } -> boxEndIdx
       _ -> unsafeCrashWith "Row is not a box."
 
-    boxes :: State -> Array Row
-    boxes st = Array.filter isBox st.rows
+  boxes :: State -> Array Row
+  boxes st = Array.filter isBox st.rows
 
-    isBox :: Row -> Boolean
-    isBox r = case r.rule of
-      Assumption _ -> true
-      _ -> false
+  isBox :: Row -> Boolean
+  isBox r = case r.rule of
+    Assumption _ -> true
+    _ -> false
 
   ruleFromString :: String -> Int -> Rule
   ruleFromString s rowIdx
