@@ -21,6 +21,8 @@ import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
 import Halogen.HTML.Events as HE
 import Web.Event.Event as Event
+import Web.UIEvent.KeyboardEvent as KeyboardEvent
+import Web.UIEvent.KeyboardEvent (KeyboardEvent)
 import Web.HTML.Event.DragEvent as DragEvent
 import Web.HTML.Event.DragEvent (DragEvent)
 import Web.HTML.Event.DataTransfer as DataTransfer
@@ -73,7 +75,7 @@ type State
 data Action
   = UpdateFormula Int String
   | UpdateRule Int String
-  | NewRowBelow Int
+  | RowKeyEvent Int KeyboardEvent
   | DragStart Int DragEvent
   | DragOver Int DragEvent
   | DragEnter Int DragEvent
@@ -137,10 +139,7 @@ render st =
     HH.div
       [ HP.classes [ HH.ClassName "proof-header" ] ]
       [ HH.span [] [ HH.text premises, HH.text " ⊢ " ]
-      , HH.slot _symbolInput (-1) (symbolInput "Conclusion") st.conclusion
-          $ case _ of
-              SI.NewValue s -> UpdateConclusion s
-              _ -> unsafeCrashWith "todo"
+      , HH.slot _symbolInput (-1) (symbolInput "Conclusion") st.conclusion UpdateConclusion
       ]
 
   premises =
@@ -197,6 +196,7 @@ render st =
                   st.draggingOver
           )
       , HP.draggable true
+      , HE.onKeyDown $ RowKeyEvent i
       , HE.onDragStart $ DragStart i
       , HE.onDragOver $ DragOver i
       , HE.onDragEnter $ DragEnter i
@@ -212,20 +212,12 @@ render st =
             ]
         , HH.div
             [ HP.classes [ HH.ClassName "column", HH.ClassName "formula-field" ] ]
-            [ HH.slot _symbolInput (2 * i) (symbolInput "Enter formula") formulaText
-                $ case _ of
-                    SI.NewValue s -> UpdateFormula i s
-                    SI.EnterPressed -> NewRowBelow i
-            ]
+            [ HH.slot _symbolInput (2 * i) (symbolInput "Enter formula") formulaText (UpdateFormula i) ]
         , HH.div
             [ HP.classes [ HH.ClassName "column", HH.ClassName "is-narrow" ] ]
             [ HH.span
                 [ HP.classes [ HH.ClassName "rule-field" ] ]
-                [ HH.slot _symbolInput (2 * i + 1) (symbolInput "Rule") (ruleText rule)
-                    $ case _ of
-                        SI.NewValue s -> UpdateRule i s
-                        SI.EnterPressed -> NewRowBelow i
-                ]
+                [ HH.slot _symbolInput (2 * i + 1) (symbolInput "Rule") (ruleText rule) (UpdateRule i) ]
             ]
         ]
       )
@@ -245,22 +237,9 @@ handleAction = case _ of
             $ Array.modifyAt i _ { rule = ruleFromString s i }
                 st.rows
         }
-  NewRowBelow i -> do
-    H.modify_ \st ->
-      let
-        incrBoxEnds =
-          mapWithIndex \j -> case _ of
-            row@{ rule: Assumption { boxEndIdx } }
-              | i <= boxEndIdx -> row { rule = Assumption { boxEndIdx: boxEndIdx + 1 } }
-            x -> x
-      in
-        st
-          { rows =
-            unsafePartial $ fromJust $ Array.insertAt (i + 1) emptyRow
-              $ incrBoxEnds st.rows
-          }
-    -- Focus the newly added row
-    H.tell _symbolInput (2 * (i + 1)) SI.Focus
+  RowKeyEvent i ev -> case KeyboardEvent.key ev of
+    "Enter" -> addRowBelow i
+    _ -> pure unit
   DragStart i ev -> do
     H.liftEffect $ DataTransfer.setData rowMediaType (show i)
       $ DragEvent.dataTransfer ev
@@ -306,6 +285,22 @@ handleAction = case _ of
         st { rows = rows' }
   UpdateConclusion s -> H.modify_ \st -> st { conclusion = s }
   where
+  addRowBelow i = do
+    H.modify_ \st ->
+      let
+        incrBoxEnds =
+          mapWithIndex \j -> case _ of
+            row@{ rule: Assumption { boxEndIdx } }
+              | i <= boxEndIdx -> row { rule = Assumption { boxEndIdx: boxEndIdx + 1 } }
+            x -> x
+      in
+        st
+          { rows =
+            unsafePartial $ fromJust $ Array.insertAt (i + 1) emptyRow
+              $ incrBoxEnds st.rows
+          }
+    H.tell _symbolInput (2 * (i + 1)) SI.Focus -- Focus the newly added row
+
   -- | Inclusive-exclusive interval of the rows that are currently being dragged.
   draggedRows :: DragEvent -> H.HalogenM _ _ _ _ _ { start :: Int, end :: Int }
   draggedRows ev = do
