@@ -146,7 +146,7 @@ render st =
   premises =
     joinWith ", "
       $ _.formulaText
-      <$> Array.takeWhile ((_ == Rule "Premise") <<< _.rule) st.rows
+      <$> Array.takeWhile ((_ == Premise) <<< _.rule) st.rows
 
   proofRows :: HH.HTML _ _
   proofRows =
