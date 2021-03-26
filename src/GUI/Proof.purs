@@ -325,6 +325,6 @@ handleAction = case _ of
 
 ruleFromString :: String -> Int -> Rule
 ruleFromString s rowIdx
-  | s == "Ass.", s == "as" = Assumption { boxEndIdx: rowIdx }
-  | s == "pr", s == "Premise" = Premise
+  | s == "Ass." || s == "as" = Assumption { boxEndIdx: rowIdx }
+  | s == "pr" || s == "Premise" = Premise
   | otherwise = Rule s
