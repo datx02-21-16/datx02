@@ -11,7 +11,6 @@ import Effect.Class (class MonadEffect)
 import Effect.Console (logShow)
 import Data.FoldableWithIndex (foldlWithIndex)
 import Data.List (List(Nil), (:))
-import Data.NonEmpty as NonEmpty
 import Data.NonEmpty ((:|))
 import Data.MediaType (MediaType(MediaType))
 import Data.Int as Int
@@ -130,6 +129,43 @@ handleQuery (Tell command a) = case command of
     pure Nothing
   _ -> pure Nothing
 
+-- | Tree representation of a ND proof,
+-- |
+-- | where the internal nodes are boxes and the leafs are rows.
+data ProofTree
+  = Subproof (Array ProofTree)
+  | RowNode Int ProofRow
+
+-- | Converts the GUI proof representation into an explicit tree structure.
+proofTree :: State -> Array ProofTree
+proofTree { rows } = case result of
+  root :| Nil -> root.elems
+  _ -> unsafeCrashWith "Unclosed boxes"
+  where
+  result =
+    foldlWithIndex
+      ( \i (currentBox@{ elems } :| parentBoxes) proofRow ->
+          closeBoxesIfPossible i case proofRow.rule of
+            Assumption { boxEndIdx } ->
+              { elems: [ RowNode i proofRow ], endIdx: boxEndIdx }
+                :| currentBox
+                : parentBoxes
+            _ -> (currentBox { elems = Array.snoc elems $ RowNode i proofRow }) :| parentBoxes
+      )
+      ({ elems: [], endIdx: Array.length rows } :| Nil)
+      rows
+
+  closeBoxesIfPossible i = case _ of
+    { endIdx } :| _
+      | endIdx < i -> unsafeCrashWith "Unreachable (box ends outside of parent)"
+    { elems: currentElems, endIdx } :| parent : rest
+      | endIdx == i ->
+        closeBoxesIfPossible i
+          $ parent
+              { elems = Array.snoc parent.elems $ Subproof currentElems }
+          :| rest
+    x -> x
+
 render :: forall m. MonadEffect m => State -> H.ComponentHTML Action Slots m
 render st =
   HH.div [ HP.classes [ HH.ClassName "proof" ] ]
@@ -149,37 +185,14 @@ render st =
 
   proofRows :: HH.HTML _ _
   proofRows =
-    HH.div
-      [ HP.classes [ HH.ClassName "proof-rows" ] ]
-      ( NonEmpty.head
-            $ foldlWithIndex
-                ( \i (currentBox@{ elems } :| parentBoxes) proofRow ->
-                    let
-                      closeBoxesIfPossible = case _ of
-                        { endIdx } :| _
-                          | endIdx < i -> unsafeCrashWith "Unreachable (box ends outside of parent)"
-                        { elems: currentElems, endIdx } :| parent : rest
-                          | endIdx == i ->
-                            closeBoxesIfPossible
-                              $ parent
-                                  { elems =
-                                    Array.snoc parent.elems
-                                      $ HH.div [ HP.classes [ HH.ClassName "proof-box" ] ] currentElems
-                                  }
-                              :| rest
-                        x -> x
-                    in
-                      closeBoxesIfPossible case proofRow.rule of
-                        Assumption { boxEndIdx } ->
-                          { elems: [ row i proofRow ], endIdx: boxEndIdx }
-                            :| currentBox
-                            : parentBoxes
-                        _ -> (currentBox { elems = Array.snoc elems $ row i proofRow }) :| parentBoxes
-                )
-                ({ elems: [], endIdx: Array.length st.rows } :| Nil)
-                st.rows
-        )
-        .elems
+    let
+      renderProofTree = case _ of
+        Subproof xs -> HH.div [ HP.classes [ HH.ClassName "proof-box" ] ] (renderProofTree <$> xs)
+        RowNode i r -> row i r
+    in
+      HH.div
+        [ HP.classes [ HH.ClassName "proof-rows" ] ]
+        (renderProofTree <$> proofTree st)
 
   row :: Int -> ProofRow -> HH.HTML _ _
   row i { formulaText, rule } =
