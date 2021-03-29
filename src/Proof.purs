@@ -1,10 +1,10 @@
 module Proof
-  ( NdError
-  , Rule
+  ( NdError(..)
+  , Rule(..)
   , ND
   , runND
   , addProof
-  , addBox
+  , openBox
   , closeBox
   ) where
 
@@ -56,10 +56,11 @@ data NdError
   | BadRule
   | BadFormula
   | FormulaMismatch
+  | InvalidRule
 
 type ProofRow
   = { formula :: Maybe Formula
-    , rule :: Rule
+    , rule :: Maybe Rule
     , error :: Maybe NdError
     }
 
@@ -108,10 +109,36 @@ proofRef i = do
   when (i `Set.member` discarded) $ throwError RefDiscarded
   pure formula
 
+-- | Takes a user-provided formula and ND state and tries to apply the rule.
+applyRule :: Rule -> Maybe Formula -> ExceptT NdError ND Formula
+applyRule rule formula = case rule of
+  AndElimE1 i -> do
+    a <- proofRef i
+    case a of
+      Just (And x _) -> pure x
+      _ -> throwError BadRule
+  _ -> unsafeCrashWith "unimplemented"
+
+addProof :: { formula :: Maybe Formula, rule :: Maybe Rule } -> ND Unit
+addProof { formula: inputFormula, rule } = do
+  -- Try to apply the rule (and get the correct formula)
+  result <- runExceptT $ (except $ note InvalidRule rule) >>= (flip applyRule) inputFormula
+  let
+    formula = hush result
+
+    error = case inputFormula, result of
+      _, Left e -> Just e
+      Nothing, Right _ -> Just BadFormula
+      -- TODO First try to unify formula and inputFormula
+      Just f, Right g
+        | f == g -> Nothing
+        | otherwise -> Just FormulaMismatch
+  modify_ \proof -> proof { rows = snoc proof.rows { formula, rule, error } }
+
 -- TODO Should only be able to open box on assumption
 -- Need to check that two boxes are not opened on each other without formula in between
-addBox :: ND Unit
-addBox = modify_ \proof -> proof { boxes = { startIdx: Array.length proof.rows } : proof.boxes }
+openBox :: ND Unit
+openBox = modify_ \proof -> proof { boxes = { startIdx: Array.length proof.rows } : proof.boxes }
 
 closeBox :: ND Unit
 closeBox = do
@@ -129,28 +156,3 @@ closeBox = do
         { discarded = proof.discarded <> newDiscards
         , boxes = boxes'
         }
-
--- | Takes a user-provided formula and ND state and tries to apply the rule.
-applyRule :: Rule -> Maybe Formula -> ExceptT NdError ND Formula
-applyRule rule formula = case rule of
-  AndElimE1 i -> do
-    a <- proofRef i
-    case a of
-      Just (And x _) -> pure x
-      _ -> throwError BadRule
-  _ -> unsafeCrashWith "unimplemented"
-
-addProof :: { formula :: Maybe Formula, rule :: Rule } -> ND Unit
-addProof { formula: inputFormula, rule } = do
-  -- Try to apply the rule (and get the correct formula)
-  result <- runExceptT $ applyRule rule inputFormula
-  let
-    formula = hush result
-
-    error = case inputFormula, result of
-      _, Left e -> Just e
-      Nothing, Right _ -> Just BadFormula
-      Just f, Right g
-        | f == g -> Nothing
-        | otherwise -> Just FormulaMismatch
-  modify_ \proof -> proof { rows = snoc proof.rows { formula, rule, error } }
