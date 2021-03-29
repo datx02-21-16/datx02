@@ -132,3 +132,7 @@ $input-shadow: $primary;
 		opacity: 1;
 	}
 }
+
+.proof-row.incorrect-formula > .formula-field > input {
+	border-color: red;
+}
