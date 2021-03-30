@@ -2,6 +2,9 @@ module Proof
   ( NdError(..)
   , Rule(..)
   , ND
+  , Proof
+  , ProofRow
+  , Box
   , runND
   , addProof
   , openBox
@@ -74,7 +77,7 @@ type Proof
   = { rows :: Array ProofRow
     , discarded :: Set Int
     , boxes :: List Box -- Stack of nested boxes
-    , conclusion :: Formula
+    , conclusion :: Maybe Formula
     }
 
 newtype ND a
@@ -92,7 +95,7 @@ derive newtype instance monadNd :: Monad ND
 
 derive newtype instance monadStateNd :: MonadState Proof ND
 
-runND :: forall a. Formula -> ND a -> Proof
+runND :: forall a. Maybe Formula -> ND a -> Proof
 runND conclusion (ND m) =
   execState m
     { rows: []
@@ -117,7 +120,7 @@ applyRule rule formula = case rule of
     case a of
       Just (And x _) -> pure x
       _ -> throwError BadRule
-  _ -> unsafeCrashWith "unimplemented"
+  _ -> throwError BadRule -- TODO remove
 
 addProof :: { formula :: Maybe Formula, rule :: Maybe Rule } -> ND Unit
 addProof { formula: inputFormula, rule } = do
@@ -129,7 +132,6 @@ addProof { formula: inputFormula, rule } = do
     error = case inputFormula, result of
       _, Left e -> Just e
       Nothing, Right _ -> Just BadFormula
-      -- TODO First try to unify formula and inputFormula
       Just f, Right g
         | f == g -> Nothing
         | otherwise -> Just FormulaMismatch

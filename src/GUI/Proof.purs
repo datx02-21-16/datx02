@@ -3,13 +3,14 @@ module GUI.Proof (Query(..), proof) where
 import Prelude
 import Type.Proxy (Proxy(..))
 import Data.Maybe (Maybe(..), fromJust, maybe)
-import Data.Either (isRight)
+import Data.Either (isRight, hush)
 import Partial.Unsafe (unsafePartial, unsafeCrashWith)
 import Data.Array as Array
 import Data.Array ((!!), unsafeIndex)
 import Data.FunctorWithIndex (mapWithIndex)
 import Effect.Class (class MonadEffect)
 import Effect.Console (logShow)
+import Data.Traversable (sequence)
 import Data.FoldableWithIndex (foldlWithIndex)
 import Data.List (List(Nil), (:))
 import Data.NonEmpty ((:|))
@@ -29,6 +30,7 @@ import Web.HTML.Event.DragEvent (DragEvent)
 import Web.HTML.Event.DataTransfer as DataTransfer
 import Util (moveWithin)
 import Parser (parseFormula)
+import Proof as P
 import GUI.SymbolInput as SI
 import GUI.SymbolInput (symbolInput)
 import GUI.Rules as R
@@ -49,6 +51,33 @@ instance showRule :: Show Rule where
   show (Rule s) = s
   show Premise = "Premise"
   show (Assumption { boxEndIdx }) = "Assumption (box ends at " <> show boxEndIdx <> ")"
+
+data RuleType
+  = RtPremise
+  | RtAssumption
+  | AndElim1
+  | AndElim2
+  | AndIntro
+  | ImplElim
+  | ImplIntro
+  | BottomElim
+  | DoubleNegElim
+  | NegElim
+  | ModusTollens
+  | DoubleNegIntro
+
+parseRuleText :: String -> Maybe RuleType
+parseRuleText = case _ of
+  "Premise" -> Just RtPremise
+  "Ass." -> Just RtAssumption
+  "∧e1" -> Just AndElim1
+  "∧e2" -> Just AndElim2
+  _ -> Nothing
+
+parseRule :: ProofRow -> Maybe P.Rule
+parseRule { rule, ruleArgs } = case rule, ruleArgs of
+  Assumption _, [] -> Just P.Assumption
+  _, _ -> Nothing
 
 ruleText :: Rule -> String
 ruleText (Rule s) = s
@@ -198,6 +227,22 @@ render st =
         (renderProofTree <$> proofTree st)
 
   parsedRows = parseFormula <<< _.formulaText <$> st.rows
+
+  verification =
+    let
+      proofTreeAction :: ProofTree -> Array (P.ND Unit)
+      proofTreeAction = case _ of
+        Subproof xs -> [ P.openBox ] <> (xs >>= proofTreeAction) <> [ P.closeBox ]
+        RowNode i r ->
+          pure
+            $ P.addProof
+                { formula: hush $ unsafePartial $ parsedRows `unsafeIndex` i
+                , rule: parseRule r
+                }
+
+      conclusion = hush $ parseFormula st.conclusion
+    in
+      P.runND conclusion (sequence $ proofTree st >>= proofTreeAction)
 
   row :: Int -> ProofRow -> HH.HTML _ _
   row i { formulaText, rule } =
