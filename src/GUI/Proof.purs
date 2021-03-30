@@ -5,19 +5,30 @@ import Type.Proxy (Proxy(..))
 import Data.Maybe (Maybe(..), fromJust)
 import Partial.Unsafe (unsafePartial, unsafeCrashWith)
 import Data.Array as Array
+import Data.Array ((!!))
+import Data.FunctorWithIndex (mapWithIndex)
 import Effect.Class (class MonadEffect)
 import Effect.Console (logShow)
 import Data.Set as Set
 import Data.Set (Set)
 import Data.FoldableWithIndex (foldlWithIndex)
-import Data.List as List
 import Data.List (List(Nil), (:))
 import Data.NonEmpty as NonEmpty
-import Data.NonEmpty (NonEmpty, (:|))
-import Data.Tuple (Tuple(..), fst)
+import Data.NonEmpty ((:|))
+import Data.MediaType (MediaType(MediaType))
+import Data.Int as Int
+import Data.String.Common (joinWith)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
+import Halogen.HTML.Events as HE
+import Web.Event.Event as Event
+import Web.UIEvent.KeyboardEvent as KeyboardEvent
+import Web.UIEvent.KeyboardEvent (KeyboardEvent)
+import Web.HTML.Event.DragEvent as DragEvent
+import Web.HTML.Event.DragEvent (DragEvent)
+import Web.HTML.Event.DataTransfer as DataTransfer
+import Util (moveWithin)
 import GUI.SymbolInput as SI
 import GUI.SymbolInput (symbolInput)
 import GUI.Rules as R
