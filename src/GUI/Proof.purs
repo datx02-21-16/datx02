@@ -23,6 +23,7 @@ import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
 import Halogen.HTML.Events as HE
 import Web.Event.Event as Event
+import Web.UIEvent.KeyboardEvent as KeyboardEvent
 import Web.UIEvent.KeyboardEvent (KeyboardEvent)
 import Web.HTML.Event.DragEvent as DragEvent
 import Web.HTML.Event.DragEvent (DragEvent)
@@ -172,6 +173,12 @@ handleQuery (Tell command a) = case command of
     pure Nothing
   R.AndIntro -> do
     H.liftEffect $ logShow "and introduction"
+    H.modify_ \st ->
+      st
+        { expectsArgs = 2
+        , clicked = []
+        , clickedRule = Just R.AndIntro
+        }
     pure Nothing
   R.OrIntro -> do
     H.liftEffect $ logShow "or intro"
@@ -293,7 +300,9 @@ render st =
         ( [ HH.div
               [ HP.classes [ HH.ClassName "column", HH.ClassName "is-narrow" ] ]
               [ HH.h4
-                  [ HP.classes [ HH.ClassName "title", HH.ClassName "row-index" ] ]
+                  [ HP.classes [ HH.ClassName "title", HH.ClassName "row-index" ]
+                  , HE.onClick \_ -> ClickedRow i
+                  ]
                   [ HH.text (show (1 + i)) ]
               ]
           , HH.div
@@ -346,6 +355,11 @@ handleAction = case _ of
               , rule: Rule "∧i"
               , ruleArgs: [ show (h1 + 1), show (i + 1) ]
               }
+            
+            newrows1 = if (unsafePartial (fromJust (Array.last st.rows))) == emptyRow
+                       then Array.snoc (unsafePartial $ fromJust (Array.init st.rows)) newrow
+                       else Array.snoc st.rows newrow
+            newrows2 = Array.snoc newrows1 emptyRow
           in
             do
               {- When we add the new row we have finished applying a rule, so we need to
@@ -356,7 +370,7 @@ handleAction = case _ of
                   , clicked = []
                   , clickedRule = Nothing
                   -- This adds the new row below the current rows, but if the last row is an empty row it looks weird to add this row underneath an empty row. Maybe we need to have a check to see if the last row is empty (maybe because the user had thought to write it in themselves but then decided to use a button instead?) and in that case replace the empty row with this new row?
-                  , rows = Array.snoc st.rows newrow
+                  , rows = newrows2
                   }
         Just R.OrIntro ->
           let
@@ -500,6 +514,9 @@ handleAction = case _ of
             $ Array.modifyAt i _ { rule = ruleFromString s i }
                 st.rows
         }
+  RowKeyEvent i ev -> case KeyboardEvent.key ev of
+    "Enter" -> addRowBelow i
+    _ -> pure unit
   DragStart i ev -> do
     H.liftEffect $ DataTransfer.setData rowMediaType (show i)
       $ DragEvent.dataTransfer ev
