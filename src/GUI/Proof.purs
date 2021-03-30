@@ -22,18 +22,28 @@ import GUI.SymbolInput as SI
 import GUI.SymbolInput (symbolInput)
 import GUI.Rules as R
 
+-- For GUI proof state we use a representation that is easy to modify,
+-- i.e. has a single contiguous array of all rows. When rendering or
+-- validating we map this to a tree with subproof nodes.
 data Rule
   = Rule String
-  | Assumption { boxEndIdx :: Int }
+  | Premise
+  | Assumption
+    { boxEndIdx :: Int -- Inclusive end of box
+    }
+
+derive instance eqRule :: Eq Rule
 
 instance showRule :: Show Rule where
   show (Rule s) = s
   show (Assumption { boxEndIdx }) = "Assumption (box ends at " <> show boxEndIdx <> ")"
 
 ruleText :: Rule -> String
-ruleText r = case r of
-  (Rule s) -> s
-  (Assumption _) -> "Ass."
+ruleText (Rule s) = s
+
+ruleText Premise = "Premise"
+
+ruleText (Assumption _) = "Ass."
 
 type Row
   = { formulaText :: String
@@ -46,16 +56,22 @@ emptyRow = { formulaText: "", rule: Rule "", ruleArgs: [] }
 
 -- | Only stores endpoints of boxes since assumptions naturally define start points.
 type State
-  = { premises :: String
-    , conclusion :: String
-    , rows :: Array Row
+  = { conclusion :: String
+    , rows :: Array ProofRow
+    , draggingOver :: Maybe Int
     }
 
 data Action
   = UpdateFormula Int String
   | UpdateRule Int String
-  | NewRowBelow Int
-  | TryExit Int
+  | RowKeyEvent Int KeyboardEvent
+  | DragStart Int DragEvent
+  | DragOver Int DragEvent
+  | DragEnter Int DragEvent
+  | DragLeave Int DragEvent
+  | DragEnd Int DragEvent
+  | Drop Int DragEvent
+  | UpdateConclusion String
 
 _symbolInput = Proxy :: Proxy "symbolInput"
 

@@ -12,8 +12,6 @@ import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Web.HTML.HTMLElement as HTMLElement
 import Web.HTML.HTMLInputElement as HTMLInputElement
-import Web.UIEvent.KeyboardEvent as KeyboardEvent
-import Web.UIEvent.KeyboardEvent (KeyboardEvent)
 import Data.String.Regex (replace)
 import Data.Tuple (Tuple(..))
 import GUI.Utils (makeRegex)
@@ -41,10 +39,8 @@ data Query a
 type Input
   = String
 
-data Output
-  = NewValue String
-  | EnterPressed
-  | ShiftEnterPressed
+type Output
+  = String
 
 data Action
   = OnInput String
@@ -79,7 +75,6 @@ symbolInput placeholder =
       , HP.type_ HP.InputText
       , HP.ref ref
       , HE.onValueInput OnInput
-      , HE.onKeyDown KeyDown
       ]
 
   setStr s' = do
@@ -108,14 +103,8 @@ symbolInput placeholder =
         _ -> unsafeCrashWith "not yet rendered"
       let
         s' = substitute s
-      H.raise $ NewValue s' -- Output the new value
+      H.raise s' -- Output the new value
     Receive s' -> setStr s'
-    KeyDown ev ->
-      when (KeyboardEvent.key ev == "Enter")
-        if KeyboardEvent.shiftKey ev then
-          H.raise ShiftEnterPressed
-        else
-          H.raise EnterPressed
 
   handleQuery :: forall action a. Query a -> H.HalogenM _ action () _ m (Maybe a)
   handleQuery = case _ of
