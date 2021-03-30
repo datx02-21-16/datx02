@@ -41,11 +41,29 @@ $input-shadow: $primary;
 @import "../../node_modules/bulma/sass/layout/section.sass";
 @import "../../node_modules/bulma/sass/components/panel.sass";
 
+.proof {
+	width: 100%;
+	height: 100%;
+}
+
+.proof-header {
+	display: flex;
+	justify-content: space-around;
+	align-items: center;
+
+	margin: 1rem auto;
+	width: 50%;
+
+	white-space: nowrap;
+}
+
 .proof-rows {
 	display: flex;
 	flex-grow: 1;
 	flex-direction: column;
 	align-items: stretch;
+
+	cursor: move;
 }
 
 .proof-box {
@@ -85,4 +103,32 @@ $input-shadow: $primary;
 	/* Fixed width in order for rules column to line up */
 	display: inline flow-root;
 	width: 5rem;
+}
+
+.proof-row.dragged-over {
+	flex-wrap: wrap;
+
+	background-color: $beige-light;
+}
+
+.proof-row.dragged-over::after {
+	content: '';
+
+	flex-basis: 100%;
+	height: 0;
+	margin: 0.5rem 2rem;
+
+	border-bottom: thick dashed $pink;
+
+	animation-duration: 1s;
+	animation-name: fadein;
+}
+
+@keyframes fadein {
+	from {
+		opacity: 0;
+	}
+	top {
+		opacity: 1;
+	}
 }

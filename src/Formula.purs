@@ -8,6 +8,7 @@ module Formula ( Variable(..)
                , disagreementSet
                , unify
                , containsTerm
+               , formulaUnifier
                ) where
 
 import Prelude
@@ -63,6 +64,7 @@ data Formula
   | Exists Variable Formula
 
 derive instance eqFormula :: Eq Formula
+derive instance ordFormula :: Ord Formula
 
 -- | Shows formulas using least amount of parentheses wrt. precedence.
 instance showFormula :: Show Formula where
@@ -194,3 +196,23 @@ containsTerm f t = case f of
   Implies f1 f2    -> containsTerm f1 t || containsTerm f2 t
   Forall x f'      -> containsTerm f' t
   Exists x f'      -> containsTerm f' t
+
+-- | TODO At the moment only works on propositional logic
+formulaUnify :: Formula -> Formula -> Maybe (Tuple Substitution (List Term))
+formulaUnify f1 f2 = subTerms f1 f2 >>= unify
+  where
+    -- | Returns the subterms if the two formulas have the same structure.
+    subTerms :: Formula -> Formula -> Maybe (Set (List Term))
+    subTerms = case _, _ of
+      Predicate f args1, Predicate g args2
+        | f == g, Array.length args1 == Array.length args2
+          -> Just $ Set.fromFoldable
+             [List.fromFoldable args1, List.fromFoldable args2]
+      Not a, Not b -> subTerms a b
+      And a b, And c d -> (<>) <$> subTerms a c <*> subTerms b d
+      Or a b, Or c d -> (<>) <$> subTerms a c <*> subTerms b d
+      Implies a b, Implies c d -> (<>) <$> subTerms a c <*> subTerms b d
+      _, _ -> Nothing
+
+formulaUnifier :: Formula -> Formula -> Maybe Substitution
+formulaUnifier a b = (\(Tuple σ _) -> σ) <$> formulaUnify a b
