@@ -45,7 +45,6 @@ type Output
 data Action
   = OnInput String
   | Receive Input
-  | KeyDown KeyboardEvent
 
 ref :: H.RefLabel
 ref = H.RefLabel "inputRef"
