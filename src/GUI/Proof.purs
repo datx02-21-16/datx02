@@ -243,7 +243,7 @@ render st =
   premises =
     joinWith ", "
       $ _.formulaText
-      <$> Array.takeWhile ((_ == Premise) <<< _.rule) st.rows
+      <$> Array.filter ((_ == Premise) <<< _.rule) st.rows
 
   formulaField :: Int -> String -> String -> (String -> Action) -> HH.HTML _ _
   formulaField i placeholder text outputMap =
