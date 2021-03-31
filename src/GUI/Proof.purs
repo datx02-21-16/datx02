@@ -283,11 +283,13 @@ render st =
       , formulaField (-1) "Conclusion" st.conclusion UpdateConclusion
       ]
 
+  -- | All premises used in the proof as a string.
   premises =
-    joinWith ", "
+    joinWith ", " $ Array.nub
       $ _.formulaText
       <$> Array.filter ((_ == Premise) <<< _.rule) st.rows
 
+  -- | Renders an input field that verifies the parsability of the inputted formula.
   formulaField :: Int -> String -> String -> (String -> Action) -> HH.HTML _ _
   formulaField i placeholder text outputMap =
     HH.span
