@@ -2,11 +2,11 @@ module GUI.Proof (Query(..), proof) where
 
 import Prelude
 import Type.Proxy (Proxy(..))
-import Data.Maybe (Maybe(..), fromJust, isNothing, fromMaybe, maybe)
+import Data.Maybe (Maybe(..), fromJust, isJust, isNothing, fromMaybe, maybe)
 import Data.Either (isRight, hush)
 import Partial.Unsafe (unsafePartial, unsafeCrashWith)
 import Data.Array as Array
-import Data.Array ((!!))
+import Data.Array ((!!), unsafeIndex)
 import Data.FunctorWithIndex (mapWithIndex)
 import Effect.Class (class MonadEffect)
 import Effect.Console (logShow)
@@ -76,14 +76,22 @@ instance showRuleArg :: Show RuleArg where
   show (BoxRange i j) = "BoxRange " <> show i <> " " <> show j
 
 parseRowIdx :: String -> Maybe RuleArg
-parseRowIdx s = traceShowId $ RowIdx <$> Int.fromString s
+parseRowIdx s = RowIdx <$> Int.fromString s
 
 ruleArgTypes :: RuleType -> Array (String -> Maybe RuleArg)
 ruleArgTypes = case _ of
   RtPremise -> []
   RtAssumption -> []
-  AndElim1 -> [ parseRowIdx, parseRowIdx ]
-  AndElim2 -> [ parseRowIdx, parseRowIdx ]
+  AndElim1 -> [ parseRowIdx ]
+  AndElim2 -> [ parseRowIdx ]
+  AndIntro -> [ parseRowIdx, parseRowIdx ]
+  ImplElim -> [ parseRowIdx, parseRowIdx ]
+  ImplIntro -> []
+  BottomElim -> []
+  DoubleNegElim -> [ parseRowIdx ]
+  NegElim -> []
+  ModusTollens -> []
+  DoubleNegIntro -> []
   _ -> unsafeCrashWith "todo"
 
 parseRuleArgs :: RuleType -> Array String -> Array (Maybe RuleArg)
@@ -99,13 +107,34 @@ parseRuleText = case _ of
   "Ass." -> Just RtAssumption
   "∧e1" -> Just AndElim1
   "∧e2" -> Just AndElim2
+  "∧i" -> Just AndIntro
+  "→e" -> Just ImplElim
+  "→i" -> Just ImplIntro
+  "⊥e" -> Just BottomElim
+  "¬¬e" -> Just DoubleNegElim
+  "¬e" -> Just NegElim
+  "MT" -> Just ModusTollens
+  "¬¬i" -> Just DoubleNegIntro
   _ -> Nothing
 
 parseRule :: ProofRow -> Maybe P.Rule
 parseRule { rule, ruleArgs } = do
   ruleType <- parseRuleText (ruleText rule)
-  case ruleType, ruleArgs of
+  args <- sequence $ parseRuleArgs ruleType ruleArgs
+  case ruleType, args of
     RtAssumption, [] -> Just P.Assumption
+    RtPremise, [] -> Just P.Premise
+    RtAssumption, [] -> Just P.Assumption
+    AndElim1, [ RowIdx i ] -> Just $ P.AndElim1 i
+    AndElim2, [ RowIdx i ] -> Just $ P.AndElim2 i
+    AndIntro, [ RowIdx i, RowIdx j ] -> Just $ P.AndIntro i j
+    ImplElim, [ RowIdx i, RowIdx j ] -> Just $ P.ImplElim i j
+    ImplIntro, [] -> Just P.ImplIntro
+    BottomElim, [] -> Just P.BottomElim
+    DoubleNegElim, [ RowIdx i ] -> Just $ P.DoubleNegElim i
+    NegElim, [] -> Just P.NegElim
+    ModusTollens, [] -> Just P.ModusTollens
+    DoubleNegIntro, [] -> Just P.DoubleNegIntro
     _, _ -> Nothing
 
 ruleText :: Rule -> String
@@ -114,6 +143,16 @@ ruleText (Rule s) = s
 ruleText Premise = "Premise"
 
 ruleText (Assumption _) = "Ass."
+
+errorText :: P.NdError -> String
+errorText = case _ of
+  P.BadRef -> "Reference to invalid row"
+  P.RefDiscarded -> "Reference to row in discarded box"
+  P.RefOutOfBounds -> "Reference to non-existent row"
+  P.BadRule -> "Bad rule application"
+  P.BadFormula -> "Bad inputed formula"
+  P.FormulaMismatch -> "Formula does not match output from rule"
+  P.InvalidRule -> "Non-existent rule"
 
 type ProofRow
   = { formulaText :: String
@@ -249,7 +288,7 @@ render st =
   formulaField i placeholder text outputMap =
     HH.span
       [ HP.classes $ [ HH.ClassName "column", HH.ClassName "formula-field" ]
-          <> if isOk then [] else [ HH.ClassName "incorrect-formula" ]
+          <> if isOk then [] else [ HH.ClassName "invalid" ]
       ]
       [ HH.slot _symbolInput (2 * i) (symbolInput placeholder) text outputMap ]
     where
@@ -309,19 +348,24 @@ render st =
         , formulaField i "Enter formula" formulaText (UpdateFormula i)
         , HH.span
             [ HP.classes [ HH.ClassName "column", HH.ClassName "is-narrow" ] ]
-            [ HH.span [ HP.classes [ HH.ClassName "rule-field" ] ]
+            [ HH.span
+                ( [ HP.classes ([ HH.ClassName "rule-field" ] <> if isJust error then [ HH.ClassName "invalid" ] else []) ]
+                    <> maybe [] (\e -> [ HP.title $ errorText e ]) error
+                )
                 [ HH.slot _symbolInput (2 * i + 1) (symbolInput "Rule") (ruleText rule) (UpdateRule i) ]
             ]
         ]
           <> argFields
       )
     where
+    error = (unsafePartial $ verification.rows `unsafeIndex` i).error
+
     argField (Tuple j (Tuple res s)) =
       HH.span [ HP.classes [ HH.ClassName "column", HH.ClassName "is-narrow" ] ]
         [ HH.input
             [ HP.classes
                 ( [ HH.ClassName "input", HH.ClassName "rule-arg-input" ]
-                    <> if isNothing res then [ HH.ClassName "invalid-rule-arg" ] else []
+                    <> if isNothing res then [ HH.ClassName "invalid" ] else []
                 )
             , HP.value s
             , HP.placeholder "Row"

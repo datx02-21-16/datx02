@@ -21,9 +21,10 @@ import Data.List as List
 import Data.List (List(Nil), (:))
 import Data.Set as Set
 import Data.Set (Set)
-import Control.Monad.State (State, class MonadState, execState, modify_, gets)
+import Control.Monad.State (State, class MonadState, execState, modify_, get, gets)
 import Control.Monad.Except.Trans (ExceptT, runExceptT, throwError, except)
 import Formula (Formula(..))
+import Util
 
 data Rule
   = Premise
@@ -31,10 +32,10 @@ data Rule
   | AndElim1 Int
   | AndElim2 Int
   | AndIntro Int Int
-  | ImplElim
+  | ImplElim Int Int
   | ImplIntro
   | BottomElim
-  | DoubleNegElim
+  | DoubleNegElim Int
   | NegElim
   | ModusTollens
   | DoubleNegIntro
@@ -47,10 +48,10 @@ instance showRule :: Show Rule where
   show (AndElim1 _) = "∧e1"
   show (AndElim2 _) = "∧e2"
   show (AndIntro _ _) = "∧i"
-  show (ImplElim) = "->e"
+  show (ImplElim _ _) = "->e"
   show (ImplIntro) = "->i"
   show (BottomElim) = "Bottom elimination"
-  show (DoubleNegElim) = "Double neg elimination"
+  show (DoubleNegElim _) = "Double neg elimination"
   show (NegElim) = "Neg elimination"
   show (ModusTollens) = "MT"
   show (DoubleNegIntro) = "Double neg introduction"
@@ -109,9 +110,8 @@ runND conclusion (ND m) =
 
 proofRef :: Int -> ExceptT NdError ND Formula
 proofRef i = do
-  rows <- gets _.rows
-  discarded <- gets _.discarded
-  { formula } <- except $ note RefOutOfBounds $ rows !! i
+  { rows, discarded } <- get
+  { formula } <- except $ note RefOutOfBounds $ rows !! (i - 1)
   when (i `Set.member` discarded) $ throwError RefDiscarded
   except $ note BadRef formula
 
@@ -134,6 +134,20 @@ applyRule rule formula = case rule of
     a <- proofRef i
     b <- proofRef j
     pure $ And a b
+  ImplElim i j -> do
+    a <- proofRef i
+    b <- proofRef j
+    case a, b of
+      Implies x y, z
+        | x == z -> pure y
+      z, Implies x y
+        | x == z -> pure y
+      _, _ -> throwError BadRule
+  DoubleNegElim i -> do
+    a <- proofRef i
+    case traceShowId a of
+      Not (Not x) -> pure x
+      _ -> throwError BadRule
   _ -> throwError BadRule -- TODO remove
 
 addProof :: { formula :: Maybe Formula, rule :: Maybe Rule } -> ND Unit
