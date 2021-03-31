@@ -2,11 +2,11 @@ module GUI.Proof (Query(..), proof) where
 
 import Prelude
 import Type.Proxy (Proxy(..))
-import Data.Maybe (Maybe(..), fromJust, maybe)
+import Data.Maybe (Maybe(..), fromJust, isNothing, fromMaybe, maybe)
 import Data.Either (isRight, hush)
 import Partial.Unsafe (unsafePartial, unsafeCrashWith)
 import Data.Array as Array
-import Data.Array ((!!), unsafeIndex)
+import Data.Array ((!!))
 import Data.FunctorWithIndex (mapWithIndex)
 import Effect.Class (class MonadEffect)
 import Effect.Console (logShow)
@@ -14,6 +14,7 @@ import Data.Traversable (sequence)
 import Data.FoldableWithIndex (foldlWithIndex)
 import Data.List (List(Nil), (:))
 import Data.NonEmpty ((:|))
+import Data.Tuple (Tuple(Tuple))
 import Data.MediaType (MediaType(MediaType))
 import Data.Int as Int
 import Data.Tuple (Tuple(..), fst)
@@ -28,7 +29,7 @@ import Web.UIEvent.KeyboardEvent (KeyboardEvent)
 import Web.HTML.Event.DragEvent as DragEvent
 import Web.HTML.Event.DragEvent (DragEvent)
 import Web.HTML.Event.DataTransfer as DataTransfer
-import Util (moveWithin)
+import Util (enumerate, moveWithin, traceShowId)
 import Parser (parseFormula)
 import Proof as P
 import GUI.SymbolInput as SI
@@ -66,6 +67,32 @@ data RuleType
   | ModusTollens
   | DoubleNegIntro
 
+data RuleArg
+  = RowIdx Int
+  | BoxRange Int Int
+
+instance showRuleArg :: Show RuleArg where
+  show (RowIdx i) = "RowIdx " <> show i
+  show (BoxRange i j) = "BoxRange " <> show i <> " " <> show j
+
+parseRowIdx :: String -> Maybe RuleArg
+parseRowIdx s = traceShowId $ RowIdx <$> Int.fromString s
+
+ruleArgTypes :: RuleType -> Array (String -> Maybe RuleArg)
+ruleArgTypes = case _ of
+  RtPremise -> []
+  RtAssumption -> []
+  AndElim1 -> [ parseRowIdx, parseRowIdx ]
+  AndElim2 -> [ parseRowIdx, parseRowIdx ]
+  _ -> unsafeCrashWith "todo"
+
+parseRuleArgs :: RuleType -> Array String -> Array (Maybe RuleArg)
+parseRuleArgs ruleType ruleArgs =
+  let
+    argTypes = ruleArgTypes ruleType
+  in
+    Array.zipWith ($) argTypes (ruleArgs <> Array.replicate (Array.length argTypes) "")
+
 parseRuleText :: String -> Maybe RuleType
 parseRuleText = case _ of
   "Premise" -> Just RtPremise
@@ -75,9 +102,11 @@ parseRuleText = case _ of
   _ -> Nothing
 
 parseRule :: ProofRow -> Maybe P.Rule
-parseRule { rule, ruleArgs } = case rule, ruleArgs of
-  Assumption _, [] -> Just P.Assumption
-  _, _ -> Nothing
+parseRule { rule, ruleArgs } = do
+  ruleType <- parseRuleText (ruleText rule)
+  case ruleType, ruleArgs of
+    RtAssumption, [] -> Just P.Assumption
+    _, _ -> Nothing
 
 ruleText :: Rule -> String
 ruleText (Rule s) = s
@@ -114,6 +143,7 @@ data Action
   | DragEnd Int DragEvent
   | Drop Int DragEvent
   | UpdateConclusion String
+  | UpdateRuleArg Int Int String
 
 _symbolInput = Proxy :: Proxy "symbolInput"
 
@@ -236,8 +266,6 @@ render st =
         [ HP.classes [ HH.ClassName "proof-rows" ] ]
         (renderProofTree <$> proofTree st)
 
-  parsedRows = parseFormula <<< _.formulaText <$> st.rows
-
   verification =
     let
       proofTreeAction :: ProofTree -> Array (P.ND Unit)
@@ -255,7 +283,7 @@ render st =
       P.runND conclusion (sequence $ proofTree st >>= proofTreeAction)
 
   row :: Int -> ProofRow -> HH.HTML _ _
-  row i { formulaText, rule } =
+  row i { formulaText, rule, ruleArgs } =
     HH.div
       [ HP.classes
           ( [ HH.ClassName "columns", HH.ClassName "is-mobile", HH.ClassName "proof-row" ]
@@ -281,12 +309,34 @@ render st =
         , formulaField i "Enter formula" formulaText (UpdateFormula i)
         , HH.span
             [ HP.classes [ HH.ClassName "column", HH.ClassName "is-narrow" ] ]
-            [ HH.span
-                [ HP.classes [ HH.ClassName "rule-field" ] ]
+            [ HH.span [ HP.classes [ HH.ClassName "rule-field" ] ]
                 [ HH.slot _symbolInput (2 * i + 1) (symbolInput "Rule") (ruleText rule) (UpdateRule i) ]
             ]
         ]
+          <> argFields
       )
+    where
+    argField (Tuple j (Tuple res s)) =
+      HH.span [ HP.classes [ HH.ClassName "column", HH.ClassName "is-narrow" ] ]
+        [ HH.input
+            [ HP.classes
+                ( [ HH.ClassName "input", HH.ClassName "rule-arg-input" ]
+                    <> if isNothing res then [ HH.ClassName "invalid-rule-arg" ] else []
+                )
+            , HP.value s
+            , HP.placeholder "Row"
+            , HE.onValueInput $ UpdateRuleArg i j
+            ]
+        ]
+
+    argFields =
+      fromMaybe [] do
+        ruleType <- parseRuleText (ruleText rule)
+        let
+          argResults = parseRuleArgs ruleType ruleArgs
+
+          argStrings = ruleArgs <> Array.replicate (Array.length argResults) ""
+        pure $ argField <$> enumerate (Array.zip argResults argStrings)
 
 -- | The media type for the index of a proof row as a string.
 rowMediaType :: MediaType
@@ -304,6 +354,18 @@ handleAction = case _ of
                 st.rows
         }
     H.tell _symbolInput (2 * i + 1) SI.Focus
+  UpdateRuleArg i j s ->
+    H.modify_ \st ->
+      st
+        { rows =
+          unsafePartial $ fromJust
+            $ Array.modifyAt i
+                ( \row ->
+                    row
+                      { ruleArgs = unsafePartial $ fromJust $ Array.modifyAt j (const s) (row.ruleArgs <> Array.replicate (max 0 (j + 1 - Array.length row.ruleArgs)) "") }
+                )
+                st.rows
+        }
   RowKeyEvent i ev -> case KeyboardEvent.key ev of
     "Enter" -> if KeyboardEvent.shiftKey ev then exitBox i else addRowBelow i
     _ -> pure unit

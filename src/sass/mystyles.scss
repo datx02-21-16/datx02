@@ -136,3 +136,11 @@ $input-shadow: $primary;
 .formula-field.incorrect-formula > input {
 	border-color: red;
 }
+
+.rule-arg-input {
+	width: 4rem;
+}
+
+.rule-arg-input.invalid-rule-arg {
+	border-color: red;
+}
