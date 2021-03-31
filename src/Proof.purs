@@ -28,8 +28,8 @@ import Formula (Formula(..))
 data Rule
   = Premise
   | Assumption
-  | AndElimE1 Int
-  | AndElimE2 Int
+  | AndElim1 Int
+  | AndElim2 Int
   | AndIntro Int Int
   | ImplElim
   | ImplIntro
@@ -39,11 +39,13 @@ data Rule
   | ModusTollens
   | DoubleNegIntro
 
+derive instance eqRule :: Eq Rule
+
 instance showRule :: Show Rule where
   show Premise = "Premise"
   show Assumption = "Assumption"
-  show (AndElimE1 _) = "∧e1"
-  show (AndElimE2 _) = "∧e2"
+  show (AndElim1 _) = "∧e1"
+  show (AndElim2 _) = "∧e2"
   show (AndIntro _ _) = "∧i"
   show (ImplElim) = "->e"
   show (ImplIntro) = "->i"
@@ -56,6 +58,7 @@ instance showRule :: Show Rule where
 data NdError
   = BadRef
   | RefDiscarded
+  | RefOutOfBounds
   | BadRule
   | BadFormula
   | FormulaMismatch
@@ -104,22 +107,33 @@ runND conclusion (ND m) =
     , conclusion
     }
 
-proofRef :: Int -> ExceptT NdError ND (Maybe Formula)
+proofRef :: Int -> ExceptT NdError ND Formula
 proofRef i = do
   rows <- gets _.rows
   discarded <- gets _.discarded
-  { formula } <- except $ note BadRef $ rows !! i
+  { formula } <- except $ note RefOutOfBounds $ rows !! i
   when (i `Set.member` discarded) $ throwError RefDiscarded
-  pure formula
+  except $ note BadRef formula
 
 -- | Takes a user-provided formula and ND state and tries to apply the rule.
 applyRule :: Rule -> Maybe Formula -> ExceptT NdError ND Formula
 applyRule rule formula = case rule of
-  AndElimE1 i -> do
+  Premise -> except $ note BadFormula formula
+  Assumption -> except $ note BadFormula formula
+  AndElim1 i -> do
     a <- proofRef i
     case a of
-      Just (And x _) -> pure x
+      And x _ -> pure x
       _ -> throwError BadRule
+  AndElim2 i -> do
+    a <- proofRef i
+    case a of
+      And _ x -> pure x
+      _ -> throwError BadRule
+  AndIntro i j -> do
+    a <- proofRef i
+    b <- proofRef j
+    pure $ And a b
   _ -> throwError BadRule -- TODO remove
 
 addProof :: { formula :: Maybe Formula, rule :: Maybe Rule } -> ND Unit
