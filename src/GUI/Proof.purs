@@ -7,6 +7,7 @@ import Data.Either (isRight, Either(..))
 import Partial.Unsafe (unsafePartial, unsafeCrashWith)
 import Data.Array as Array
 import Data.Array ((!!), unsafeIndex)
+import Data.String.Regex
 import Data.FunctorWithIndex (mapWithIndex)
 import Effect.Class (class MonadEffect)
 import Effect.Console (logShow)
@@ -29,6 +30,7 @@ import Web.HTML.Event.DragEvent as DragEvent
 import Web.HTML.Event.DragEvent (DragEvent)
 import Web.HTML.Event.DataTransfer as DataTransfer
 import Util (moveWithin)
+import GUI.Utils (digitRegex)
 import Parser (parseFormula)
 import GUI.SymbolInput as SI
 import GUI.SymbolInput (symbolInput)
@@ -67,30 +69,36 @@ type ProofRow
        The idea is that if this field is Nothing and the formulaText is not empty, we can
        do something to signal to the user that the formula is ill-formed. Red text is not
        visible for everyone, so perhaps something else. -}
-    , formulaIR   :: Maybe Formula
-    , rule        :: Rule
-    , ruleArgs    :: Array String
+    , formulaIR :: Maybe Formula
+    , rule :: Rule
+    , ruleArgs :: Array String
     }
 
 -- | A newly added row.
 emptyRow :: ProofRow
-emptyRow = { formulaText: "", formulaIR: Nothing, rule: Rule "", ruleArgs: [] }
+emptyRow = { formulaText: "", formulaIR: Nothing, rule: Rule "", ruleArgs: [ "", "" ] }
 
+-- I added these two empty
+-- strings here to not make
+-- updateAt fail when a rule
+-- is inserted
 -- | Only stores endpoints of boxes since assumptions naturally define start points.
 type State
-  = { premises     :: String
-    , conclusion   :: String
-    , rows         :: Array ProofRow
+  = { premises :: String
+    , conclusion :: String
+    , rows :: Array ProofRow
     , draggingOver :: Maybe Int
-    , boxEnds      :: Set Int
-    , expectsArgs  :: Int            -- How many more operands needs to be selected
-    , clicked      :: Array Int      -- Which operands have already been selected
-    , clickedRule  :: Maybe R.Rules  -- The rule that we want to apply the operands to
+    , boxEnds :: Set Int
+    , expectsArgs :: Int -- How many more operands needs to be selected
+    , clicked :: Array Int -- Which operands have already been selected
+    , clickedRule :: Maybe R.Rules -- The rule that we want to apply the operands to
     }
 
 data Action
   = UpdateFormula Int String
   | UpdateRule Int String
+  | UpdateRuleArg Int Int String
+  | ApplyRule Int String
   | RowKeyEvent Int KeyboardEvent
   | DragStart Int DragEvent
   | DragOver Int DragEvent
@@ -278,6 +286,8 @@ render st =
   row :: Int -> ProofRow -> HH.HTML _ _
   row i { formulaText, rule } =
     let
+      thisrow = unsafePartial $ fromJust $ Array.index st.rows i
+
       isFormulaOk = isRight $ unsafePartial $ parsedRows `unsafeIndex` i
     in
       HH.div
@@ -307,15 +317,82 @@ render st =
               ]
           , HH.div
               [ HP.classes [ HH.ClassName "column", HH.ClassName "formula-field" ] ]
-              [ HH.slot _symbolInput (2 * i) (symbolInput "Enter formula") formulaText (UpdateFormula i) ]
+              [ HH.slot _symbolInput (4 * i) (symbolInput "Enter formula") formulaText (UpdateFormula i) ]
           , HH.div
               [ HP.classes [ HH.ClassName "column", HH.ClassName "is-narrow" ] ]
               [ HH.span
                   [ HP.classes [ HH.ClassName "rule-field" ] ]
-                  [ HH.slot _symbolInput (2 * i + 1) (symbolInput "Rule") (ruleText rule) (UpdateRule i) ]
+                  [ let
+                      thisrow = unsafePartial $ fromJust $ Array.index st.rows i
+                    in
+                      HH.slot _symbolInput (4 * i + 1) (symbolInput "Rule") (ruleStringFromRow thisrow) (UpdateRule i)
+                  ]
               ]
+          , argFields thisrow i
           ]
         )
+
+  argFields row i = case row.rule of
+    Rule rule
+      | rule
+          `Array.elem`
+            [ "→i"
+            , "¬i"
+            ] ->
+        -- The only thing that separates these rules and the other 2-ary rules
+        -- is the separator (comma or dash). This can be turned into a function that
+        -- takes the separator as an argument, to make the code shorter and
+        -- eliminate duplication.
+        HH.div [ HP.classes [ HH.ClassName "column", HH.ClassName "rule-args" ] ]
+          [ let
+              text = case Array.head (row.ruleArgs) of
+                Just arg -> arg
+                Nothing -> ""
+            in
+              HH.span [ HP.classes [ HH.ClassName "rule-arg" ] ]
+                [ HH.slot _symbolInput (4 * i + 2) (symbolInput "Arg") text (UpdateRuleArg i 0) ]
+          , HH.p [ HP.classes [ HH.ClassName "title", HH.ClassName "delimiter" ] ] [ HH.text "-" ]
+          , let
+              text = case Array.index row.ruleArgs 1 of
+                Just arg -> arg
+                Nothing -> ""
+            in
+              HH.span [ HP.classes [ HH.ClassName "rule-arg" ] ]
+                [ HH.slot _symbolInput (4 * i + 3) (symbolInput "Arg") text (UpdateRuleArg i 1) ]
+          ]
+      -- two argument case, separated by dash
+      | rule
+          `Array.elem`
+            [ "∧i"
+            , "MT"
+            ] ->
+        HH.div [ HP.classes [ HH.ClassName "column", HH.ClassName "rule-args" ] ]
+          [ let
+              text = case Array.head (row.ruleArgs) of
+                Just arg -> arg
+                Nothing -> ""
+            in
+              HH.span [ HP.classes [ HH.ClassName "rule-arg" ] ]
+                [ HH.slot _symbolInput (4 * i + 2) (symbolInput "Arg") text (UpdateRuleArg i 0) ]
+          , HH.p [ HP.classes [ HH.ClassName "title", HH.ClassName "delimiter" ] ] [ HH.text "," ]
+          , let
+              text = case Array.index row.ruleArgs 1 of
+                Just arg -> arg
+                Nothing -> ""
+            in
+              HH.span [ HP.classes [ HH.ClassName "rule-arg" ] ]
+                [ HH.slot _symbolInput (4 * i + 3) (symbolInput "Arg") text (UpdateRuleArg i 1) ]
+          ] -- two argument case, separated by comma
+      | rule
+          `Array.elem`
+            [ "¬¬e"
+            , "¬¬i"
+            , "∧e1"
+            , "∧e2"
+            ] -> HH.div [] [] -- TODO one argument case
+    Assumption _ -> HH.div [] []
+    Premise -> HH.div [] []
+    _ -> HH.div [] []
 
 -- | The media type for the index of a proof row as a string.
 rowMediaType :: MediaType
@@ -355,10 +432,13 @@ handleAction = case _ of
               , rule: Rule "∧i"
               , ruleArgs: [ show (h1 + 1), show (i + 1) ]
               }
-            
-            newrows1 = if (unsafePartial (fromJust (Array.last st.rows))) == emptyRow
-                       then Array.snoc (unsafePartial $ fromJust (Array.init st.rows)) newrow
-                       else Array.snoc st.rows newrow
+
+            newrows1 =
+              if (unsafePartial (fromJust (Array.last st.rows))) == emptyRow then
+                Array.snoc (unsafePartial $ fromJust (Array.init st.rows)) newrow
+              else
+                Array.snoc st.rows newrow
+
             newrows2 = Array.snoc newrows1 emptyRow
           in
             do
@@ -506,7 +586,7 @@ handleAction = case _ of
           newrows = myupdateAt i st.rows (row { formulaText = s, formulaIR = Just formula })
         in
           H.modify_ \st -> st { rows = newrows }
-  UpdateRule i s ->
+  UpdateRule i s -> do
     H.modify_ \st ->
       st
         { rows =
@@ -514,6 +594,16 @@ handleAction = case _ of
             $ Array.modifyAt i _ { rule = ruleFromString s i }
                 st.rows
         }
+  UpdateRuleArg i argIdx arg -> do
+    st <- H.get
+    H.liftEffect $ logShow $ show i <> " " <> show (Array.length st.rows)
+    let
+      row = unsafePartial $ fromJust $ Array.index st.rows i
+    let
+      newrow = case test digitRegex arg of
+        true -> row { ruleArgs = myupdateAt argIdx row.ruleArgs arg }
+        false -> row
+    H.modify_ $ \st -> st { rows = myupdateAt i st.rows newrow }
   RowKeyEvent i ev -> case KeyboardEvent.key ev of
     "Enter" -> addRowBelow i
     _ -> pure unit
@@ -607,3 +697,9 @@ ruleFromString s rowIdx
   | s == "Ass." || s == "as" = Assumption { boxEndIdx: rowIdx }
   | s == "pr" || s == "Premise" = Premise
   | otherwise = Rule s
+
+ruleStringFromRow :: ProofRow -> String
+ruleStringFromRow row = case row.rule of
+  Assumption _ -> "Ass."
+  Premise -> "Premise"
+  Rule s -> s
