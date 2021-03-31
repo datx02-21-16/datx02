@@ -133,6 +133,6 @@ $input-shadow: $primary;
 	}
 }
 
-.proof-row.incorrect-formula > .formula-field > input {
+.formula-field.incorrect-formula > input {
 	border-color: red;
 }

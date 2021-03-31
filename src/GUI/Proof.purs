@@ -207,13 +207,23 @@ render st =
     HH.div
       [ HP.classes [ HH.ClassName "proof-header" ] ]
       [ HH.span [] [ HH.text premises, HH.text " ⊢ " ]
-      , HH.slot _symbolInput (-1) (symbolInput "Conclusion") st.conclusion UpdateConclusion
+      , formulaField (-1) "Conclusion" st.conclusion UpdateConclusion
       ]
 
   premises =
     joinWith ", "
       $ _.formulaText
       <$> Array.takeWhile ((_ == Premise) <<< _.rule) st.rows
+
+  formulaField :: Int -> String -> String -> (String -> Action) -> HH.HTML _ _
+  formulaField i placeholder text outputMap =
+    HH.span
+      [ HP.classes $ [ HH.ClassName "column", HH.ClassName "formula-field" ]
+          <> if isOk then [] else [ HH.ClassName "incorrect-formula" ]
+      ]
+      [ HH.slot _symbolInput (2 * i) (symbolInput placeholder) text outputMap ]
+    where
+    isOk = isRight $ parseFormula text
 
   proofRows :: HH.HTML _ _
   proofRows =
@@ -236,7 +246,7 @@ render st =
         RowNode i r ->
           pure
             $ P.addProof
-                { formula: hush $ unsafePartial $ parsedRows `unsafeIndex` i
+                { formula: hush $ parseFormula r.formulaText
                 , rule: parseRule r
                 }
 
@@ -246,43 +256,37 @@ render st =
 
   row :: Int -> ProofRow -> HH.HTML _ _
   row i { formulaText, rule } =
-    let
-      isFormulaOk = isRight $ unsafePartial $ parsedRows `unsafeIndex` i
-    in
-      HH.div
-        [ HP.classes
-            ( [ HH.ClassName "columns", HH.ClassName "is-mobile", HH.ClassName "proof-row" ]
-                <> maybe []
-                    (\j -> if i == j then [ HH.ClassName "dragged-over" ] else [])
-                    st.draggingOver
-                <> if isFormulaOk then [] else [ HH.ClassName "incorrect-formula" ]
-            )
-        , HP.draggable true
-        , HE.onKeyDown $ RowKeyEvent i
-        , HE.onDragStart $ DragStart i
-        , HE.onDragOver $ DragOver i
-        , HE.onDragEnter $ DragEnter i
-        , HE.onDragLeave $ DragLeave i
-        , HE.onDrop $ Drop i
-        , HE.onDragEnd $ DragEnd i
+    HH.div
+      [ HP.classes
+          ( [ HH.ClassName "columns", HH.ClassName "is-mobile", HH.ClassName "proof-row" ]
+              <> maybe []
+                  (\j -> if i == j then [ HH.ClassName "dragged-over" ] else [])
+                  st.draggingOver
+          )
+      , HP.draggable true
+      , HE.onKeyDown $ RowKeyEvent i
+      , HE.onDragStart $ DragStart i
+      , HE.onDragOver $ DragOver i
+      , HE.onDragEnter $ DragEnter i
+      , HE.onDragLeave $ DragLeave i
+      , HE.onDrop $ Drop i
+      , HE.onDragEnd $ DragEnd i
+      ]
+      ( [ HH.span
+            [ HP.classes [ HH.ClassName "column", HH.ClassName "is-narrow" ] ]
+            [ HH.h4
+                [ HP.classes [ HH.ClassName "title", HH.ClassName "row-index" ] ]
+                [ HH.text (show (1 + i)) ]
+            ]
+        , formulaField i "Enter formula" formulaText (UpdateFormula i)
+        , HH.span
+            [ HP.classes [ HH.ClassName "column", HH.ClassName "is-narrow" ] ]
+            [ HH.span
+                [ HP.classes [ HH.ClassName "rule-field" ] ]
+                [ HH.slot _symbolInput (2 * i + 1) (symbolInput "Rule") (ruleText rule) (UpdateRule i) ]
+            ]
         ]
-        ( [ HH.div
-              [ HP.classes [ HH.ClassName "column", HH.ClassName "is-narrow" ] ]
-              [ HH.h4
-                  [ HP.classes [ HH.ClassName "title", HH.ClassName "row-index" ] ]
-                  [ HH.text (show (1 + i)) ]
-              ]
-          , HH.div
-              [ HP.classes [ HH.ClassName "column", HH.ClassName "formula-field" ] ]
-              [ HH.slot _symbolInput (2 * i) (symbolInput "Enter formula") formulaText (UpdateFormula i) ]
-          , HH.div
-              [ HP.classes [ HH.ClassName "column", HH.ClassName "is-narrow" ] ]
-              [ HH.span
-                  [ HP.classes [ HH.ClassName "rule-field" ] ]
-                  [ HH.slot _symbolInput (2 * i + 1) (symbolInput "Rule") (ruleText rule) (UpdateRule i) ]
-              ]
-          ]
-        )
+      )
 
 -- | The media type for the index of a proof row as a string.
 rowMediaType :: MediaType
