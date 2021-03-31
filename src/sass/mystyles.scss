@@ -133,10 +133,14 @@ $input-shadow: $primary;
 	}
 }
 
-.proof-row .invalid input {
+.rule-arg-input {
+	width: 4rem;
+}
+
+.proof-row .invalid input, .formula-field.invalid input {
 	border-color: red;
 }
 
-.rule-arg-input {
-	width: 4rem;
+.proof.complete .proof-row:last-child {
+	border: solid green;
 }

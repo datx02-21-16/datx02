@@ -14,7 +14,7 @@ import Data.Traversable (sequence)
 import Data.FoldableWithIndex (foldlWithIndex)
 import Data.List (List(Nil), (:))
 import Data.NonEmpty ((:|))
-import Data.Tuple (Tuple(Tuple))
+import Data.Tuple (Tuple(Tuple), fst, snd)
 import Data.MediaType (MediaType(MediaType))
 import Data.Int as Int
 import Data.Tuple (Tuple(..), fst)
@@ -29,7 +29,7 @@ import Web.UIEvent.KeyboardEvent (KeyboardEvent)
 import Web.HTML.Event.DragEvent as DragEvent
 import Web.HTML.Event.DragEvent (DragEvent)
 import Web.HTML.Event.DataTransfer as DataTransfer
-import Util (enumerate, moveWithin, traceShowId)
+import Util (enumerate, moveWithin)
 import Parser (parseFormula)
 import Proof as P
 import GUI.SymbolInput as SI
@@ -92,7 +92,6 @@ ruleArgTypes = case _ of
   NegElim -> []
   ModusTollens -> []
   DoubleNegIntro -> []
-  _ -> unsafeCrashWith "todo"
 
 parseRuleArgs :: RuleType -> Array String -> Array (Maybe RuleArg)
 parseRuleArgs ruleType ruleArgs =
@@ -269,7 +268,12 @@ proofTree { rows } = case result of
 
 render :: forall m. MonadEffect m => State -> H.ComponentHTML Action Slots m
 render st =
-  HH.div [ HP.classes [ HH.ClassName "proof" ] ]
+  HH.div
+    [ HP.classes
+        ( [ HH.ClassName "proof" ]
+            <> if complete then [ HH.ClassName "complete" ] else []
+        )
+    ]
     [ proofHeader, proofRows ]
   where
   proofHeader =
@@ -294,18 +298,8 @@ render st =
     where
     isOk = isRight $ parseFormula text
 
-  proofRows :: HH.HTML _ _
-  proofRows =
-    let
-      renderProofTree = case _ of
-        Subproof xs -> HH.div [ HP.classes [ HH.ClassName "proof-box" ] ] (renderProofTree <$> xs)
-        RowNode i r -> row i r
-    in
-      HH.div
-        [ HP.classes [ HH.ClassName "proof-rows" ] ]
-        (renderProofTree <$> proofTree st)
-
-  verification =
+  -- FIXME: Cannot get "Tuple complete verification = ..." to work?
+  verification' =
     let
       proofTreeAction :: ProofTree -> Array (P.ND Unit)
       proofTreeAction = case _ of
@@ -320,6 +314,21 @@ render st =
       conclusion = hush $ parseFormula st.conclusion
     in
       P.runND conclusion (sequence $ proofTree st >>= proofTreeAction)
+
+  complete = fst verification'
+
+  verification = snd verification'
+
+  proofRows :: HH.HTML _ _
+  proofRows =
+    let
+      renderProofTree = case _ of
+        Subproof xs -> HH.div [ HP.classes [ HH.ClassName "proof-box" ] ] (renderProofTree <$> xs)
+        RowNode i r -> row i r
+    in
+      HH.div
+        [ HP.classes [ HH.ClassName "proof-rows" ] ]
+        (renderProofTree <$> proofTree st)
 
   row :: Int -> ProofRow -> HH.HTML _ _
   row i { formulaText, rule, ruleArgs } =
@@ -487,7 +496,7 @@ handleAction = case _ of
   --   all boxes which end after the given index by one.
   incrBoxEnds :: Int -> Array ProofRow -> Array ProofRow
   incrBoxEnds i =
-    map \r -> case r of
+    map case _ of
       row@{ rule: Assumption { boxEndIdx } }
         | i <= boxEndIdx -> row { rule = Assumption { boxEndIdx: boxEndIdx + 1 } }
       x -> x
@@ -506,7 +515,7 @@ handleAction = case _ of
               | (i <= boxEndIdx) -> row { rule = Assumption { boxEndIdx: boxEndIdx + 1 } }
             x -> x
       )
-      (indexRows rs)
+      (enumerate rs)
 
   -- | Inclusive-exclusive interval of the rows that are currently being dragged.
   draggedRows :: DragEvent -> H.HalogenM _ _ _ _ _ { start :: Int, end :: Int }
@@ -544,7 +553,7 @@ scopeStart i st = fst $ innermostScope i st
 
   -- | Extracts all boxes along with their index from a list of indexed rows.
   indexedBoxes :: State -> Array (Tuple Int ProofRow)
-  indexedBoxes st = Array.filter (\(Tuple i r) -> isBox r) (indexRows st.rows)
+  indexedBoxes st = Array.filter (\(Tuple i r) -> isBox r) (enumerate st.rows)
 
   -- | Takes a row, assumed to be the start of a box, along with it's
   --   position in the proof. Returns a tuple with the limits of the box.
@@ -556,10 +565,6 @@ scopeStart i st = fst $ innermostScope i st
   -- | Get a list of all boxes in a state as tuples.
   allBoxLimits :: State -> Array (Tuple Int Int)
   allBoxLimits st = map boxLimits $ indexedBoxes st
-
--- | Tags each line in an array with it's index in the array.
-indexRows :: forall t. Array t -> Array (Tuple Int t)
-indexRows arr = Array.zip (0 Array... (Array.length arr)) arr
 
 getAllEndings :: State -> Array Int
 getAllEndings st = map rToE $ boxes st

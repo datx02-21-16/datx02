@@ -8,6 +8,9 @@ import Partial.Unsafe (unsafePartial)
 import Data.Tuple (Tuple(Tuple))
 import Data.FunctorWithIndex (class FunctorWithIndex, mapWithIndex)
 import Debug (class DebugWarning, trace)
+import Data.Either (hush)
+import Control.Monad.Maybe.Trans (MaybeT(MaybeT))
+import Control.Monad.Except.Trans (ExceptT(ExceptT))
 
 enumerate :: forall i f a. FunctorWithIndex i f => f a -> f (Tuple i a)
 enumerate = mapWithIndex Tuple
@@ -35,6 +38,9 @@ findLast :: forall a. (a -> Boolean) -> Array a -> Maybe a
 findLast f xs =
   (\i -> unsafePartial $ Array.unsafeIndex xs i)
     <$> Array.findLastIndex f xs
+
+exceptToMaybeT :: forall e m a. Functor m => ExceptT e m a -> MaybeT m a
+exceptToMaybeT (ExceptT m) = MaybeT $ hush <$> m
 
 traceShowId :: forall a. DebugWarning => Show a => a -> a
 traceShowId x = trace (show x) \_ -> x

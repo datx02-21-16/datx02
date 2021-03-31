@@ -13,7 +13,7 @@ module Proof
 
 import Prelude
 import Data.Either (Either(..), note, hush)
-import Data.Maybe (Maybe(..), fromJust)
+import Data.Maybe (Maybe(..), isJust, fromJust)
 import Partial.Unsafe (unsafePartial, unsafeCrashWith)
 import Data.Array as Array
 import Data.Array (snoc, (!!), (..))
@@ -21,10 +21,12 @@ import Data.List as List
 import Data.List (List(Nil), (:))
 import Data.Set as Set
 import Data.Set (Set)
-import Control.Monad.State (State, class MonadState, execState, modify_, get, gets)
+import Data.Tuple (Tuple)
+import Data.Foldable (any)
+import Control.Monad.State (State, class MonadState, runState, modify_, get)
 import Control.Monad.Except.Trans (ExceptT, runExceptT, throwError, except)
+import Control.Monad.Maybe.Trans (MaybeT(MaybeT), runMaybeT)
 import Formula (Formula(..))
-import Util
 
 data Rule
   = Premise
@@ -81,32 +83,42 @@ type Proof
   = { rows :: Array ProofRow
     , discarded :: Set Int
     , boxes :: List Box -- Stack of nested boxes
-    , conclusion :: Maybe Formula
     }
 
 newtype ND a
   = ND (State Proof a)
 
-derive newtype instance functorNd :: Functor ND
+derive newtype instance functorND :: Functor ND
 
-derive newtype instance applyNd :: Apply ND
+derive newtype instance applyND :: Apply ND
 
-derive newtype instance applicativeNd :: Applicative ND
+derive newtype instance applicativeND :: Applicative ND
 
-derive newtype instance bindNd :: Bind ND
+derive newtype instance bindND :: Bind ND
 
-derive newtype instance monadNd :: Monad ND
+derive newtype instance monadND :: Monad ND
 
-derive newtype instance monadStateNd :: MonadState Proof ND
+derive newtype instance monadStateND :: MonadState Proof ND
 
-runND :: forall a. Maybe Formula -> ND a -> Proof
-runND conclusion (ND m) =
-  execState m
+runND :: forall a. Maybe Formula -> ND a -> Tuple Boolean Proof
+runND conclusion (ND nd) =
+  runState (nd *> checkCompleteness)
     { rows: []
     , discarded: Set.empty
     , boxes: Nil
-    , conclusion
     }
+  where
+  checkCompleteness =
+    isJust
+      <$> runMaybeT do
+          { rows, boxes } <- get
+          -- Check if there are unclosed boxes
+          unless (boxes == Nil) $ MaybeT (pure Nothing)
+          -- Should be no errors
+          when (any (isJust <<< _.error) rows) $ MaybeT (pure Nothing)
+          -- The last row should equal the conclusion in a complete proof
+          lastRow <- MaybeT $ pure $ (Array.last rows) >>= _.formula
+          unless (Just lastRow == conclusion) $ MaybeT (pure Nothing)
 
 proofRef :: Int -> ExceptT NdError ND Formula
 proofRef i = do
@@ -145,7 +157,7 @@ applyRule rule formula = case rule of
       _, _ -> throwError BadRule
   DoubleNegElim i -> do
     a <- proofRef i
-    case traceShowId a of
+    case a of
       Not (Not x) -> pure x
       _ -> throwError BadRule
   _ -> throwError BadRule -- TODO remove
