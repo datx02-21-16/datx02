@@ -141,6 +141,6 @@ $input-shadow: $primary;
 	border-color: red;
 }
 
-.proof.complete .proof-row:last-child {
+.proof.complete .proof-rows > .proof-row:last-child {
 	border: solid green;
 }

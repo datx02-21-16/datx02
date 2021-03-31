@@ -124,7 +124,7 @@ proofRef :: Int -> ExceptT NdError ND Formula
 proofRef i = do
   { rows, discarded } <- get
   { formula } <- except $ note RefOutOfBounds $ rows !! (i - 1)
-  when (i `Set.member` discarded) $ throwError RefDiscarded
+  when ((i - 1) `Set.member` discarded) $ throwError RefDiscarded
   except $ note BadRef formula
 
 -- | Takes a user-provided formula and ND state and tries to apply the rule.
