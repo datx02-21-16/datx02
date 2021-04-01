@@ -14,7 +14,7 @@ module Proof
 import Prelude
 import Data.Either (Either(..), note, hush)
 import Data.Maybe (Maybe(..), isJust, fromJust)
-import Partial.Unsafe (unsafePartial, unsafeCrashWith)
+import Partial.Unsafe (unsafePartial)
 import Data.Array as Array
 import Data.Array (snoc, (!!), (..))
 import Data.List as List
@@ -23,6 +23,7 @@ import Data.Set as Set
 import Data.Set (Set)
 import Data.Tuple (Tuple)
 import Data.Foldable (any)
+import Control.Alt ((<|>))
 import Control.Monad.State (State, class MonadState, runState, modify_, get)
 import Control.Monad.Except.Trans (ExceptT, runExceptT, throwError, except)
 import Control.Monad.Maybe.Trans (MaybeT(MaybeT), runMaybeT)
@@ -66,6 +67,8 @@ data NdError
   | BadFormula
   | FormulaMismatch
   | InvalidRule
+
+derive instance eqNdError :: Eq NdError
 
 type ProofRow
   = { formula :: Maybe Formula
@@ -129,8 +132,9 @@ runND conclusion (ND nd) = runState (nd *> checkCompleteness) initialState
 proofRef :: Int -> ExceptT NdError ND Formula
 proofRef i = do
   { rows, discarded } <- get
-  { formula } <- except $ note RefOutOfBounds $ rows !! (i - 1)
+  { formula, error } <- except $ note RefOutOfBounds $ rows !! (i - 1)
   when ((i - 1) `Set.member` discarded) $ throwError RefDiscarded
+  when (error == Just BadFormula) $ throwError BadRef -- User needs to have input the formula
   except $ note BadRef formula
 
 -- | Attempt to apply the specified rule given the user-provided formula.
@@ -143,6 +147,7 @@ proofRef i = do
 applyRule :: Rule -> Maybe Formula -> ExceptT NdError ND Formula
 applyRule rule formula = case rule of
   Premise -> except $ note BadFormula formula
+  -- TODO Check if this assumption is the first formula in the current box
   Assumption -> except $ note BadFormula formula
   AndElim1 i -> do
     a <- proofRef i
@@ -174,12 +179,18 @@ applyRule rule formula = case rule of
       _ -> throwError BadRule
   _ -> throwError BadRule -- TODO remove
 
+-- | Add a row to the derivation.
+-- |
+-- | Possibly an error will be attached. If the user has not
+-- | inputted the formula, then the correct formula from the rule
+-- | application will be used in its stead, if possible. This can be
+-- | used to generate a formula from use of some rule.
 addProof :: { formula :: Maybe Formula, rule :: Maybe Rule } -> ND Unit
 addProof { formula: inputFormula, rule } = do
   -- Try to apply the rule (and get the correct formula)
   result <- runExceptT $ (except $ note InvalidRule rule) >>= (flip applyRule) inputFormula
   let
-    formula = hush result
+    formula = inputFormula <|> hush result
 
     error = case inputFormula, result of
       _, Left e -> Just e
@@ -189,8 +200,6 @@ addProof { formula: inputFormula, rule } = do
         | otherwise -> Just FormulaMismatch
   modify_ \proof -> proof { rows = snoc proof.rows { formula, rule, error } }
 
--- TODO Should only be able to open box on assumption/fresh
--- Need to check that two boxes are not opened on each other without formula in between
 openBox :: ND Unit
 openBox = modify_ \proof -> proof { boxes = { startIdx: Array.length proof.rows } : proof.boxes }
 
