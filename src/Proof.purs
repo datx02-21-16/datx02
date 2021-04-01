@@ -1,123 +1,224 @@
-module Proof (NdError,
-              Rule,
-              Nd,
-              proofRef,
-              addProof,
-              addBox,
-              closeBox) where
+module Proof
+  ( NdError(..)
+  , Rule(..)
+  , ND
+  , Proof
+  , ProofRow
+  , Box
+  , runND
+  , addProof
+  , openBox
+  , closeBox
+  ) where
 
 import Prelude
-import Control.Monad.State (State, modify_, gets)
-import Data.Array (snoc, (!!))
-import Data.Either (Either(..), note)
-import Data.Maybe (Maybe(..), fromJust)
-import Partial.Unsafe (unsafePartial, unsafeCrashWith)
+import Data.Either (Either(..), note, hush)
+import Data.Maybe (Maybe(..), isJust, fromJust)
+import Partial.Unsafe (unsafePartial)
 import Data.Array as Array
+import Data.Array (snoc, (!!), (..))
 import Data.List as List
 import Data.List (List(Nil), (:))
 import Data.Set as Set
 import Data.Set (Set)
-
+import Data.Tuple (Tuple)
+import Data.Foldable (any)
+import Control.Alt ((<|>))
+import Control.Monad.State (State, class MonadState, runState, modify_, get)
+import Control.Monad.Except.Trans (ExceptT, runExceptT, throwError, except)
+import Control.Monad.Maybe.Trans (MaybeT(MaybeT), runMaybeT)
 import Formula (Formula(..))
 
 data Rule
   = Premise
   | Assumption
-  | AndElimE1 Int
-  | AndElimE2 Int
+  | AndElim1 Int
+  | AndElim2 Int
   | AndIntro Int Int
-  | ImplElim
+  | ImplElim Int Int
   | ImplIntro
   | BottomElim
-  | DoubleNegElim
+  | DoubleNegElim Int
   | NegElim
   | ModusTollens
   | DoubleNegIntro
 
---data RuleApp = {rule :: Rule , formulas :: Array Formula}
+derive instance eqRule :: Eq Rule
+
 instance showRule :: Show Rule where
   show Premise = "Premise"
   show Assumption = "Assumption"
-  show (AndElimE1 _) = "∧e1"
-  show (AndElimE2 _) = "∧e2"
+  show (AndElim1 _) = "∧e1"
+  show (AndElim2 _) = "∧e2"
   show (AndIntro _ _) = "∧i"
-  show (ImplElim) = "->e"
-  show (ImplIntro) = "->i"
+  show (ImplElim _ _) = "→e"
+  show (ImplIntro) = "→i"
   show (BottomElim) = "Bottom elimination"
-  show (DoubleNegElim) = "Double neg elimination"
+  show (DoubleNegElim _) = "Double neg elimination"
   show (NegElim) = "Neg elimination"
   show (ModusTollens) = "MT"
   show (DoubleNegIntro) = "Double neg introduction"
 
-data NdError = BadRef | RefDiscarded | BadRule | BadFormula | FormulaMismatch
+data NdError
+  = BadRef
+  | RefDiscarded
+  | RefOutOfBounds
+  | BadRule
+  | BadFormula
+  | FormulaMismatch
+  | InvalidRule
 
-type Proof = { formula :: Maybe Formula
-             , rule :: Rule
-             , error :: Maybe NdError
-             }
+derive instance eqNdError :: Eq NdError
 
-type Box = { startIdx :: Int
-             -- TODO Store accessible sub-boxes for →i/BottomElim
-           }
+type ProofRow
+  = { formula :: Maybe Formula
+    , rule :: Maybe Rule
+    , error :: Maybe NdError
+    }
+
+type Box
+  = { startIdx :: Int
+    -- TODO Store accessible sub-boxes for →i/BottomElim
+    }
 
 -- | Partial or completed ND derivation.
-newtype Nd = Nd { proofs :: Array Proof
-                , discarded :: Set Int
-                , boxes :: List Box -- Stack of nested boxes
-                , consequent :: Formula
-                }
+type Proof
+  = { rows :: Array ProofRow
+    , discarded :: Set Int
+    , boxes :: List Box -- Stack of nested boxes
+    }
 
-newNd :: Array Formula -> Formula -> Nd
-newNd premises consequent
-  = Nd { proofs: ({ formula: _
-                  , rule: Premise
-                  , error: Nothing } <<< Just) <$> premises
-       , discarded: Set.empty
-       , boxes: Nil
-       , consequent
-       }
+newtype ND a
+  = ND (State Proof a)
 
-proofRef :: Int -> Nd -> Either NdError (Maybe Formula)
-proofRef i (Nd { proofs, discarded }) = do
-  { formula } <- note BadRef $ proofs !! i
-  when (i `Set.member` discarded) $ Left RefDiscarded
-  pure formula
+derive newtype instance functorND :: Functor ND
 
--- TODO Should only be able to open box on assumption
-addBox :: Nd -> Nd
-addBox (Nd nd@{ proofs, boxes })
-  = Nd $ nd { boxes = { startIdx: Array.length proofs }:boxes }
+derive newtype instance applyND :: Apply ND
 
-closeBox :: Nd -> Nd
-closeBox (Nd nd@{ proofs, discarded, boxes })
-  = Nd $ nd { discarded = discarded <> newDiscards
-            , boxes = boxes' }
+derive newtype instance applicativeND :: Applicative ND
+
+derive newtype instance bindND :: Bind ND
+
+derive newtype instance monadND :: Monad ND
+
+derive newtype instance monadStateND :: MonadState Proof ND
+
+-- | Verifies whether the ND derivation correctly proves the specified conclusion.
+-- |
+-- | Returns the completeness status, together with the proof as given
+-- | annotated with any potential errors.
+runND :: forall a. Maybe Formula -> ND a -> Tuple Boolean Proof
+runND conclusion (ND nd) = runState (nd *> checkCompleteness) initialState
   where
-    { head: box, tail: boxes' } = unsafePartial $ fromJust
-        $ List.uncons boxes
-    startIdx = box.startIdx
-    endIdx = Array.length proofs
-    newDiscards = Set.fromFoldable $ Array.range startIdx endIdx
+  initialState =
+    { rows: []
+    , discarded: Set.empty
+    , boxes: Nil
+    }
 
--- | Takes a user-provided formula and ND state and tries to apply the rule.
-applyRule :: Rule -> Maybe Formula -> Nd -> Either NdError Formula
-applyRule rule formula nd = case rule of
-  AndElimE1 i -> do
-    a <- proofRef i nd
+  checkCompleteness =
+    isJust
+      <$> runMaybeT do
+          { rows, boxes } <- get
+          -- Check if there are unclosed boxes
+          unless (boxes == Nil) $ MaybeT (pure Nothing)
+          -- Should be no errors
+          when (any (isJust <<< _.error) rows) $ MaybeT (pure Nothing)
+          -- The last row should equal the conclusion in a complete proof
+          lastRow <- MaybeT $ pure $ (Array.last rows) >>= _.formula
+          unless (Just lastRow == conclusion) $ MaybeT (pure Nothing)
+
+-- | Get the formula at the given one-based row index, if it is in scope.
+proofRef :: Int -> ExceptT NdError ND Formula
+proofRef i = do
+  { rows, discarded } <- get
+  { formula, error } <- except $ note RefOutOfBounds $ rows !! (i - 1)
+  when ((i - 1) `Set.member` discarded) $ throwError RefDiscarded
+  when (error == Just BadFormula) $ throwError BadRef -- User needs to have input the formula
+  except $ note BadRef formula
+
+-- | Attempt to apply the specified rule given the user-provided formula.
+-- |
+-- | Does not modify state.
+-- |
+-- | The formula inputted by the user is needed to uniformly handle
+-- | rules such as LEM, which violate the subformula property. They
+-- | can then return that formula as the result, provided it is valid.
+applyRule :: Rule -> Maybe Formula -> ExceptT NdError ND Formula
+applyRule rule formula = case rule of
+  Premise -> except $ note BadFormula formula
+  -- TODO Check if this assumption is the first formula in the current box
+  Assumption -> except $ note BadFormula formula
+  AndElim1 i -> do
+    a <- proofRef i
     case a of
-      Just (And x _) -> pure x
-      _ -> Left BadRule
-  _ -> unsafeCrashWith "unimplemented"
+      And x _ -> pure x
+      _ -> throwError BadRule
+  AndElim2 i -> do
+    a <- proofRef i
+    case a of
+      And _ x -> pure x
+      _ -> throwError BadRule
+  AndIntro i j -> do
+    a <- proofRef i
+    b <- proofRef j
+    pure $ And a b
+  ImplElim i j -> do
+    a <- proofRef i
+    b <- proofRef j
+    case a, b of
+      Implies x y, z
+        | x == z -> pure y
+      z, Implies x y
+        | x == z -> pure y
+      _, _ -> throwError BadRule
+  DoubleNegElim i -> do
+    a <- proofRef i
+    case a of
+      Not (Not x) -> pure x
+      _ -> throwError BadRule
+  _ -> throwError BadRule -- TODO remove
 
-addProof :: Maybe Formula -> Rule -> Nd -> Nd
-addProof formula rule (Nd nd@{ proofs }) = let
-  ruleResult = do
-    ruleFormula <- applyRule rule formula (Nd nd)
-    case formula of
-      Nothing -> Left BadFormula
-      Just f | f /= ruleFormula -> Left FormulaMismatch
-      _ -> pure ruleFormula
-  error = case ruleResult of
-    Left x -> Just x
-    _ -> Nothing
-  in Nd $ nd { proofs = snoc proofs { formula, rule, error } }
+-- | Add a row to the derivation.
+-- |
+-- | Possibly an error will be attached. If the user has not
+-- | inputted the formula, then the correct formula from the rule
+-- | application will be used in its stead, if possible. This can be
+-- | used to generate a formula from use of some rule.
+addProof :: { formula :: Maybe Formula, rule :: Maybe Rule } -> ND Unit
+addProof { formula: inputFormula, rule } = do
+  -- Try to apply the rule (and get the correct formula)
+  result <- runExceptT $ (except $ note InvalidRule rule) >>= (flip applyRule) inputFormula
+  let
+    formula = inputFormula <|> hush result
+
+    error = case inputFormula, result of
+      _, Left e -> Just e
+      Nothing, Right _ -> Just BadFormula
+      Just f, Right g
+        | f == g -> Nothing
+        | otherwise -> Just FormulaMismatch
+  modify_ \proof -> proof { rows = snoc proof.rows { formula, rule, error } }
+
+openBox :: ND Unit
+openBox = modify_ \proof -> proof { boxes = { startIdx: Array.length proof.rows } : proof.boxes }
+
+-- | Close the innermost currently open box.
+-- |
+-- | Panics if there is no such box.
+closeBox :: ND Unit
+closeBox = do
+  modify_ \proof ->
+    let
+      { head: box, tail: boxes' } = unsafePartial $ fromJust $ List.uncons proof.boxes
+
+      startIdx = box.startIdx
+
+      endIdx = Array.length proof.rows - 1
+
+      newDiscards = Set.fromFoldable $ startIdx .. endIdx
+    in
+      proof
+        { discarded = proof.discarded <> newDiscards
+        , boxes = boxes'
+        }

@@ -132,3 +132,15 @@ $input-shadow: $primary;
 		opacity: 1;
 	}
 }
+
+.rule-arg-input {
+	width: 4rem;
+}
+
+.proof-row .invalid input, .formula-field.invalid input {
+	border-color: red;
+}
+
+.proof.complete .proof-rows > .proof-row:last-child {
+	border: solid green;
+}
