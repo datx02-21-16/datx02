@@ -293,3 +293,5 @@ node_modules
 output
 dist
 .psc-ide-port
+
+.DS_Store

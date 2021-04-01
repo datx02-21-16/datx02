@@ -230,7 +230,7 @@ rowMediaType = MediaType "application/x.row"
 handleAction :: forall output m. MonadEffect m => Action -> H.HalogenM State Action Slots output m Unit
 handleAction = case _ of
   UpdateFormula i s -> H.modify_ \st -> st { rows = unsafePartial $ fromJust $ Array.modifyAt i _ { formulaText = s } st.rows }
-  UpdateRule i s ->
+  UpdateRule i s -> do
     H.modify_ \st ->
       st
         { rows =
@@ -238,6 +238,7 @@ handleAction = case _ of
             $ Array.modifyAt i _ { rule = ruleFromString s i }
                 st.rows
         }
+    H.tell _symbolInput (2 * i + 1) SI.Focus
   RowKeyEvent i ev -> case KeyboardEvent.key ev of
     "Enter" -> if KeyboardEvent.shiftKey ev then exitBox i else addRowBelow i
     _ -> pure unit
