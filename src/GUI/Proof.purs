@@ -78,6 +78,7 @@ instance showRuleArg :: Show RuleArg where
 parseRowIdx :: String -> Maybe RuleArg
 parseRowIdx s = RowIdx <$> Int.fromString s
 
+-- | Given a rule, returns specification of the number and types of arguments it expects.
 ruleArgTypes :: RuleType -> Array (String -> Maybe RuleArg)
 ruleArgTypes = case _ of
   RtPremise -> []
@@ -257,7 +258,7 @@ proofTree { rows } = case result of
 
   closeBoxesIfPossible i = case _ of
     { endIdx } :| _
-      | endIdx < i -> unsafeCrashWith "Unreachable (box ends outside of parent)"
+      | endIdx < i -> unsafeCrashWith "Unreachable (nested box ended outside of parent)"
     { elems: currentElems, endIdx } :| parent : rest
       | endIdx == i ->
         closeBoxesIfPossible i
@@ -422,7 +423,9 @@ handleAction = case _ of
                 st.rows
         }
   RowKeyEvent i ev -> case KeyboardEvent.key ev of
-    "Enter" -> if KeyboardEvent.shiftKey ev then exitBox i else addRowBelow i
+    "Enter"
+      | KeyboardEvent.shiftKey ev -> exitBox i
+    "Enter" -> addRowBelow i
     _ -> pure unit
   DragStart i ev -> do
     H.liftEffect $ DataTransfer.setData rowMediaType (show i)
@@ -479,7 +482,7 @@ handleAction = case _ of
     H.tell _symbolInput (2 * (i + 1)) SI.Focus -- Focus the newly added row
 
   -- | Creates a new row directly below the current index. If the current
-  --   index is at the end of a box, the new row is created outside the box.
+  -- | index is at the end of a box, the new row is created outside the box.
   exitBox i = do
     H.modify_ \st ->
       st
@@ -495,7 +498,7 @@ handleAction = case _ of
     H.tell _symbolInput (2 * (i + 1)) SI.Focus -- Focus the newly added row
 
   -- | Takes an index and an array of rows. Increases the ending position of
-  --   all boxes which end after the given index by one.
+  -- | all boxes which end after the given index by one.
   incrBoxEnds :: Int -> Array ProofRow -> Array ProofRow
   incrBoxEnds i =
     map case _ of
@@ -504,8 +507,8 @@ handleAction = case _ of
       x -> x
 
   -- | Takes an index and an array of rows. Increases the ending position of
-  --   all boxes which end after the given index by one, except any box which
-  --   starts at the exception position.
+  -- | all boxes which end after the given index by one, except any box which
+  -- | starts at the exception position.
   incrBoxEndsWithEx :: Int -> Int -> Array ProofRow -> Array ProofRow
   incrBoxEndsWithEx i e rs =
     map
@@ -537,7 +540,7 @@ handleAction = case _ of
   isValidDropZone i ev = (\{ start, end } -> not (start <= i && i < end)) <$> draggedRows ev
 
 -- | Takes an index and a state and returns the starting position of the
---   innermost box which contains the index.
+-- | innermost box which contains the index.
 scopeStart :: Int -> State -> Int
 scopeStart i st = fst $ innermostScope i st
   where

@@ -50,8 +50,8 @@ instance showRule :: Show Rule where
   show (AndElim1 _) = "∧e1"
   show (AndElim2 _) = "∧e2"
   show (AndIntro _ _) = "∧i"
-  show (ImplElim _ _) = "->e"
-  show (ImplIntro) = "->i"
+  show (ImplElim _ _) = "→e"
+  show (ImplIntro) = "→i"
   show (BottomElim) = "Bottom elimination"
   show (DoubleNegElim _) = "Double neg elimination"
   show (NegElim) = "Neg elimination"
@@ -100,14 +100,19 @@ derive newtype instance monadND :: Monad ND
 
 derive newtype instance monadStateND :: MonadState Proof ND
 
+-- | Verifies whether the ND derivation correctly proves the specified conclusion.
+-- |
+-- | Returns the completeness status, together with the proof as given
+-- | annotated with any potential errors.
 runND :: forall a. Maybe Formula -> ND a -> Tuple Boolean Proof
-runND conclusion (ND nd) =
-  runState (nd *> checkCompleteness)
+runND conclusion (ND nd) = runState (nd *> checkCompleteness) initialState
+  where
+  initialState =
     { rows: []
     , discarded: Set.empty
     , boxes: Nil
     }
-  where
+
   checkCompleteness =
     isJust
       <$> runMaybeT do
@@ -120,6 +125,7 @@ runND conclusion (ND nd) =
           lastRow <- MaybeT $ pure $ (Array.last rows) >>= _.formula
           unless (Just lastRow == conclusion) $ MaybeT (pure Nothing)
 
+-- | Get the formula at the given one-based row index, if it is in scope.
 proofRef :: Int -> ExceptT NdError ND Formula
 proofRef i = do
   { rows, discarded } <- get
@@ -127,7 +133,13 @@ proofRef i = do
   when ((i - 1) `Set.member` discarded) $ throwError RefDiscarded
   except $ note BadRef formula
 
--- | Takes a user-provided formula and ND state and tries to apply the rule.
+-- | Attempt to apply the specified rule given the user-provided formula.
+-- |
+-- | Does not modify state.
+-- |
+-- | The formula inputted by the user is needed to uniformly handle
+-- | rules such as LEM, which violate the subformula property. They
+-- | can then return that formula as the result, provided it is valid.
 applyRule :: Rule -> Maybe Formula -> ExceptT NdError ND Formula
 applyRule rule formula = case rule of
   Premise -> except $ note BadFormula formula
@@ -177,11 +189,14 @@ addProof { formula: inputFormula, rule } = do
         | otherwise -> Just FormulaMismatch
   modify_ \proof -> proof { rows = snoc proof.rows { formula, rule, error } }
 
--- TODO Should only be able to open box on assumption
+-- TODO Should only be able to open box on assumption/fresh
 -- Need to check that two boxes are not opened on each other without formula in between
 openBox :: ND Unit
 openBox = modify_ \proof -> proof { boxes = { startIdx: Array.length proof.rows } : proof.boxes }
 
+-- | Close the innermost currently open box.
+-- |
+-- | Panics if there is no such box.
 closeBox :: ND Unit
 closeBox = do
   modify_ \proof ->
