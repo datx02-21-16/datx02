@@ -9,6 +9,7 @@ module Formula ( Variable(..)
                , unify
                , containsTerm
                , formulaUnifier
+               , bottom
                ) where
 
 import Prelude

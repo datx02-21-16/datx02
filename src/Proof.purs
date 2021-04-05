@@ -13,7 +13,7 @@ module Proof
 
 import Prelude
 import Control.Alt ((<|>))
-import Control.Monad.Except.Trans (ExceptT, runExceptT, throwError, except)
+import Control.Monad.Except.Trans (ExceptT, except, runExceptT, throwError)
 import Control.Monad.Maybe.Trans (MaybeT(MaybeT), runMaybeT)
 import Control.Monad.State (State, class MonadState, runState, modify_, get)
 import Data.Array (snoc, (!!), (..))
@@ -26,7 +26,7 @@ import Data.Maybe (Maybe(..), isJust, fromJust)
 import Data.Set (Set)
 import Data.Set as Set
 import Data.Tuple (Tuple)
-import Formula (Formula(..))
+import Formula (Formula(..), bottom)
 import Partial.Unsafe (unsafePartial)
 
 data Rule
@@ -176,8 +176,16 @@ applyRule rule formula = case rule of
     b <- proofRef j
     pure $ And a b
   OrElim _ _ _ -> throwError BadRule
-  OrIntro1 i -> throwError BadRule
-  OrIntro2 i -> throwError BadRule
+  OrIntro1 i -> case formula of
+    Just f@(Or f1 _) -> do
+      a <- proofRef i
+      if a == f1 then pure f else throwError BadFormula
+    _ -> throwError BadRule
+  OrIntro2 i -> case formula of
+    Just f@(Or _ f2) -> do
+      a <- proofRef i
+      if a == f2 then pure f else throwError BadFormula
+    _ -> throwError BadRule
   ImplElim i j -> do
     a <- proofRef i
     b <- proofRef j
@@ -188,18 +196,26 @@ applyRule rule formula = case rule of
         | x == z -> pure y
       _, _ -> throwError BadRule
   ImplIntro _ -> throwError BadRule
-  NegElim i j -> throwError BadRule
+  NegElim i j -> do
+    a <- proofRef i
+    b <- proofRef j
+    if a == Not b || Not a == b then pure bottom else throwError BadRule
   NegIntro _ -> throwError BadRule
-  BottomElim _ -> throwError BadRule
+  BottomElim i -> do
+    a <- proofRef i
+    if a == bottom then except $ note BadFormula formula else throwError BadRule
   DoubleNegElim i -> do
     a <- proofRef i
     case a of
       Not (Not x) -> pure x
       _ -> throwError BadRule
   ModusTollens i j -> throwError BadRule
-  DoubleNegIntro _ -> throwError BadRule
+  DoubleNegIntro i -> (Not <<< Not) <$> proofRef i
   PBC _ -> throwError BadRule
-  LEM -> throwError BadRule
+  LEM -> case formula of
+    Just f@(Or f1 f2)
+      | f1 == Not f2 || f2 == Not f1 -> pure f
+    _ -> throwError BadRule
 
 -- | Add a row to the derivation.
 -- |
