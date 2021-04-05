@@ -165,7 +165,7 @@ parseRule { rule, ruleArgs } = do
     ImplIntro, [ BoxRange i j ] -> Just $ P.ImplIntro (Tuple i j)
     NegElim, [ RowIdx i, RowIdx j ] -> Just $ P.NegElim i j
     NegIntro, [ BoxRange i j ] -> Just $ P.NegIntro (Tuple i j)
-    BottomElim, [ BoxRange i j ] -> Just $ P.BottomElim (Tuple i j)
+    BottomElim, [ RowIdx i ] -> Just $ P.BottomElim i
     DoubleNegElim, [ RowIdx i ] -> Just $ P.DoubleNegElim i
     ModusTollens, [ RowIdx i, RowIdx j ] -> Just $ P.ModusTollens i j
     DoubleNegIntro, [ RowIdx i ] -> Just $ P.DoubleNegIntro i

@@ -42,7 +42,7 @@ data Rule
   | ImplIntro (Tuple Int Int)
   | NegElim Int Int
   | NegIntro (Tuple Int Int)
-  | BottomElim (Tuple Int Int)
+  | BottomElim Int
   | DoubleNegElim Int
   | ModusTollens Int Int
   | DoubleNegIntro Int
@@ -175,6 +175,9 @@ applyRule rule formula = case rule of
     a <- proofRef i
     b <- proofRef j
     pure $ And a b
+  OrElim _ _ _ -> throwError BadRule
+  OrIntro1 i -> throwError BadRule
+  OrIntro2 i -> throwError BadRule
   ImplElim i j -> do
     a <- proofRef i
     b <- proofRef j
@@ -184,12 +187,19 @@ applyRule rule formula = case rule of
       z, Implies x y
         | x == z -> pure y
       _, _ -> throwError BadRule
+  ImplIntro _ -> throwError BadRule
+  NegElim i j -> throwError BadRule
+  NegIntro _ -> throwError BadRule
+  BottomElim _ -> throwError BadRule
   DoubleNegElim i -> do
     a <- proofRef i
     case a of
       Not (Not x) -> pure x
       _ -> throwError BadRule
-  _ -> throwError BadRule -- TODO remove
+  ModusTollens i j -> throwError BadRule
+  DoubleNegIntro _ -> throwError BadRule
+  PBC _ -> throwError BadRule
+  LEM -> throwError BadRule
 
 -- | Add a row to the derivation.
 -- |
