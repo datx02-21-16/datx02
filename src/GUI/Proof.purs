@@ -1,40 +1,39 @@
 module GUI.Proof (Query(..), proof) where
 
 import Prelude
-import Type.Proxy (Proxy(..))
-import Data.Maybe (Maybe(..), fromJust, isJust, isNothing, fromMaybe, maybe)
-import Data.Either (isRight, hush)
-import Partial.Unsafe (unsafePartial, unsafeCrashWith)
-import Data.Array as Array
 import Data.Array ((!!), unsafeIndex)
+import Data.Array as Array
+import Data.Either (isRight, hush)
+import Data.FoldableWithIndex (foldlWithIndex)
 import Data.FunctorWithIndex (mapWithIndex)
+import Data.Int as Int
+import Data.List (List(Nil), (:))
+import Data.Maybe (Maybe(..), fromJust, isJust, isNothing, fromMaybe, maybe)
+import Data.MediaType (MediaType(MediaType))
+import Data.NonEmpty ((:|))
+import Data.String.Common (joinWith)
+import Data.Traversable (sequence)
+import Data.Tuple (Tuple(Tuple), fst, snd)
 import Effect.Class (class MonadEffect)
 import Effect.Console (logShow)
-import Data.Traversable (sequence)
-import Data.FoldableWithIndex (foldlWithIndex)
-import Data.List (List(Nil), (:))
-import Data.NonEmpty ((:|))
-import Data.Tuple (Tuple(Tuple), fst, snd)
-import Data.MediaType (MediaType(MediaType))
-import Data.Int as Int
-import Data.Tuple (Tuple(..), fst)
-import Data.String.Common (joinWith)
+import GUI.Rules as R
+import GUI.SymbolInput (symbolInput)
+import GUI.SymbolInput as SI
 import Halogen as H
 import Halogen.HTML as HH
-import Halogen.HTML.Properties as HP
 import Halogen.HTML.Events as HE
-import Web.Event.Event as Event
-import Web.UIEvent.KeyboardEvent as KeyboardEvent
-import Web.UIEvent.KeyboardEvent (KeyboardEvent)
-import Web.HTML.Event.DragEvent as DragEvent
-import Web.HTML.Event.DragEvent (DragEvent)
-import Web.HTML.Event.DataTransfer as DataTransfer
-import Util (enumerate, moveWithin)
+import Halogen.HTML.Properties as HP
 import Parser (parseFormula)
+import Partial.Unsafe (unsafePartial, unsafeCrashWith)
 import Proof as P
-import GUI.SymbolInput as SI
-import GUI.SymbolInput (symbolInput)
-import GUI.Rules as R
+import Type.Proxy (Proxy(..))
+import Util (enumerate, moveWithin)
+import Web.Event.Event as Event
+import Web.HTML.Event.DataTransfer as DataTransfer
+import Web.HTML.Event.DragEvent (DragEvent)
+import Web.HTML.Event.DragEvent as DragEvent
+import Web.UIEvent.KeyboardEvent (KeyboardEvent)
+import Web.UIEvent.KeyboardEvent as KeyboardEvent
 
 -- For GUI proof state we use a representation that is easy to modify,
 -- i.e. has a single contiguous array of all rows. When rendering or
