@@ -35,13 +35,19 @@ data Rule
   | AndElim1 Int
   | AndElim2 Int
   | AndIntro Int Int
+  | OrElim Int (Tuple Int Int) (Tuple Int Int)
+  | OrIntro1 Int
+  | OrIntro2 Int
   | ImplElim Int Int
-  | ImplIntro
-  | BottomElim
+  | ImplIntro (Tuple Int Int)
+  | NegElim Int Int
+  | NegIntro (Tuple Int Int)
+  | BottomElim (Tuple Int Int)
   | DoubleNegElim Int
-  | NegElim
-  | ModusTollens
-  | DoubleNegIntro
+  | ModusTollens Int Int
+  | DoubleNegIntro Int
+  | PBC (Tuple Int Int)
+  | LEM
 
 derive instance eqRule :: Eq Rule
 
@@ -51,13 +57,19 @@ instance showRule :: Show Rule where
   show (AndElim1 _) = "∧e1"
   show (AndElim2 _) = "∧e2"
   show (AndIntro _ _) = "∧i"
+  show (OrElim _ _ _) = "∨e"
+  show (OrIntro1 _) = "∨i1"
+  show (OrIntro2 _) = "∨i2"
   show (ImplElim _ _) = "→e"
-  show (ImplIntro) = "→i"
-  show (BottomElim) = "Bottom elimination"
+  show (ImplIntro _) = "→i"
+  show (NegElim _ _) = "Neg elimination"
+  show (NegIntro _) = "Neg intro"
+  show (BottomElim _) = "Bottom elimination"
   show (DoubleNegElim _) = "Double neg elimination"
-  show (NegElim) = "Neg elimination"
-  show (ModusTollens) = "MT"
-  show (DoubleNegIntro) = "Double neg introduction"
+  show (ModusTollens _ _) = "MT"
+  show (DoubleNegIntro _) = "Double neg introduction"
+  show (PBC _) = "Proof by contradiction"
+  show LEM = "Law of excluded middle"
 
 data NdError
   = BadRef
