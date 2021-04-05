@@ -1,40 +1,39 @@
 module GUI.Proof (Query(..), proof) where
 
 import Prelude
-import Type.Proxy (Proxy(..))
-import Data.Maybe (Maybe(..), fromJust, isJust, isNothing, fromMaybe, maybe)
-import Data.Either (isRight, hush)
-import Partial.Unsafe (unsafePartial, unsafeCrashWith)
-import Data.Array as Array
 import Data.Array ((!!), unsafeIndex)
+import Data.Array as Array
+import Data.Either (isRight, hush)
+import Data.FoldableWithIndex (foldlWithIndex)
 import Data.FunctorWithIndex (mapWithIndex)
+import Data.Int as Int
+import Data.List (List(Nil), (:))
+import Data.Maybe (Maybe(..), fromJust, isJust, isNothing, fromMaybe, maybe)
+import Data.MediaType (MediaType(MediaType))
+import Data.NonEmpty ((:|))
+import Data.String.Common (joinWith)
+import Data.Traversable (sequence)
+import Data.Tuple (Tuple(Tuple), fst, snd)
 import Effect.Class (class MonadEffect)
 import Effect.Console (logShow)
-import Data.Traversable (sequence)
-import Data.FoldableWithIndex (foldlWithIndex)
-import Data.List (List(Nil), (:))
-import Data.NonEmpty ((:|))
-import Data.Tuple (Tuple(Tuple), fst, snd)
-import Data.MediaType (MediaType(MediaType))
-import Data.Int as Int
-import Data.Tuple (Tuple(..), fst)
-import Data.String.Common (joinWith)
+import GUI.Rules as R
+import GUI.SymbolInput (symbolInput)
+import GUI.SymbolInput as SI
 import Halogen as H
 import Halogen.HTML as HH
-import Halogen.HTML.Properties as HP
 import Halogen.HTML.Events as HE
-import Web.Event.Event as Event
-import Web.UIEvent.KeyboardEvent as KeyboardEvent
-import Web.UIEvent.KeyboardEvent (KeyboardEvent)
-import Web.HTML.Event.DragEvent as DragEvent
-import Web.HTML.Event.DragEvent (DragEvent)
-import Web.HTML.Event.DataTransfer as DataTransfer
-import Util (enumerate, moveWithin)
+import Halogen.HTML.Properties as HP
 import Parser (parseFormula)
+import Partial.Unsafe (unsafePartial, unsafeCrashWith)
 import Proof as P
-import GUI.SymbolInput as SI
-import GUI.SymbolInput (symbolInput)
-import GUI.Rules as R
+import Type.Proxy (Proxy(..))
+import Util (enumerate, moveWithin)
+import Web.Event.Event as Event
+import Web.HTML.Event.DataTransfer as DataTransfer
+import Web.HTML.Event.DragEvent (DragEvent)
+import Web.HTML.Event.DragEvent as DragEvent
+import Web.UIEvent.KeyboardEvent (KeyboardEvent)
+import Web.UIEvent.KeyboardEvent as KeyboardEvent
 
 -- For GUI proof state we use a representation that is easy to modify,
 -- i.e. has a single contiguous array of all rows. When rendering or
@@ -426,6 +425,8 @@ handleAction = case _ of
     "Enter"
       | KeyboardEvent.shiftKey ev -> exitBox i
     "Enter" -> addRowBelow i
+    "Delete"
+      | KeyboardEvent.shiftKey ev -> deleteRow i
     _ -> pure unit
   DragStart i ev -> do
     H.liftEffect $ DataTransfer.setData rowMediaType (show i)
@@ -481,6 +482,11 @@ handleAction = case _ of
         }
     H.tell _symbolInput (2 * (i + 1)) SI.Focus -- Focus the newly added row
 
+  -- | Deletes a row. If the row is the start of a box, delete the box.
+  deleteRow i = do
+    H.modify_ \st -> st { rows = unsafePartial $ fromJust $ Array.deleteAt i $ decrBoxEnds i st.rows }
+    H.tell _symbolInput (2 * (i - 1)) SI.Focus
+
   -- | Creates a new row directly below the current index. If the current
   -- | index is at the end of a box, the new row is created outside the box.
   exitBox i = do
@@ -500,10 +506,20 @@ handleAction = case _ of
   -- | Takes an index and an array of rows. Increases the ending position of
   -- | all boxes which end after the given index by one.
   incrBoxEnds :: Int -> Array ProofRow -> Array ProofRow
-  incrBoxEnds i =
+  incrBoxEnds = modifyBoxEnds 1
+
+  -- | Takes an index and an array of rows. Decreases the ending position of
+  -- | all boxes which end after the given index by one.
+  decrBoxEnds :: Int -> Array ProofRow -> Array ProofRow
+  decrBoxEnds = modifyBoxEnds (-1)
+
+  -- | Takes an index, an offset and an array of rows. Shifts the end
+  -- | of all boxes which end after the given index by the given offset.
+  modifyBoxEnds :: Int -> Int -> Array ProofRow -> Array ProofRow
+  modifyBoxEnds off i =
     map case _ of
       row@{ rule: Assumption { boxEndIdx } }
-        | i <= boxEndIdx -> row { rule = Assumption { boxEndIdx: boxEndIdx + 1 } }
+        | i <= boxEndIdx -> row { rule = Assumption { boxEndIdx: boxEndIdx + off } }
       x -> x
 
   -- | Takes an index and an array of rows. Increases the ending position of
