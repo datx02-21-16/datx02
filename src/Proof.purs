@@ -12,22 +12,22 @@ module Proof
   ) where
 
 import Prelude
-import Data.Either (Either(..), note, hush)
-import Data.Maybe (Maybe(..), isJust, fromJust)
-import Partial.Unsafe (unsafePartial)
-import Data.Array as Array
-import Data.Array (snoc, (!!), (..))
-import Data.List as List
-import Data.List (List(Nil), (:))
-import Data.Set as Set
-import Data.Set (Set)
-import Data.Tuple (Tuple)
-import Data.Foldable (any)
 import Control.Alt ((<|>))
-import Control.Monad.State (State, class MonadState, runState, modify_, get)
 import Control.Monad.Except.Trans (ExceptT, runExceptT, throwError, except)
 import Control.Monad.Maybe.Trans (MaybeT(MaybeT), runMaybeT)
+import Control.Monad.State (State, class MonadState, runState, modify_, get)
+import Data.Array (snoc, (!!), (..))
+import Data.Array as Array
+import Data.Either (Either(..), note, hush)
+import Data.Foldable (any)
+import Data.List (List(Nil), (:))
+import Data.List as List
+import Data.Maybe (Maybe(..), isJust, fromJust)
+import Data.Set (Set)
+import Data.Set as Set
+import Data.Tuple (Tuple)
 import Formula (Formula(..))
+import Partial.Unsafe (unsafePartial)
 
 data Rule
   = Premise
