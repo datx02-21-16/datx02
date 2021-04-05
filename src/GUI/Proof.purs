@@ -506,17 +506,17 @@ handleAction = case _ of
   -- | Takes an index and an array of rows. Increases the ending position of
   -- | all boxes which end after the given index by one.
   incrBoxEnds :: Int -> Array ProofRow -> Array ProofRow
-  incrBoxEnds i = modifyBoxEnds i 1
+  incrBoxEnds = modifyBoxEnds 1
 
   -- | Takes an index and an array of rows. Decreases the ending position of
   -- | all boxes which end after the given index by one.
   decrBoxEnds :: Int -> Array ProofRow -> Array ProofRow
-  decrBoxEnds i = modifyBoxEnds i (-1)
+  decrBoxEnds = modifyBoxEnds (-1)
 
   -- | Takes an index, an offset and an array of rows. Shifts the end
   -- | of all boxes which end after the given index by the given offset.
   modifyBoxEnds :: Int -> Int -> Array ProofRow -> Array ProofRow
-  modifyBoxEnds i off =
+  modifyBoxEnds off i =
     map case _ of
       row@{ rule: Assumption { boxEndIdx } }
         | i <= boxEndIdx -> row { rule = Assumption { boxEndIdx: boxEndIdx + off } }
