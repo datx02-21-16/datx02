@@ -425,6 +425,8 @@ handleAction = case _ of
     "Enter"
       | KeyboardEvent.shiftKey ev -> exitBox i
     "Enter" -> addRowBelow i
+    "Delete"
+      | KeyboardEvent.shiftKey ev -> deleteRow i
     _ -> pure unit
   DragStart i ev -> do
     H.liftEffect $ DataTransfer.setData rowMediaType (show i)
@@ -480,6 +482,11 @@ handleAction = case _ of
         }
     H.tell _symbolInput (2 * (i + 1)) SI.Focus -- Focus the newly added row
 
+  -- | Deletes a row. If the row is the start of a box, delete the box.
+  deleteRow i = do
+    H.modify_ \st -> st { rows = unsafePartial $ fromJust $ Array.deleteAt i $ decrBoxEnds i st.rows }
+    H.tell _symbolInput (2 * (i - 1)) SI.Focus
+
   -- | Creates a new row directly below the current index. If the current
   -- | index is at the end of a box, the new row is created outside the box.
   exitBox i = do
@@ -499,10 +506,20 @@ handleAction = case _ of
   -- | Takes an index and an array of rows. Increases the ending position of
   -- | all boxes which end after the given index by one.
   incrBoxEnds :: Int -> Array ProofRow -> Array ProofRow
-  incrBoxEnds i =
+  incrBoxEnds i = modifyBoxEnds i 1
+
+  -- | Takes an index and an array of rows. Decreases the ending position of
+  -- | all boxes which end after the given index by one.
+  decrBoxEnds :: Int -> Array ProofRow -> Array ProofRow
+  decrBoxEnds i = modifyBoxEnds i (-1)
+
+  -- | Takes an index, an offset and an array of rows. Shifts the end
+  -- | of all boxes which end after the given index by the given offset.
+  modifyBoxEnds :: Int -> Int -> Array ProofRow -> Array ProofRow
+  modifyBoxEnds i off =
     map case _ of
       row@{ rule: Assumption { boxEndIdx } }
-        | i <= boxEndIdx -> row { rule = Assumption { boxEndIdx: boxEndIdx + 1 } }
+        | i <= boxEndIdx -> row { rule = Assumption { boxEndIdx: boxEndIdx + off } }
       x -> x
 
   -- | Takes an index and an array of rows. Increases the ending position of
