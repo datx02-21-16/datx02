@@ -438,8 +438,7 @@ handleAction = case _ of
         let
           target = unsafePartial $ fromJust $ Event.target (KeyboardEvent.toEvent ev) >>= HTMLInputElement.fromEventTarget
         value <- H.liftEffect $ HTMLInputElement.value target
-        rowCount <- Array.length <$> H.gets _.rows
-        when (String.null value && rowCount > 1) do
+        when (String.null value) do
           deleteRow i
           H.liftEffect $ Event.preventDefault (KeyboardEvent.toEvent ev)
     _ -> pure unit
@@ -499,8 +498,11 @@ handleAction = case _ of
 
   -- | Deletes a row. If the row is the start of a box, delete the box.
   deleteRow i = do
-    H.modify_ \st -> st { rows = unsafePartial $ fromJust $ Array.deleteAt i $ decrBoxEnds i st.rows }
-    H.tell _symbolInput (2 * (i - 1)) SI.Focus
+    rowCount <- Array.length <$> H.gets _.rows
+    -- Deleting the last row means no new rows can be added
+    when (rowCount > 1) do
+      H.modify_ \st -> st { rows = unsafePartial $ fromJust $ Array.deleteAt i $ decrBoxEnds i st.rows }
+      H.tell _symbolInput (2 * (i - 1)) SI.Focus
 
   -- | Creates a new row directly below the current index. If the current
   -- | index is at the end of a box, the new row is created outside the box.
