@@ -88,12 +88,14 @@ type ProofRow
 type Box
   = Tuple Int Int
 
+-- | A scope which contains the lines, boxes and vars available.
 type Scope
   = { lines :: Array Int
     , boxes :: Array Box
     , vars :: Array Variable
     }
 
+-- | Empty scope
 emptyScope :: Scope
 emptyScope =
   { lines: []
@@ -108,14 +110,8 @@ type Proof
     , scopes :: Array Scope
     }
 
-isPremise :: ProofRow -> Boolean
-isPremise r = r.rule == Just Premise
-
 newtype ND a
   = ND (State Proof a)
-
-a :: Box -> Box -> Boolean
-a b1 b2 = b1 == b2
 
 derive newtype instance functorND :: Functor ND
 
@@ -195,7 +191,12 @@ applyRule rule formula = do
       b <- proofRef j
       pure $ And a b
     OrElim i box1@(Tuple j1 j2) box2@(Tuple k1 k2) -> do
-      when (not $ lineInScope i scopes && boxInScope box1 scopes && boxInScope box2 scopes) $ throwError RefDiscarded
+      when
+        ( not $ lineInScope i scopes
+            && boxInScope box1 scopes
+            && boxInScope box2 scopes
+        )
+        $ throwError RefDiscarded
       a <- proofRef i
       b1 <- proofRef j1
       b2 <- proofRef j2
@@ -294,6 +295,7 @@ addProof { formula: inputFormula, rule } = do
       , scopes = addLineToInnermost (Array.length proof.rows + 1) proof.scopes
       }
 
+-- | Open a new box.
 openBox :: ND Unit
 openBox =
   modify_ \proof ->
@@ -309,45 +311,58 @@ closeBox :: ND Unit
 closeBox = do
   modify_ \proof ->
     let
-      { head: startOfJustClosed, tail: stillOpen } = unsafePartial $ fromJust $ Array.uncons proof.boxStarts
+      { head: boxStart, tail: stillOpen } = unsafePartial $ fromJust $ Array.uncons proof.boxStarts
 
-      endOfJustClosed = Array.length proof.rows
+      boxEnd = Array.length proof.rows
 
-      justClosed = Tuple startOfJustClosed endOfJustClosed
+      justClosed = Tuple boxStart boxEnd
     in
       proof
         { boxStarts = stillOpen
         , scopes = addBoxToInnermost justClosed $ unsafePartial $ fromJust $ Array.tail proof.scopes
         }
 
+-- | Check if a proof row is a Premise.
+isPremise :: ProofRow -> Boolean
+isPremise r = r.rule == Just Premise
+
+-- | Check if a box is in scope in a stack of scopes.
 boxInScope :: Box -> Array Scope -> Boolean
 boxInScope b ss = any (\s -> b `Array.elem` s.boxes) ss
 
+-- | Check if a line is in scope in a stack of scopes.
 lineInScope :: Int -> Array Scope -> Boolean
 lineInScope l ss = any (\s -> l `Array.elem` s.lines) ss
 
+-- | Check if a variable is in scope in a stack of scopes.
 varInScope :: Variable -> Array Scope -> Boolean
 varInScope v ss = any (\s -> v `Array.elem` s.vars) ss
 
+-- | Add a box to a scope.
 addBox :: Box -> Scope -> Scope
 addBox b s = s { boxes = b `Array.cons` s.boxes }
 
+-- | Add a line to a scope.
 addLine :: Int -> Scope -> Scope
 addLine l s = s { lines = l `Array.cons` s.lines }
 
+-- | Add a variable to a scope.
 addVar :: Variable -> Scope -> Scope
 addVar v s = s { vars = v `Array.cons` s.vars }
 
+-- | Add a box to the innermost scope in a stack of scopes.
 addBoxToInnermost :: Box -> Array Scope -> Array Scope
 addBoxToInnermost b ss = addBox b innermost `Array.cons` outerScopes
   where
   { head: innermost, tail: outerScopes } = unsafePartial $ fromJust $ Array.uncons ss
 
+-- | Add a line to the innermost scope in a stack of scopes.
 addLineToInnermost :: Int -> Array Scope -> Array Scope
 addLineToInnermost l ss = addLine l innermost `Array.cons` outerScopes
   where
   { head: innermost, tail: outerScopes } = unsafePartial $ fromJust $ Array.uncons ss
 
+-- | Add a variable to the innermost scope in a stack of scopes.
 addVarToInnermost :: Variable -> Array Scope -> Array Scope
 addVarToInnermost v ss = addVar v innermost `Array.cons` outerScopes
   where
