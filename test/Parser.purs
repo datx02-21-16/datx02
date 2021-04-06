@@ -46,3 +46,33 @@ spec =
       parseFormula "¬¬P" `shouldEqual` Right (Not (Not (Predicate "P" [])))
     it "can parse the bottom symbol" do
       parseFormula "⊥" `shouldEqual` Right bottomProp
+    it "does not care about redundant parentheses" do
+        (parseFormula "(A ∧ B) ∧ C") `shouldEqual`
+          Right (And 
+                  (And 
+                    (Predicate "A" [])
+                    (Predicate "B" []))
+                  (Predicate "C" []))
+    it "can decide correct operator precedence from parentheses" do
+      (parseFormula "A ∧ (B ∧ C)") `shouldEqual`
+        Right (And
+                (Predicate "A" [])
+                (And
+                  (Predicate "B" [])
+                  (Predicate "C" [])))
+    it "properly parses implication" do
+      (parseFormula "(A ∧ B) → (B ∧ A)") `shouldEqual`
+        Right (Implies
+                (And
+                  (Predicate "A" [])
+                  (Predicate "B" []))
+                (And
+                  (Predicate "B" [])
+                  (Predicate "A" [])))
+    it "parses left associative formula correctly" do
+        (parseFormula "A ∧ B ∧ C") `shouldEqual`
+          Right (And 
+                  (And 
+                    (Predicate "A" [])
+                    (Predicate "B" []))
+                  (Predicate "C" []))
