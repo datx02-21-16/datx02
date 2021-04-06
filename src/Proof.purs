@@ -5,6 +5,7 @@ module Proof
   , Proof
   , ProofRow
   , Box
+  , Scope
   , runND
   , addProof
   , openBox
@@ -25,8 +26,8 @@ import Data.List as List
 import Data.Maybe (Maybe(..), isJust, fromJust)
 import Data.Set (Set)
 import Data.Set as Set
-import Data.Tuple (Tuple)
-import Formula (Formula(..), bottom)
+import Data.Tuple (Tuple(..))
+import Formula (Formula(..), Variable, bottom)
 import Partial.Unsafe (unsafePartial)
 
 data Rule
@@ -89,19 +90,33 @@ type ProofRow
     }
 
 type Box
-  = { startIdx :: Int
-    -- TODO Store accessible sub-boxes for →i/BottomElim
+  = Tuple Int Int
+
+type Scope
+  = { lines :: Array Int
+    , boxes :: Array Box
+    , vars :: Array Variable
     }
+
+emptyScope :: Scope
+emptyScope =
+  { lines: []
+  , boxes: []
+  , vars: []
+  }
 
 -- | Partial or completed ND derivation.
 type Proof
   = { rows :: Array ProofRow
-    , discarded :: Set Int
-    , boxes :: List Box -- Stack of nested boxes
+    , boxStarts :: Array Int
+    , scopes :: Array Scope
     }
 
 newtype ND a
   = ND (State Proof a)
+
+a :: Box -> Box -> Boolean
+a b1 b2 = b1 == b2
 
 derive newtype instance functorND :: Functor ND
 
@@ -124,16 +139,16 @@ runND conclusion (ND nd) = runState (nd *> checkCompleteness) initialState
   where
   initialState =
     { rows: []
-    , discarded: Set.empty
-    , boxes: Nil
+    , boxStarts: []
+    , scopes: [ emptyScope ]
     }
 
   checkCompleteness =
     isJust
       <$> runMaybeT do
-          { rows, boxes } <- get
+          { rows, boxStarts, scopes } <- get
           -- Check if there are unclosed boxes
-          unless (boxes == Nil) $ MaybeT (pure Nothing)
+          unless (boxStarts == []) $ MaybeT (pure Nothing)
           -- Should be no errors
           when (any (isJust <<< _.error) rows) $ MaybeT (pure Nothing)
           -- The last row should equal the conclusion in a complete proof
@@ -143,9 +158,9 @@ runND conclusion (ND nd) = runState (nd *> checkCompleteness) initialState
 -- | Get the formula at the given one-based row index, if it is in scope.
 proofRef :: Int -> ExceptT NdError ND Formula
 proofRef i = do
-  { rows, discarded } <- get
+  { rows, boxStarts, scopes } <- get
   { formula, error } <- except $ note RefOutOfBounds $ rows !! (i - 1)
-  when ((i - 1) `Set.member` discarded) $ throwError RefDiscarded
+  when (not (lineInScope (i - 1) scopes)) $ throwError RefDiscarded
   when (error == Just BadFormula) $ throwError BadRef -- User needs to have input the formula
   except $ note BadRef formula
 
@@ -236,10 +251,19 @@ addProof { formula: inputFormula, rule } = do
       Just f, Right g
         | f == g -> Nothing
         | otherwise -> Just FormulaMismatch
-  modify_ \proof -> proof { rows = snoc proof.rows { formula, rule, error } }
+  modify_ \proof ->
+    proof
+      { rows = snoc proof.rows { formula, rule, error }
+      , scopes = addLineToInnermost (Array.length proof.rows) proof.scopes
+      }
 
 openBox :: ND Unit
-openBox = modify_ \proof -> proof { boxes = { startIdx: Array.length proof.rows } : proof.boxes }
+openBox =
+  modify_ \proof ->
+    proof
+      { boxStarts = Array.length proof.rows `Array.cons` proof.boxStarts
+      , scopes = emptyScope `Array.cons` proof.scopes
+      }
 
 -- | Close the innermost currently open box.
 -- |
@@ -248,15 +272,46 @@ closeBox :: ND Unit
 closeBox = do
   modify_ \proof ->
     let
-      { head: box, tail: boxes' } = unsafePartial $ fromJust $ List.uncons proof.boxes
+      { head: startOfJustClosed, tail: stillOpen } = unsafePartial $ fromJust $ Array.uncons proof.boxStarts
 
-      startIdx = box.startIdx
+      endOfJustClosed = Array.length proof.rows - 1
 
-      endIdx = Array.length proof.rows - 1
-
-      newDiscards = Set.fromFoldable $ startIdx .. endIdx
+      justClosed = Tuple startOfJustClosed endOfJustClosed
     in
       proof
-        { discarded = proof.discarded <> newDiscards
-        , boxes = boxes'
+        { boxStarts = stillOpen
+        , scopes = addBoxToInnermost justClosed $ unsafePartial $ fromJust $ Array.tail proof.scopes
         }
+
+boxInScope :: Box -> Array Scope -> Boolean
+boxInScope b ss = any (\s -> b `Array.elem` s.boxes) ss
+
+lineInScope :: Int -> Array Scope -> Boolean
+lineInScope l ss = any (\s -> l `Array.elem` s.lines) ss
+
+varInScope :: Variable -> Array Scope -> Boolean
+varInScope v ss = any (\s -> v `Array.elem` s.vars) ss
+
+addBox :: Box -> Scope -> Scope
+addBox b s = s { boxes = b `Array.cons` s.boxes }
+
+addLine :: Int -> Scope -> Scope
+addLine l s = s { lines = l `Array.cons` s.lines }
+
+addVar :: Variable -> Scope -> Scope
+addVar v s = s { vars = v `Array.cons` s.vars }
+
+addBoxToInnermost :: Box -> Array Scope -> Array Scope
+addBoxToInnermost b ss = addBox b innermost `Array.cons` outerScopes
+  where
+  { head: innermost, tail: outerScopes } = unsafePartial $ fromJust $ Array.uncons ss
+
+addLineToInnermost :: Int -> Array Scope -> Array Scope
+addLineToInnermost l ss = addLine l innermost `Array.cons` outerScopes
+  where
+  { head: innermost, tail: outerScopes } = unsafePartial $ fromJust $ Array.uncons ss
+
+addVarToInnermost :: Variable -> Array Scope -> Array Scope
+addVarToInnermost v ss = addVar v innermost `Array.cons` outerScopes
+  where
+  { head: innermost, tail: outerScopes } = unsafePartial $ fromJust $ Array.uncons ss
