@@ -23,7 +23,7 @@ import Data.Either (Either(..), note, hush)
 import Data.Foldable (all, any)
 import Data.Maybe (Maybe(..), isJust, fromJust)
 import Data.Tuple (Tuple(..))
-import Formula (Formula(..), Variable, bottom)
+import Formula (Formula(..), Variable, bottomProp)
 import Partial.Unsafe (unsafePartial)
 
 data Rule
@@ -238,16 +238,16 @@ applyRule rule formula = do
       when (not $ lineInScope i scopes && lineInScope j scopes) $ throwError RefDiscarded
       a <- proofRef i
       b <- proofRef j
-      if a == Not b || Not a == b then pure bottom else throwError BadRule
+      if a == Not b || Not a == b then pure bottomProp else throwError BadRule
     NegIntro box@(Tuple i j) -> do
       when (not boxInScope box scopes) $ throwError RefDiscarded
       a <- proofRef i
       b <- proofRef j
-      if b == bottom then pure $ Not a else throwError BadRule
+      if b == bottomProp then pure $ Not a else throwError BadRule
     BottomElim i -> do
       when (not lineInScope i scopes) $ throwError RefDiscarded
       a <- proofRef i
-      if a == bottom then except $ note BadFormula formula else throwError BadRule
+      if a == bottomProp then except $ note BadFormula formula else throwError BadRule
     DoubleNegElim i -> do
       when (not lineInScope i scopes) $ throwError RefDiscarded
       a <- proofRef i
