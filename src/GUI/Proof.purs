@@ -11,6 +11,7 @@ import Data.List (List(Nil), (:))
 import Data.Maybe (Maybe(..), fromJust, isJust, isNothing, fromMaybe, maybe)
 import Data.MediaType (MediaType(MediaType))
 import Data.NonEmpty ((:|))
+import Data.String as String
 import Data.String.Common (joinWith)
 import Data.Traversable (sequence)
 import Data.Tuple (Tuple(Tuple), fst, snd)
@@ -34,6 +35,7 @@ import Web.HTML.Event.DragEvent (DragEvent)
 import Web.HTML.Event.DragEvent as DragEvent
 import Web.UIEvent.KeyboardEvent (KeyboardEvent)
 import Web.UIEvent.KeyboardEvent as KeyboardEvent
+import Web.HTML.HTMLInputElement as HTMLInputElement
 
 -- For GUI proof state we use a representation that is easy to modify,
 -- i.e. has a single contiguous array of all rows. When rendering or
@@ -182,6 +184,7 @@ data Action
   | Drop Int DragEvent
   | UpdateConclusion String
   | UpdateRuleArg Int Int String
+  | FormulaKeyDown Int KeyboardEvent
 
 _symbolInput = Proxy :: Proxy "symbolInput"
 
@@ -295,6 +298,7 @@ render st =
     HH.span
       [ HP.classes $ [ HH.ClassName "column", HH.ClassName "formula-field" ]
           <> if isOk then [] else [ HH.ClassName "invalid" ]
+      , HE.onKeyDown $ FormulaKeyDown i
       ]
       [ HH.slot _symbolInput (2 * i) (symbolInput placeholder) text outputMap ]
     where
@@ -427,6 +431,17 @@ handleAction = case _ of
     "Enter" -> addRowBelow i
     "Delete"
       | KeyboardEvent.shiftKey ev -> deleteRow i
+    _ -> pure unit
+  FormulaKeyDown i ev -> case KeyboardEvent.key ev of
+    "Backspace"
+      | i >= 0 -> do
+        let
+          target = unsafePartial $ fromJust $ Event.target (KeyboardEvent.toEvent ev) >>= HTMLInputElement.fromEventTarget
+        value <- H.liftEffect $ HTMLInputElement.value target
+        rowCount <- Array.length <$> H.gets _.rows
+        when (String.null value && rowCount > 1) do
+          deleteRow i
+          H.liftEffect $ Event.preventDefault (KeyboardEvent.toEvent ev)
     _ -> pure unit
   DragStart i ev -> do
     H.liftEffect $ DataTransfer.setData rowMediaType (show i)
