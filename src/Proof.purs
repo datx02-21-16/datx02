@@ -20,7 +20,7 @@ import Control.Monad.State (State, class MonadState, runState, modify_, get)
 import Data.Array (snoc, (!!), (..))
 import Data.Array as Array
 import Data.Either (Either(..), note, hush)
-import Data.Foldable (any)
+import Data.Foldable (all, any)
 import Data.List (List(Nil), (:))
 import Data.List as List
 import Data.Maybe (Maybe(..), isJust, fromJust)
@@ -112,6 +112,9 @@ type Proof
     , scopes :: Array Scope
     }
 
+isPremise :: ProofRow -> Boolean
+isPremise r = r.rule == Just Premise
+
 newtype ND a
   = ND (State Proof a)
 
@@ -174,7 +177,8 @@ applyRule :: Rule -> Maybe Formula -> ExceptT NdError ND Formula
 applyRule rule formula = do
   { rows, boxStarts, scopes } <- get
   case rule of
-    Premise -> except $ note BadFormula formula
+    Premise -> do
+      if all isPremise rows then except $ note BadFormula formula else throwError BadRule
     -- TODO Check if this assumption is the first formula in the current box
     Assumption -> except $ note BadFormula formula
     AndElim1 i -> do
