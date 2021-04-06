@@ -160,7 +160,6 @@ proofRef :: Int -> ExceptT NdError ND Formula
 proofRef i = do
   { rows, boxStarts, scopes } <- get
   { formula, error } <- except $ note RefOutOfBounds $ rows !! (i - 1)
-  when (not (lineInScope (i - 1) scopes)) $ throwError RefDiscarded
   when (error == Just BadFormula) $ throwError BadRef -- User needs to have input the formula
   except $ note BadRef formula
 
@@ -172,65 +171,80 @@ proofRef i = do
 -- | rules such as LEM, which violate the subformula property. They
 -- | can then return that formula as the result, provided it is valid.
 applyRule :: Rule -> Maybe Formula -> ExceptT NdError ND Formula
-applyRule rule formula = case rule of
-  Premise -> except $ note BadFormula formula
-  -- TODO Check if this assumption is the first formula in the current box
-  Assumption -> except $ note BadFormula formula
-  AndElim1 i -> do
-    a <- proofRef i
-    case a of
-      And x _ -> pure x
-      _ -> throwError BadRule
-  AndElim2 i -> do
-    a <- proofRef i
-    case a of
-      And _ x -> pure x
-      _ -> throwError BadRule
-  AndIntro i j -> do
-    a <- proofRef i
-    b <- proofRef j
-    pure $ And a b
-  OrElim _ _ _ -> throwError BadRule
-  OrIntro1 i -> case formula of
-    Just f@(Or f1 _) -> do
+applyRule rule formula = do
+  { rows, boxStarts, scopes } <- get
+  case rule of
+    Premise -> except $ note BadFormula formula
+    -- TODO Check if this assumption is the first formula in the current box
+    Assumption -> except $ note BadFormula formula
+    AndElim1 i -> do
+      when (not lineInScope i scopes) $ throwError RefDiscarded
       a <- proofRef i
-      if a == f1 then pure f else throwError BadFormula
-    _ -> throwError BadRule
-  OrIntro2 i -> case formula of
-    Just f@(Or _ f2) -> do
+      case a of
+        And x _ -> pure x
+        _ -> throwError BadRule
+    AndElim2 i -> do
+      when (not lineInScope i scopes) $ throwError RefDiscarded
       a <- proofRef i
-      if a == f2 then pure f else throwError BadFormula
-    _ -> throwError BadRule
-  ImplElim i j -> do
-    a <- proofRef i
-    b <- proofRef j
-    case a, b of
-      Implies x y, z
-        | x == z -> pure y
-      z, Implies x y
-        | x == z -> pure y
-      _, _ -> throwError BadRule
-  ImplIntro _ -> throwError BadRule
-  NegElim i j -> do
-    a <- proofRef i
-    b <- proofRef j
-    if a == Not b || Not a == b then pure bottom else throwError BadRule
-  NegIntro _ -> throwError BadRule
-  BottomElim i -> do
-    a <- proofRef i
-    if a == bottom then except $ note BadFormula formula else throwError BadRule
-  DoubleNegElim i -> do
-    a <- proofRef i
-    case a of
-      Not (Not x) -> pure x
+      case a of
+        And _ x -> pure x
+        _ -> throwError BadRule
+    AndIntro i j -> do
+      when (not $ lineInScope i scopes && lineInScope j scopes) $ throwError RefDiscarded
+      a <- proofRef i
+      b <- proofRef j
+      pure $ And a b
+    OrElim _ _ _ -> throwError BadRule
+    OrIntro1 i -> do
+      when (not lineInScope i scopes) $ throwError RefDiscarded
+      case formula of
+        Just f@(Or f1 _) -> do
+          a <- proofRef i
+          if a == f1 then pure f else throwError BadFormula
+        _ -> throwError BadRule
+    OrIntro2 i -> do
+      when (not lineInScope i scopes) $ throwError RefDiscarded
+      case formula of
+        Just f@(Or _ f2) -> do
+          a <- proofRef i
+          if a == f2 then pure f else throwError BadFormula
+        _ -> throwError BadRule
+    ImplElim i j -> do
+      when (not $ lineInScope i scopes && lineInScope j scopes) $ throwError RefDiscarded
+      a <- proofRef i
+      b <- proofRef j
+      case a, b of
+        Implies x y, z
+          | x == z -> pure y
+        z, Implies x y
+          | x == z -> pure y
+        _, _ -> throwError BadRule
+    ImplIntro _ -> throwError BadRule
+    NegElim i j -> do
+      when (not $ lineInScope i scopes && lineInScope j scopes) $ throwError RefDiscarded
+      a <- proofRef i
+      b <- proofRef j
+      if a == Not b || Not a == b then pure bottom else throwError BadRule
+    NegIntro _ -> throwError BadRule
+    BottomElim i -> do
+      when (not lineInScope i scopes) $ throwError RefDiscarded
+      a <- proofRef i
+      if a == bottom then except $ note BadFormula formula else throwError BadRule
+    DoubleNegElim i -> do
+      when (not lineInScope i scopes) $ throwError RefDiscarded
+      a <- proofRef i
+      case a of
+        Not (Not x) -> pure x
+        _ -> throwError BadRule
+    ModusTollens i j -> throwError BadRule
+    DoubleNegIntro i -> do
+      when (not lineInScope i scopes) $ throwError RefDiscarded
+      (Not <<< Not) <$> proofRef i
+    PBC _ -> throwError BadRule
+    LEM -> case formula of
+      Just f@(Or f1 f2)
+        | f1 == Not f2 || f2 == Not f1 -> pure f
       _ -> throwError BadRule
-  ModusTollens i j -> throwError BadRule
-  DoubleNegIntro i -> (Not <<< Not) <$> proofRef i
-  PBC _ -> throwError BadRule
-  LEM -> case formula of
-    Just f@(Or f1 f2)
-      | f1 == Not f2 || f2 == Not f1 -> pure f
-    _ -> throwError BadRule
 
 -- | Add a row to the derivation.
 -- |
@@ -254,14 +268,14 @@ addProof { formula: inputFormula, rule } = do
   modify_ \proof ->
     proof
       { rows = snoc proof.rows { formula, rule, error }
-      , scopes = addLineToInnermost (Array.length proof.rows) proof.scopes
+      , scopes = addLineToInnermost (Array.length proof.rows + 1) proof.scopes
       }
 
 openBox :: ND Unit
 openBox =
   modify_ \proof ->
     proof
-      { boxStarts = Array.length proof.rows `Array.cons` proof.boxStarts
+      { boxStarts = (Array.length proof.rows + 1) `Array.cons` proof.boxStarts
       , scopes = emptyScope `Array.cons` proof.scopes
       }
 
@@ -274,7 +288,7 @@ closeBox = do
     let
       { head: startOfJustClosed, tail: stillOpen } = unsafePartial $ fromJust $ Array.uncons proof.boxStarts
 
-      endOfJustClosed = Array.length proof.rows - 1
+      endOfJustClosed = Array.length proof.rows
 
       justClosed = Tuple startOfJustClosed endOfJustClosed
     in
