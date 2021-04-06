@@ -17,15 +17,11 @@ import Control.Alt ((<|>))
 import Control.Monad.Except.Trans (ExceptT, except, runExceptT, throwError)
 import Control.Monad.Maybe.Trans (MaybeT(MaybeT), runMaybeT)
 import Control.Monad.State (State, class MonadState, runState, modify_, get)
-import Data.Array (snoc, (!!), (..))
+import Data.Array (snoc, (!!))
 import Data.Array as Array
 import Data.Either (Either(..), note, hush)
 import Data.Foldable (all, any)
-import Data.List (List(Nil), (:))
-import Data.List as List
 import Data.Maybe (Maybe(..), isJust, fromJust)
-import Data.Set (Set)
-import Data.Set as Set
 import Data.Tuple (Tuple(..))
 import Formula (Formula(..), Variable, bottom)
 import Partial.Unsafe (unsafePartial)
