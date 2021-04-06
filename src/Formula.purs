@@ -2,6 +2,7 @@ module Formula
   ( Variable(..)
   , Term(..)
   , Formula(..)
+  , bottomProp
   , Substitution
   , singleSub
   , class Substitutable
@@ -105,8 +106,9 @@ instance showFormula :: Show Formula where
         <> " → "
         <> showPrec 1 b
 
-bottom :: Formula
-bottom = Predicate "⊥" []
+-- | Dedicated symbol for a proposition that is assigned a false truth value.
+bottomProp :: Formula
+bottomProp = Predicate "⊥" []
 
 -- | A substitution {t₁/v₁, ..., tₙ/vₙ}.
 -- |

@@ -4,7 +4,7 @@ import Prelude
 import Data.Either (Either(..))
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
-import Formula (Variable(..), Term(..), Formula(..))
+import Formula (Variable(..), Term(..), Formula(..), bottomProp)
 import Parser (parseFormula)
 
 spec :: Spec Unit
@@ -44,3 +44,5 @@ spec =
           Right (Predicate "=" [ Var $ Variable "x", Var $ Variable "y" ])
     it "should parse double negation" do
       parseFormula "¬¬P" `shouldEqual` Right (Not (Not (Predicate "P" [])))
+    it "can parse the bottom symbol" do
+      parseFormula "⊥" `shouldEqual` Right bottomProp
