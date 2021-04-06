@@ -194,7 +194,16 @@ applyRule rule formula = do
       a <- proofRef i
       b <- proofRef j
       pure $ And a b
-    OrElim _ _ _ -> throwError BadRule
+    OrElim i box1@(Tuple j1 j2) box2@(Tuple k1 k2) -> do
+      when (not $ lineInScope i scopes && boxInScope box1 scopes && boxInScope box2 scopes) $ throwError RefDiscarded
+      a <- proofRef i
+      b1 <- proofRef j1
+      b2 <- proofRef j2
+      c1 <- proofRef k1
+      c2 <- proofRef k2
+      case a of
+        Or f1 f2 -> if f1 == b1 && f2 == c1 && b2 == c2 then pure b2 else throwError BadRule
+        _ -> throwError BadRule
     OrIntro1 i -> do
       when (not lineInScope i scopes) $ throwError RefDiscarded
       case formula of
@@ -219,13 +228,21 @@ applyRule rule formula = do
         z, Implies x y
           | x == z -> pure y
         _, _ -> throwError BadRule
-    ImplIntro _ -> throwError BadRule
+    ImplIntro box@(Tuple i j) -> do
+      when (not boxInScope box scopes) $ throwError RefDiscarded
+      a <- proofRef i
+      b <- proofRef j
+      pure $ Implies a b
     NegElim i j -> do
       when (not $ lineInScope i scopes && lineInScope j scopes) $ throwError RefDiscarded
       a <- proofRef i
       b <- proofRef j
       if a == Not b || Not a == b then pure bottom else throwError BadRule
-    NegIntro _ -> throwError BadRule
+    NegIntro box@(Tuple i j) -> do
+      when (not boxInScope box scopes) $ throwError RefDiscarded
+      a <- proofRef i
+      b <- proofRef j
+      if b == bottom then pure $ Not a else throwError BadRule
     BottomElim i -> do
       when (not lineInScope i scopes) $ throwError RefDiscarded
       a <- proofRef i
@@ -240,7 +257,13 @@ applyRule rule formula = do
     DoubleNegIntro i -> do
       when (not lineInScope i scopes) $ throwError RefDiscarded
       (Not <<< Not) <$> proofRef i
-    PBC _ -> throwError BadRule
+    PBC box@(Tuple i j) -> do
+      when (not boxInScope box scopes) $ throwError RefDiscarded
+      a <- proofRef i
+      b <- proofRef j
+      case a, b of
+        Not f, bottom -> pure f
+        _, _ -> throwError BadRule
     LEM -> case formula of
       Just f@(Or f1 f2)
         | f1 == Not f2 || f2 == Not f1 -> pure f
