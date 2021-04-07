@@ -22,6 +22,7 @@ import Data.Array as Array
 import Data.Either (Either(..), note, hush)
 import Data.Foldable (all, any)
 import Data.Maybe (Maybe(..), isJust, fromJust)
+import Data.Set as Set
 import Data.Tuple (Tuple(..))
 import Formula (Formula(..), Variable, bottomProp)
 import Partial.Unsafe (unsafePartial)
@@ -90,7 +91,7 @@ type Box
 
 -- | A scope which contains the lines, boxes and vars available.
 type Scope
-  = { lines :: Array Int
+  = { lines :: Set.Set Int
     , boxes :: Array Box
     , vars :: Array Variable
     }
@@ -98,7 +99,7 @@ type Scope
 -- | Empty scope
 emptyScope :: Scope
 emptyScope =
-  { lines: []
+  { lines: Set.empty
   , boxes: []
   , vars: []
   }
@@ -332,7 +333,7 @@ boxInScope b ss = any (\s -> b `Array.elem` s.boxes) ss
 
 -- | Check if a line is in scope in a stack of scopes.
 lineInScope :: Int -> Array Scope -> Boolean
-lineInScope l ss = any (\s -> l `Array.elem` s.lines) ss
+lineInScope l ss = any (\s -> l `Set.member` s.lines) ss
 
 -- | Check if a variable is in scope in a stack of scopes.
 varInScope :: Variable -> Array Scope -> Boolean
@@ -344,7 +345,7 @@ addBox b s = s { boxes = b `Array.cons` s.boxes }
 
 -- | Add a line to a scope.
 addLine :: Int -> Scope -> Scope
-addLine l s = s { lines = l `Array.cons` s.lines }
+addLine l s = s { lines = l `Set.insert` s.lines }
 
 -- | Add a variable to a scope.
 addVar :: Variable -> Scope -> Scope
