@@ -168,8 +168,22 @@ proofRef :: Int -> ExceptT NdError ND Formula
 proofRef i = do
   { rows, scopes } <- get
   { formula, error } <- except $ note RefOutOfBounds $ rows Array.!! (i - 1)
+  when (not (lineInScope (i - 1) scopes)) $ throwError RefDiscarded
   when (error == Just BadFormula) $ throwError BadRef -- User needs to have input the formula
   except $ note BadRef formula
+
+boxRef :: Box -> ExceptT NdError ND (Tuple Formula Formula)
+boxRef box@(Tuple i j) = do
+  { rows, scopes } <- get
+  { formula: maybeF1, error: e1 } <- except $ note RefOutOfBounds $ rows Array.!! (i - 1)
+  { formula: maybeF2, error: e2 } <- except $ note RefOutOfBounds $ rows Array.!! (j - 1)
+  when (not (boxInScope box scopes)) $ throwError RefDiscarded
+  when (e1 == Just BadFormula || e2 == Just BadFormula) $ throwError BadRef -- User needs to have input the formula
+  let
+    maybeBox = case maybeF1, maybeF2 of
+      Just f1, Just f2 -> Just $ Tuple f1 f2
+      _, _ -> Nothing
+  except $ note BadRef maybeBox
 
 -- | Attempt to apply the specified rule given the user-provided formula.
 -- |
@@ -187,53 +201,39 @@ applyRule rule formula = do
     -- TODO Check if this assumption is the first formula in the current box
     Assumption -> except $ note BadFormula formula
     AndElim1 i -> do
-      when (not lineInScope i scopes) $ throwError RefDiscarded
       a <- proofRef i
       case a of
         And x _ -> pure x
         _ -> throwError BadRule
     AndElim2 i -> do
-      when (not lineInScope i scopes) $ throwError RefDiscarded
       a <- proofRef i
       case a of
         And _ x -> pure x
         _ -> throwError BadRule
     AndIntro i j -> do
-      when (not $ lineInScope i scopes && lineInScope j scopes) $ throwError RefDiscarded
       a <- proofRef i
       b <- proofRef j
       pure $ And a b
-    OrElim i box1@(Tuple j1 j2) box2@(Tuple k1 k2) -> do
-      when
-        ( not $ lineInScope i scopes
-            && boxInScope box1 scopes
-            && boxInScope box2 scopes
-        )
-        $ throwError RefDiscarded
+    OrElim i box1 box2 -> do
       a <- proofRef i
-      b1 <- proofRef j1
-      b2 <- proofRef j2
-      c1 <- proofRef k1
-      c2 <- proofRef k2
+      (Tuple b1 b2) <- boxRef box1
+      (Tuple c1 c2) <- boxRef box1
       case a of
         Or f1 f2 -> if f1 == b1 && f2 == c1 && b2 == c2 then pure b2 else throwError BadRule
         _ -> throwError BadRule
     OrIntro1 i -> do
-      when (not lineInScope i scopes) $ throwError RefDiscarded
       case formula of
         Just f@(Or f1 _) -> do
           a <- proofRef i
           if a == f1 then pure f else throwError BadFormula
         _ -> throwError BadRule
     OrIntro2 i -> do
-      when (not lineInScope i scopes) $ throwError RefDiscarded
       case formula of
         Just f@(Or _ f2) -> do
           a <- proofRef i
           if a == f2 then pure f else throwError BadFormula
         _ -> throwError BadRule
     ImplElim i j -> do
-      when (not $ lineInScope i scopes && lineInScope j scopes) $ throwError RefDiscarded
       a <- proofRef i
       b <- proofRef j
       case a, b of
@@ -242,39 +242,29 @@ applyRule rule formula = do
         z, Implies x y
           | x == z -> pure y
         _, _ -> throwError BadRule
-    ImplIntro box@(Tuple i j) -> do
-      when (not boxInScope box scopes) $ throwError RefDiscarded
-      a <- proofRef i
-      b <- proofRef j
+    ImplIntro box -> do
+      (Tuple a b) <- boxRef box
       pure $ Implies a b
     NegElim i j -> do
-      when (not $ lineInScope i scopes && lineInScope j scopes) $ throwError RefDiscarded
       a <- proofRef i
       b <- proofRef j
       if a == Not b || Not a == b then pure bottomProp else throwError BadRule
-    NegIntro box@(Tuple i j) -> do
-      when (not boxInScope box scopes) $ throwError RefDiscarded
-      a <- proofRef i
-      b <- proofRef j
+    NegIntro box -> do
+      (Tuple a b) <- boxRef box
       if b == bottomProp then pure $ Not a else throwError BadRule
     BottomElim i -> do
-      when (not lineInScope i scopes) $ throwError RefDiscarded
       a <- proofRef i
       if a == bottomProp then except $ note BadFormula formula else throwError BadRule
     DoubleNegElim i -> do
-      when (not lineInScope i scopes) $ throwError RefDiscarded
       a <- proofRef i
       case a of
         Not (Not x) -> pure x
         _ -> throwError BadRule
     ModusTollens i j -> throwError BadRule
     DoubleNegIntro i -> do
-      when (not lineInScope i scopes) $ throwError RefDiscarded
       (Not <<< Not) <$> proofRef i
-    PBC box@(Tuple i j) -> do
-      when (not boxInScope box scopes) $ throwError RefDiscarded
-      a <- proofRef i
-      b <- proofRef j
+    PBC box -> do
+      (Tuple a b) <- boxRef box
       case a, b of
         Not f, bottom -> pure f
         _, _ -> throwError BadRule
