@@ -1,7 +1,7 @@
 module GUI.Proof (Query(..), proof) where
 
 import Prelude
-import Data.Array ((!!), all, length, unsafeIndex)
+import Data.Array ((!!), unsafeIndex)
 import Data.Array as Array
 import Data.Either (isRight, hush)
 import Data.FoldableWithIndex (foldlWithIndex)
@@ -89,15 +89,10 @@ parseRowIdx s = RowIdx <$> Int.fromString s
 parseBoxRange :: String -> Maybe RuleArg
 parseBoxRange s = do
   let
-    args = split (Pattern "-") s
-
-    parsedArgs = map Int.fromString args
-  if all isJust parsedArgs && length parsedArgs == 2 then do
-    let
-      intArgs = unsafePartial $ map fromJust parsedArgs
-    Just $ BoxRange (unsafePartial $ fromJust $ intArgs !! 0) (unsafePartial $ fromJust $ intArgs !! 1)
-  else
-    Nothing
+    args = map Int.fromString $ split (Pattern "-") s
+  case args of
+    [ Just i, Just j ] -> Just $ BoxRange i j
+    _ -> Nothing
 
 -- | Given a rule, returns specification of the number and types of arguments it expects.
 ruleArgTypes :: RuleType -> Array (String -> Maybe RuleArg)
