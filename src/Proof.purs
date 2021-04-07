@@ -26,7 +26,7 @@ import Data.Maybe (Maybe(..), isJust, fromJust)
 import Data.Set as Set
 import Data.Tuple (Tuple(..))
 import Formula (Formula(..), Variable, bottomProp)
-import Partial.Unsafe (unsafePartial)
+import Partial.Unsafe (unsafeCrashWith, unsafePartial)
 
 data Rule
   = Premise
@@ -354,18 +354,18 @@ addVar v s = s { vars = v `Array.cons` s.vars }
 
 -- | Add a box to the innermost scope in a stack of scopes.
 addBoxToInnermost :: Box -> List Scope -> List Scope
-addBoxToInnermost b ss = List.Cons (addBox b innermost) outerScopes
-  where
-  { head: innermost, tail: outerScopes } = unsafePartial $ fromJust $ List.uncons ss
+addBoxToInnermost b (List.Cons innermost outerScopes) = List.Cons (addBox b innermost) outerScopes
+
+addBoxToInnermost _ _ = unsafeCrashWith "Cannot add to an empty list of scopes."
 
 -- | Add a line to the innermost scope in a stack of scopes.
 addLineToInnermost :: Int -> List Scope -> List Scope
-addLineToInnermost l ss = List.Cons (addLine l innermost) outerScopes
-  where
-  { head: innermost, tail: outerScopes } = unsafePartial $ fromJust $ List.uncons ss
+addLineToInnermost l (List.Cons innermost outerScopes) = List.Cons (addLine l innermost) outerScopes
+
+addLineToInnermost _ _ = unsafeCrashWith "Cannot add to an empty list of scopes."
 
 -- | Add a variable to the innermost scope in a stack of scopes.
 addVarToInnermost :: Variable -> List Scope -> List Scope
-addVarToInnermost v ss = List.Cons (addVar v innermost) outerScopes
-  where
-  { head: innermost, tail: outerScopes } = unsafePartial $ fromJust $ List.uncons ss
+addVarToInnermost v (List.Cons innermost outerScopes) = List.Cons (addVar v innermost) outerScopes
+
+addVarToInnermost _ _ = unsafeCrashWith "Cannot add to an empty list of scopes."
