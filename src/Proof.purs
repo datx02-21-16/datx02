@@ -22,7 +22,7 @@ import Data.Either (Either(..), note, hush)
 import Data.Foldable (all, any)
 import Data.List (List)
 import Data.List as List
-import Data.Maybe (Maybe(..), isJust, fromJust)
+import Data.Maybe (Maybe(..), fromJust, isJust, isNothing)
 import Data.Set as Set
 import Data.Tuple (Tuple(..))
 import Formula (Formula(..), Variable, bottomProp)
@@ -95,20 +95,29 @@ type Scope
   = { lines :: Set.Set Int
     , boxes :: Array Box
     , vars :: Array Variable
+    , boxStart :: Maybe Int
     }
 
 -- | Empty scope
-emptyScope :: Scope
-emptyScope =
+fullScope :: Scope
+fullScope =
   { lines: Set.empty
   , boxes: []
   , vars: []
+  , boxStart: Nothing
+  }
+
+newScope :: Int -> Scope
+newScope n =
+  { lines: Set.empty
+  , boxes: []
+  , vars: []
+  , boxStart: Just n
   }
 
 -- | Partial or completed ND derivation.
 type Proof
   = { rows :: Array ProofRow
-    , boxStarts :: List Int
     , scopes :: List Scope
     }
 
@@ -136,26 +145,28 @@ runND conclusion (ND nd) = runState (nd *> checkCompleteness) initialState
   where
   initialState =
     { rows: []
-    , boxStarts: List.Nil
-    , scopes: List.Cons emptyScope List.Nil
+    , scopes: List.Cons fullScope List.Nil
     }
 
   checkCompleteness =
     isJust
       <$> runMaybeT do
-          { rows, boxStarts, scopes } <- get
+          { rows, scopes } <- get
           -- Check if there are unclosed boxes
-          unless (boxStarts == List.Nil) $ MaybeT (pure Nothing)
+          unless (isNothing $ innerBoxStart scopes) $ MaybeT (pure Nothing)
           -- Should be no errors
           when (any (isJust <<< _.error) rows) $ MaybeT (pure Nothing)
           -- The last row should equal the conclusion in a complete proof
           lastRow <- MaybeT $ pure $ (Array.last rows) >>= _.formula
           unless (Just lastRow == conclusion) $ MaybeT (pure Nothing)
 
+innerBoxStart :: List Scope -> Maybe Int
+innerBoxStart ss = (\s -> s.boxStart) $ unsafePartial $ fromJust $ List.head ss
+
 -- | Get the formula at the given one-based row index, if it is in scope.
 proofRef :: Int -> ExceptT NdError ND Formula
 proofRef i = do
-  { rows, boxStarts, scopes } <- get
+  { rows, scopes } <- get
   { formula, error } <- except $ note RefOutOfBounds $ rows Array.!! (i - 1)
   when (error == Just BadFormula) $ throwError BadRef -- User needs to have input the formula
   except $ note BadRef formula
@@ -169,7 +180,7 @@ proofRef i = do
 -- | can then return that formula as the result, provided it is valid.
 applyRule :: Rule -> Maybe Formula -> ExceptT NdError ND Formula
 applyRule rule formula = do
-  { rows, boxStarts, scopes } <- get
+  { rows, scopes } <- get
   case rule of
     Premise -> do
       if all isPremise rows then except $ note BadFormula formula else throwError BadRule
@@ -301,10 +312,7 @@ addProof { formula: inputFormula, rule } = do
 openBox :: ND Unit
 openBox =
   modify_ \proof ->
-    proof
-      { boxStarts = List.Cons (Array.length proof.rows + 1) proof.boxStarts
-      , scopes = List.Cons emptyScope proof.scopes
-      }
+    proof { scopes = List.Cons (newScope $ Array.length proof.rows + 1) proof.scopes }
 
 -- | Close the innermost currently open box.
 -- |
@@ -313,15 +321,14 @@ closeBox :: ND Unit
 closeBox = do
   modify_ \proof ->
     let
-      { head: boxStart, tail: stillOpen } = unsafePartial $ fromJust $ List.uncons proof.boxStarts
+      boxStart = unsafePartial $ fromJust $ innerBoxStart $ proof.scopes
 
       boxEnd = Array.length proof.rows
 
       justClosed = Tuple boxStart boxEnd
     in
       proof
-        { boxStarts = stillOpen
-        , scopes = addBoxToInnermost justClosed $ unsafePartial $ fromJust $ List.tail proof.scopes
+        { scopes = addBoxToInnermost justClosed $ unsafePartial $ fromJust $ List.tail proof.scopes
         }
 
 -- | Check if a proof row is a Premise.
