@@ -32,18 +32,18 @@ data Rule
   | AndElim1 Int
   | AndElim2 Int
   | AndIntro Int Int
-  | OrElim Int (Tuple Int Int) (Tuple Int Int)
+  | OrElim Int Box Box
   | OrIntro1 Int
   | OrIntro2 Int
   | ImplElim Int Int
-  | ImplIntro (Tuple Int Int)
+  | ImplIntro Box
   | NegElim Int Int
-  | NegIntro (Tuple Int Int)
+  | NegIntro Box
   | BottomElim Int
   | DoubleNegElim Int
   | ModusTollens Int Int
   | DoubleNegIntro Int
-  | PBC (Tuple Int Int)
+  | PBC Box
   | LEM
 
 derive instance eqRule :: Eq Rule
