@@ -17,10 +17,11 @@ import Control.Alt ((<|>))
 import Control.Monad.Except.Trans (ExceptT, except, runExceptT, throwError)
 import Control.Monad.Maybe.Trans (MaybeT(MaybeT), runMaybeT)
 import Control.Monad.State (State, class MonadState, runState, modify_, get)
-import Data.Array (snoc, (!!))
 import Data.Array as Array
 import Data.Either (Either(..), note, hush)
 import Data.Foldable (all, any)
+import Data.List (List)
+import Data.List as List
 import Data.Maybe (Maybe(..), isJust, fromJust)
 import Data.Set as Set
 import Data.Tuple (Tuple(..))
@@ -107,8 +108,8 @@ emptyScope =
 -- | Partial or completed ND derivation.
 type Proof
   = { rows :: Array ProofRow
-    , boxStarts :: Array Int
-    , scopes :: Array Scope
+    , boxStarts :: List Int
+    , scopes :: List Scope
     }
 
 newtype ND a
@@ -135,8 +136,8 @@ runND conclusion (ND nd) = runState (nd *> checkCompleteness) initialState
   where
   initialState =
     { rows: []
-    , boxStarts: []
-    , scopes: [ emptyScope ]
+    , boxStarts: List.Nil
+    , scopes: List.Cons emptyScope List.Nil
     }
 
   checkCompleteness =
@@ -144,7 +145,7 @@ runND conclusion (ND nd) = runState (nd *> checkCompleteness) initialState
       <$> runMaybeT do
           { rows, boxStarts, scopes } <- get
           -- Check if there are unclosed boxes
-          unless (boxStarts == []) $ MaybeT (pure Nothing)
+          unless (boxStarts == List.Nil) $ MaybeT (pure Nothing)
           -- Should be no errors
           when (any (isJust <<< _.error) rows) $ MaybeT (pure Nothing)
           -- The last row should equal the conclusion in a complete proof
@@ -155,7 +156,7 @@ runND conclusion (ND nd) = runState (nd *> checkCompleteness) initialState
 proofRef :: Int -> ExceptT NdError ND Formula
 proofRef i = do
   { rows, boxStarts, scopes } <- get
-  { formula, error } <- except $ note RefOutOfBounds $ rows !! (i - 1)
+  { formula, error } <- except $ note RefOutOfBounds $ rows Array.!! (i - 1)
   when (error == Just BadFormula) $ throwError BadRef -- User needs to have input the formula
   except $ note BadRef formula
 
@@ -292,7 +293,7 @@ addProof { formula: inputFormula, rule } = do
         | otherwise -> Just FormulaMismatch
   modify_ \proof ->
     proof
-      { rows = snoc proof.rows { formula, rule, error }
+      { rows = Array.snoc proof.rows { formula, rule, error }
       , scopes = addLineToInnermost (Array.length proof.rows + 1) proof.scopes
       }
 
@@ -301,8 +302,8 @@ openBox :: ND Unit
 openBox =
   modify_ \proof ->
     proof
-      { boxStarts = (Array.length proof.rows + 1) `Array.cons` proof.boxStarts
-      , scopes = emptyScope `Array.cons` proof.scopes
+      { boxStarts = List.Cons (Array.length proof.rows + 1) proof.boxStarts
+      , scopes = List.Cons emptyScope proof.scopes
       }
 
 -- | Close the innermost currently open box.
@@ -312,7 +313,7 @@ closeBox :: ND Unit
 closeBox = do
   modify_ \proof ->
     let
-      { head: boxStart, tail: stillOpen } = unsafePartial $ fromJust $ Array.uncons proof.boxStarts
+      { head: boxStart, tail: stillOpen } = unsafePartial $ fromJust $ List.uncons proof.boxStarts
 
       boxEnd = Array.length proof.rows
 
@@ -320,7 +321,7 @@ closeBox = do
     in
       proof
         { boxStarts = stillOpen
-        , scopes = addBoxToInnermost justClosed $ unsafePartial $ fromJust $ Array.tail proof.scopes
+        , scopes = addBoxToInnermost justClosed $ unsafePartial $ fromJust $ List.tail proof.scopes
         }
 
 -- | Check if a proof row is a Premise.
@@ -328,15 +329,15 @@ isPremise :: ProofRow -> Boolean
 isPremise r = r.rule == Just Premise
 
 -- | Check if a box is in scope in a stack of scopes.
-boxInScope :: Box -> Array Scope -> Boolean
+boxInScope :: Box -> List Scope -> Boolean
 boxInScope b ss = any (\s -> b `Array.elem` s.boxes) ss
 
 -- | Check if a line is in scope in a stack of scopes.
-lineInScope :: Int -> Array Scope -> Boolean
+lineInScope :: Int -> List Scope -> Boolean
 lineInScope l ss = any (\s -> l `Set.member` s.lines) ss
 
 -- | Check if a variable is in scope in a stack of scopes.
-varInScope :: Variable -> Array Scope -> Boolean
+varInScope :: Variable -> List Scope -> Boolean
 varInScope v ss = any (\s -> v `Array.elem` s.vars) ss
 
 -- | Add a box to a scope.
@@ -352,19 +353,19 @@ addVar :: Variable -> Scope -> Scope
 addVar v s = s { vars = v `Array.cons` s.vars }
 
 -- | Add a box to the innermost scope in a stack of scopes.
-addBoxToInnermost :: Box -> Array Scope -> Array Scope
-addBoxToInnermost b ss = addBox b innermost `Array.cons` outerScopes
+addBoxToInnermost :: Box -> List Scope -> List Scope
+addBoxToInnermost b ss = List.Cons (addBox b innermost) outerScopes
   where
-  { head: innermost, tail: outerScopes } = unsafePartial $ fromJust $ Array.uncons ss
+  { head: innermost, tail: outerScopes } = unsafePartial $ fromJust $ List.uncons ss
 
 -- | Add a line to the innermost scope in a stack of scopes.
-addLineToInnermost :: Int -> Array Scope -> Array Scope
-addLineToInnermost l ss = addLine l innermost `Array.cons` outerScopes
+addLineToInnermost :: Int -> List Scope -> List Scope
+addLineToInnermost l ss = List.Cons (addLine l innermost) outerScopes
   where
-  { head: innermost, tail: outerScopes } = unsafePartial $ fromJust $ Array.uncons ss
+  { head: innermost, tail: outerScopes } = unsafePartial $ fromJust $ List.uncons ss
 
 -- | Add a variable to the innermost scope in a stack of scopes.
-addVarToInnermost :: Variable -> Array Scope -> Array Scope
-addVarToInnermost v ss = addVar v innermost `Array.cons` outerScopes
+addVarToInnermost :: Variable -> List Scope -> List Scope
+addVarToInnermost v ss = List.Cons (addVar v innermost) outerScopes
   where
-  { head: innermost, tail: outerScopes } = unsafePartial $ fromJust $ Array.uncons ss
+  { head: innermost, tail: outerScopes } = unsafePartial $ fromJust $ List.uncons ss
