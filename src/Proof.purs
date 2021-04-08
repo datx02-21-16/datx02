@@ -168,7 +168,7 @@ proofRef :: Int -> ExceptT NdError ND Formula
 proofRef i = do
   { rows, scopes } <- get
   { formula, error } <- except $ note RefOutOfBounds $ rows Array.!! (i - 1)
-  when (not (lineInScope (i - 1) scopes)) $ throwError RefDiscarded
+  when (not (lineInScope i scopes)) $ throwError RefDiscarded
   when (error == Just BadFormula) $ throwError BadRef -- User needs to have input the formula
   except $ note BadRef formula
 
