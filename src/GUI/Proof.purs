@@ -12,6 +12,7 @@ import Data.Maybe (Maybe(..), fromJust, isJust, isNothing, fromMaybe, maybe)
 import Data.MediaType (MediaType(MediaType))
 import Data.NonEmpty ((:|))
 import Data.String as String
+import Data.String (Pattern(..), split)
 import Data.String.Common (joinWith)
 import Data.Traversable (sequence)
 import Data.Tuple (Tuple(Tuple), fst, snd)
@@ -60,13 +61,19 @@ data RuleType
   | AndElim1
   | AndElim2
   | AndIntro
+  | OrElim
+  | OrIntro1
+  | OrIntro2
   | ImplElim
   | ImplIntro
+  | NegElim
+  | NegIntro
   | BottomElim
   | DoubleNegElim
-  | NegElim
   | ModusTollens
   | DoubleNegIntro
+  | PBC
+  | LEM
 
 data RuleArg
   = RowIdx Int
@@ -79,6 +86,14 @@ instance showRuleArg :: Show RuleArg where
 parseRowIdx :: String -> Maybe RuleArg
 parseRowIdx s = RowIdx <$> Int.fromString s
 
+parseBoxRange :: String -> Maybe RuleArg
+parseBoxRange s = do
+  let
+    args = map Int.fromString $ split (Pattern "-") s
+  case args of
+    [ Just i, Just j ] -> Just $ BoxRange i j
+    _ -> Nothing
+
 -- | Given a rule, returns specification of the number and types of arguments it expects.
 ruleArgTypes :: RuleType -> Array (String -> Maybe RuleArg)
 ruleArgTypes = case _ of
@@ -87,13 +102,19 @@ ruleArgTypes = case _ of
   AndElim1 -> [ parseRowIdx ]
   AndElim2 -> [ parseRowIdx ]
   AndIntro -> [ parseRowIdx, parseRowIdx ]
+  OrElim -> [ parseRowIdx, parseBoxRange, parseBoxRange ]
+  OrIntro1 -> [ parseRowIdx ]
+  OrIntro2 -> [ parseRowIdx ]
   ImplElim -> [ parseRowIdx, parseRowIdx ]
-  ImplIntro -> []
-  BottomElim -> []
+  ImplIntro -> [ parseBoxRange ]
+  NegElim -> [ parseRowIdx, parseRowIdx ]
+  NegIntro -> [ parseBoxRange ]
+  BottomElim -> [ parseRowIdx ]
   DoubleNegElim -> [ parseRowIdx ]
-  NegElim -> []
-  ModusTollens -> []
-  DoubleNegIntro -> []
+  ModusTollens -> [ parseRowIdx, parseRowIdx ]
+  DoubleNegIntro -> [ parseRowIdx ]
+  PBC -> [ parseBoxRange ]
+  LEM -> []
 
 parseRuleArgs :: RuleType -> Array String -> Array (Maybe RuleArg)
 parseRuleArgs ruleType ruleArgs =
@@ -109,13 +130,19 @@ parseRuleText = case _ of
   "∧e1" -> Just AndElim1
   "∧e2" -> Just AndElim2
   "∧i" -> Just AndIntro
+  "∨e" -> Just OrElim
+  "∨i1" -> Just OrIntro1
+  "∨i2" -> Just OrIntro2
   "→e" -> Just ImplElim
   "→i" -> Just ImplIntro
+  "¬e" -> Just NegElim
+  "¬i" -> Just NegIntro
   "⊥e" -> Just BottomElim
   "¬¬e" -> Just DoubleNegElim
-  "¬e" -> Just NegElim
   "MT" -> Just ModusTollens
   "¬¬i" -> Just DoubleNegIntro
+  "PBC" -> Just PBC
+  "LEM" -> Just LEM
   _ -> Nothing
 
 parseRule :: ProofRow -> Maybe P.Rule
@@ -125,17 +152,22 @@ parseRule { rule, ruleArgs } = do
   case ruleType, args of
     RtAssumption, [] -> Just P.Assumption
     RtPremise, [] -> Just P.Premise
-    RtAssumption, [] -> Just P.Assumption
     AndElim1, [ RowIdx i ] -> Just $ P.AndElim1 i
     AndElim2, [ RowIdx i ] -> Just $ P.AndElim2 i
     AndIntro, [ RowIdx i, RowIdx j ] -> Just $ P.AndIntro i j
+    OrElim, [ RowIdx i, BoxRange j1 j2, BoxRange k1 k2 ] -> Just $ P.OrElim i (Tuple j1 j2) (Tuple k1 k2)
+    OrIntro1, [ RowIdx i ] -> Just $ P.OrIntro1 i
+    OrIntro2, [ RowIdx i ] -> Just $ P.OrIntro2 i
     ImplElim, [ RowIdx i, RowIdx j ] -> Just $ P.ImplElim i j
-    ImplIntro, [] -> Just P.ImplIntro
-    BottomElim, [] -> Just P.BottomElim
+    ImplIntro, [ BoxRange i j ] -> Just $ P.ImplIntro (Tuple i j)
+    NegElim, [ RowIdx i, RowIdx j ] -> Just $ P.NegElim i j
+    NegIntro, [ BoxRange i j ] -> Just $ P.NegIntro (Tuple i j)
+    BottomElim, [ RowIdx i ] -> Just $ P.BottomElim i
     DoubleNegElim, [ RowIdx i ] -> Just $ P.DoubleNegElim i
-    NegElim, [] -> Just P.NegElim
-    ModusTollens, [] -> Just P.ModusTollens
-    DoubleNegIntro, [] -> Just P.DoubleNegIntro
+    ModusTollens, [ RowIdx i, RowIdx j ] -> Just $ P.ModusTollens i j
+    DoubleNegIntro, [ RowIdx i ] -> Just $ P.DoubleNegIntro i
+    PBC, [ BoxRange i j ] -> Just $ P.PBC (Tuple i j)
+    LEM, [] -> Just P.LEM
     _, _ -> Nothing
 
 ruleText :: Rule -> String

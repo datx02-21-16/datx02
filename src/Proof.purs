@@ -5,6 +5,7 @@ module Proof
   , Proof
   , ProofRow
   , Box
+  , Scope
   , runND
   , addProof
   , openBox
@@ -12,22 +13,20 @@ module Proof
   ) where
 
 import Prelude
-import Data.Either (Either(..), note, hush)
-import Data.Maybe (Maybe(..), isJust, fromJust)
-import Partial.Unsafe (unsafePartial)
-import Data.Array as Array
-import Data.Array (snoc, (!!), (..))
-import Data.List as List
-import Data.List (List(Nil), (:))
-import Data.Set as Set
-import Data.Set (Set)
-import Data.Tuple (Tuple)
-import Data.Foldable (any)
 import Control.Alt ((<|>))
-import Control.Monad.State (State, class MonadState, runState, modify_, get)
-import Control.Monad.Except.Trans (ExceptT, runExceptT, throwError, except)
+import Control.Monad.Except.Trans (ExceptT, except, runExceptT, throwError)
 import Control.Monad.Maybe.Trans (MaybeT(MaybeT), runMaybeT)
-import Formula (Formula(..))
+import Control.Monad.State (State, class MonadState, runState, modify_, get)
+import Data.Array as Array
+import Data.Either (Either(..), note, hush)
+import Data.Foldable (all, any)
+import Data.List (List)
+import Data.List as List
+import Data.Maybe (Maybe(..), fromJust, isJust, isNothing)
+import Data.Set as Set
+import Data.Tuple (Tuple(..))
+import Formula (Formula(..), Variable, bottomProp)
+import Partial.Unsafe (unsafeCrashWith, unsafePartial)
 
 data Rule
   = Premise
@@ -35,13 +34,19 @@ data Rule
   | AndElim1 Int
   | AndElim2 Int
   | AndIntro Int Int
+  | OrElim Int Box Box
+  | OrIntro1 Int
+  | OrIntro2 Int
   | ImplElim Int Int
-  | ImplIntro
-  | BottomElim
+  | ImplIntro Box
+  | NegElim Int Int
+  | NegIntro Box
+  | BottomElim Int
   | DoubleNegElim Int
-  | NegElim
-  | ModusTollens
-  | DoubleNegIntro
+  | ModusTollens Int Int
+  | DoubleNegIntro Int
+  | PBC Box
+  | LEM
 
 derive instance eqRule :: Eq Rule
 
@@ -51,13 +56,19 @@ instance showRule :: Show Rule where
   show (AndElim1 _) = "∧e1"
   show (AndElim2 _) = "∧e2"
   show (AndIntro _ _) = "∧i"
+  show (OrElim _ _ _) = "∨e"
+  show (OrIntro1 _) = "∨i1"
+  show (OrIntro2 _) = "∨i2"
   show (ImplElim _ _) = "→e"
-  show (ImplIntro) = "→i"
-  show (BottomElim) = "Bottom elimination"
+  show (ImplIntro _) = "→i"
+  show (NegElim _ _) = "Neg elimination"
+  show (NegIntro _) = "Neg intro"
+  show (BottomElim _) = "Bottom elimination"
   show (DoubleNegElim _) = "Double neg elimination"
-  show (NegElim) = "Neg elimination"
-  show (ModusTollens) = "MT"
-  show (DoubleNegIntro) = "Double neg introduction"
+  show (ModusTollens _ _) = "MT"
+  show (DoubleNegIntro _) = "Double neg introduction"
+  show (PBC _) = "Proof by contradiction"
+  show LEM = "Law of excluded middle"
 
 data NdError
   = BadRef
@@ -77,15 +88,37 @@ type ProofRow
     }
 
 type Box
-  = { startIdx :: Int
-    -- TODO Store accessible sub-boxes for →i/BottomElim
+  = Tuple Int Int
+
+-- | A scope which contains the lines, boxes and vars available.
+type Scope
+  = { lines :: Set.Set Int
+    , boxes :: Array Box
+    , vars :: Array Variable
+    , boxStart :: Maybe Int
     }
+
+-- | Empty scope
+fullScope :: Scope
+fullScope =
+  { lines: Set.empty
+  , boxes: []
+  , vars: []
+  , boxStart: Nothing
+  }
+
+newScope :: Int -> Scope
+newScope n =
+  { lines: Set.empty
+  , boxes: []
+  , vars: []
+  , boxStart: Just n
+  }
 
 -- | Partial or completed ND derivation.
 type Proof
   = { rows :: Array ProofRow
-    , discarded :: Set Int
-    , boxes :: List Box -- Stack of nested boxes
+    , scopes :: List Scope
     }
 
 newtype ND a
@@ -112,30 +145,45 @@ runND conclusion (ND nd) = runState (nd *> checkCompleteness) initialState
   where
   initialState =
     { rows: []
-    , discarded: Set.empty
-    , boxes: Nil
+    , scopes: List.Cons fullScope List.Nil
     }
 
   checkCompleteness =
     isJust
       <$> runMaybeT do
-          { rows, boxes } <- get
+          { rows, scopes } <- get
           -- Check if there are unclosed boxes
-          unless (boxes == Nil) $ MaybeT (pure Nothing)
+          unless (isNothing $ innerBoxStart scopes) $ MaybeT (pure Nothing)
           -- Should be no errors
           when (any (isJust <<< _.error) rows) $ MaybeT (pure Nothing)
           -- The last row should equal the conclusion in a complete proof
           lastRow <- MaybeT $ pure $ (Array.last rows) >>= _.formula
           unless (Just lastRow == conclusion) $ MaybeT (pure Nothing)
 
+innerBoxStart :: List Scope -> Maybe Int
+innerBoxStart ss = (\s -> s.boxStart) $ unsafePartial $ fromJust $ List.head ss
+
 -- | Get the formula at the given one-based row index, if it is in scope.
 proofRef :: Int -> ExceptT NdError ND Formula
 proofRef i = do
-  { rows, discarded } <- get
-  { formula, error } <- except $ note RefOutOfBounds $ rows !! (i - 1)
-  when ((i - 1) `Set.member` discarded) $ throwError RefDiscarded
+  { rows, scopes } <- get
+  { formula, error } <- except $ note RefOutOfBounds $ rows Array.!! (i - 1)
+  when (not (lineInScope (i - 1) scopes)) $ throwError RefDiscarded
   when (error == Just BadFormula) $ throwError BadRef -- User needs to have input the formula
   except $ note BadRef formula
+
+boxRef :: Box -> ExceptT NdError ND (Tuple Formula Formula)
+boxRef box@(Tuple i j) = do
+  { rows, scopes } <- get
+  { formula: maybeF1, error: e1 } <- except $ note RefOutOfBounds $ rows Array.!! (i - 1)
+  { formula: maybeF2, error: e2 } <- except $ note RefOutOfBounds $ rows Array.!! (j - 1)
+  when (not (boxInScope box scopes)) $ throwError RefDiscarded
+  when (e1 == Just BadFormula || e2 == Just BadFormula) $ throwError BadRef -- User needs to have input the formula
+  let
+    maybeBox = case maybeF1, maybeF2 of
+      Just f1, Just f2 -> Just $ Tuple f1 f2
+      _, _ -> Nothing
+  except $ note BadRef maybeBox
 
 -- | Attempt to apply the specified rule given the user-provided formula.
 -- |
@@ -145,39 +193,85 @@ proofRef i = do
 -- | rules such as LEM, which violate the subformula property. They
 -- | can then return that formula as the result, provided it is valid.
 applyRule :: Rule -> Maybe Formula -> ExceptT NdError ND Formula
-applyRule rule formula = case rule of
-  Premise -> except $ note BadFormula formula
-  -- TODO Check if this assumption is the first formula in the current box
-  Assumption -> except $ note BadFormula formula
-  AndElim1 i -> do
-    a <- proofRef i
-    case a of
-      And x _ -> pure x
+applyRule rule formula = do
+  { rows, scopes } <- get
+  case rule of
+    Premise -> do
+      if all isPremise rows then except $ note BadFormula formula else throwError BadRule
+    -- TODO Check if this assumption is the first formula in the current box
+    Assumption -> except $ note BadFormula formula
+    AndElim1 i -> do
+      a <- proofRef i
+      case a of
+        And x _ -> pure x
+        _ -> throwError BadRule
+    AndElim2 i -> do
+      a <- proofRef i
+      case a of
+        And _ x -> pure x
+        _ -> throwError BadRule
+    AndIntro i j -> do
+      a <- proofRef i
+      b <- proofRef j
+      pure $ And a b
+    OrElim i box1 box2 -> do
+      a <- proofRef i
+      (Tuple b1 b2) <- boxRef box1
+      (Tuple c1 c2) <- boxRef box1
+      case a of
+        Or f1 f2 -> if f1 == b1 && f2 == c1 && b2 == c2 then pure b2 else throwError BadRule
+        _ -> throwError BadRule
+    OrIntro1 i -> do
+      case formula of
+        Just f@(Or f1 _) -> do
+          a <- proofRef i
+          if a == f1 then pure f else throwError BadFormula
+        _ -> throwError BadRule
+    OrIntro2 i -> do
+      case formula of
+        Just f@(Or _ f2) -> do
+          a <- proofRef i
+          if a == f2 then pure f else throwError BadFormula
+        _ -> throwError BadRule
+    ImplElim i j -> do
+      a <- proofRef i
+      b <- proofRef j
+      case a, b of
+        Implies x y, z
+          | x == z -> pure y
+        z, Implies x y
+          | x == z -> pure y
+        _, _ -> throwError BadRule
+    ImplIntro box -> do
+      (Tuple a b) <- boxRef box
+      pure $ Implies a b
+    NegElim i j -> do
+      a <- proofRef i
+      b <- proofRef j
+      if a == Not b || Not a == b then pure bottomProp else throwError BadRule
+    NegIntro box -> do
+      (Tuple a b) <- boxRef box
+      if b == bottomProp then pure $ Not a else throwError BadRule
+    BottomElim i -> do
+      a <- proofRef i
+      if a == bottomProp then except $ note BadFormula formula else throwError BadRule
+    DoubleNegElim i -> do
+      a <- proofRef i
+      case a of
+        Not (Not x) -> pure x
+        _ -> throwError BadRule
+    ModusTollens i j -> throwError BadRule
+    DoubleNegIntro i -> do
+      (Not <<< Not) <$> proofRef i
+    PBC box -> do
+      (Tuple a b) <- boxRef box
+      case a, b of
+        Not f, bottom -> pure f
+        _, _ -> throwError BadRule
+    LEM -> case formula of
+      Just f@(Or f1 f2)
+        | f1 == Not f2 || f2 == Not f1 -> pure f
       _ -> throwError BadRule
-  AndElim2 i -> do
-    a <- proofRef i
-    case a of
-      And _ x -> pure x
-      _ -> throwError BadRule
-  AndIntro i j -> do
-    a <- proofRef i
-    b <- proofRef j
-    pure $ And a b
-  ImplElim i j -> do
-    a <- proofRef i
-    b <- proofRef j
-    case a, b of
-      Implies x y, z
-        | x == z -> pure y
-      z, Implies x y
-        | x == z -> pure y
-      _, _ -> throwError BadRule
-  DoubleNegElim i -> do
-    a <- proofRef i
-    case a of
-      Not (Not x) -> pure x
-      _ -> throwError BadRule
-  _ -> throwError BadRule -- TODO remove
 
 -- | Add a row to the derivation.
 -- |
@@ -198,10 +292,17 @@ addProof { formula: inputFormula, rule } = do
       Just f, Right g
         | f == g -> Nothing
         | otherwise -> Just FormulaMismatch
-  modify_ \proof -> proof { rows = snoc proof.rows { formula, rule, error } }
+  modify_ \proof ->
+    proof
+      { rows = Array.snoc proof.rows { formula, rule, error }
+      , scopes = addLineToInnermost (Array.length proof.rows + 1) proof.scopes
+      }
 
+-- | Open a new box.
 openBox :: ND Unit
-openBox = modify_ \proof -> proof { boxes = { startIdx: Array.length proof.rows } : proof.boxes }
+openBox =
+  modify_ \proof ->
+    proof { scopes = List.Cons (newScope $ Array.length proof.rows + 1) proof.scopes }
 
 -- | Close the innermost currently open box.
 -- |
@@ -210,15 +311,58 @@ closeBox :: ND Unit
 closeBox = do
   modify_ \proof ->
     let
-      { head: box, tail: boxes' } = unsafePartial $ fromJust $ List.uncons proof.boxes
+      boxStart = unsafePartial $ fromJust $ innerBoxStart $ proof.scopes
 
-      startIdx = box.startIdx
+      boxEnd = Array.length proof.rows
 
-      endIdx = Array.length proof.rows - 1
-
-      newDiscards = Set.fromFoldable $ startIdx .. endIdx
+      justClosed = Tuple boxStart boxEnd
     in
       proof
-        { discarded = proof.discarded <> newDiscards
-        , boxes = boxes'
+        { scopes = addBoxToInnermost justClosed $ unsafePartial $ fromJust $ List.tail proof.scopes
         }
+
+-- | Check if a proof row is a Premise.
+isPremise :: ProofRow -> Boolean
+isPremise r = r.rule == Just Premise
+
+-- | Check if a box is in scope in a stack of scopes.
+boxInScope :: Box -> List Scope -> Boolean
+boxInScope b ss = any (\s -> b `Array.elem` s.boxes) ss
+
+-- | Check if a line is in scope in a stack of scopes.
+lineInScope :: Int -> List Scope -> Boolean
+lineInScope l ss = any (\s -> l `Set.member` s.lines) ss
+
+-- | Check if a variable is in scope in a stack of scopes.
+varInScope :: Variable -> List Scope -> Boolean
+varInScope v ss = any (\s -> v `Array.elem` s.vars) ss
+
+-- | Add a box to a scope.
+addBox :: Box -> Scope -> Scope
+addBox b s = s { boxes = b `Array.cons` s.boxes }
+
+-- | Add a line to a scope.
+addLine :: Int -> Scope -> Scope
+addLine l s = s { lines = l `Set.insert` s.lines }
+
+-- | Add a variable to a scope.
+addVar :: Variable -> Scope -> Scope
+addVar v s = s { vars = v `Array.cons` s.vars }
+
+-- | Add a box to the innermost scope in a stack of scopes.
+addBoxToInnermost :: Box -> List Scope -> List Scope
+addBoxToInnermost b (List.Cons innermost outerScopes) = List.Cons (addBox b innermost) outerScopes
+
+addBoxToInnermost _ _ = unsafeCrashWith "Cannot add to an empty list of scopes."
+
+-- | Add a line to the innermost scope in a stack of scopes.
+addLineToInnermost :: Int -> List Scope -> List Scope
+addLineToInnermost l (List.Cons innermost outerScopes) = List.Cons (addLine l innermost) outerScopes
+
+addLineToInnermost _ _ = unsafeCrashWith "Cannot add to an empty list of scopes."
+
+-- | Add a variable to the innermost scope in a stack of scopes.
+addVarToInnermost :: Variable -> List Scope -> List Scope
+addVarToInnermost v (List.Cons innermost outerScopes) = List.Cons (addVar v innermost) outerScopes
+
+addVarToInnermost _ _ = unsafeCrashWith "Cannot add to an empty list of scopes."
