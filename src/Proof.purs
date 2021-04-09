@@ -217,7 +217,7 @@ applyRule rule formula = do
     OrElim i box1 box2 -> do
       a <- proofRef i
       (Tuple b1 b2) <- boxRef box1
-      (Tuple c1 c2) <- boxRef box1
+      (Tuple c1 c2) <- boxRef box2
       case a of
         Or f1 f2 -> if f1 == b1 && f2 == c1 && b2 == c2 then pure b2 else throwError BadRule
         _ -> throwError BadRule
