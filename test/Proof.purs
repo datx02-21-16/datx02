@@ -4,6 +4,8 @@ import Prelude (Unit, discard, ($))
 import Formula (Formula(..))
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
+import Data.List
+import Data.Set as Set
 import Proof
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
@@ -55,8 +57,7 @@ testInference =
         do
           completed `shouldEqual` true
           proof `shouldEqual` 
-              { boxStarts: []
-              , rows:
+              { rows:
                   [ { error: Nothing
                     , formula: (Just (Implies p (And a b)))
                     , rule: (Just Premise)
@@ -78,11 +79,12 @@ testInference =
                     , rule: Just (ImplIntro (Tuple 2 4))}
                   ]
               , scopes:
-                  [ { boxes: [Tuple 2 4]
-                    , lines: [ 5, 1 ]
-                    , vars: []
-                    }
-                  ]
+                  ({ boxes: [Tuple 2 4]
+                   , lines: Set.insert 5 (Set.singleton 1) --[ 5, 1 ]
+                   , vars: []
+                   , boxStart: Nothing
+                    }:Nil)
+                  
               }              
     it "can do and intro"
       let
@@ -106,8 +108,7 @@ testInference =
           completed `shouldEqual` true
           proof
             `shouldEqual`
-              { boxStarts: []
-              , rows:
+              { rows:
                   [ { error: Nothing
                     , formula: (Just a)
                     , rule: (Just Premise)
@@ -122,11 +123,11 @@ testInference =
                     }
                   ]
               , scopes:
-                  [ { boxes: []
-                    , lines: [ 3, 2, 1 ]
+                  ({ boxes: []
+                    , lines: Set.insert 3 (Set.insert 2 (Set.singleton 1)) --[ 3, 2, 1 ]
                     , vars: []
-                    }
-                  ]
+                    , boxStart: Nothing
+                    }:Nil)
               }
     it "can do and elim 1"
       let
@@ -146,8 +147,7 @@ testInference =
           completed `shouldEqual` true
           proof
             `shouldEqual`
-              { boxStarts: []
-              , rows:
+              { rows:
                   [ { error: Nothing
                     , formula: (Just (And a b))
                     , rule: (Just Premise)
@@ -158,9 +158,9 @@ testInference =
                     }
                   ]
               , scopes:
-                  [ { boxes: []
-                    , lines: [ 2, 1 ]
+                  ({ boxes: []
+                    , lines: Set.insert 2 (Set.singleton 1) --[ 2, 1 ]
                     , vars: []
-                    }
-                  ]
+                    , boxStart: Nothing
+                    }:Nil)
               }
