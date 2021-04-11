@@ -5,6 +5,9 @@ const path = require('path'),
 	  HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = {
+	output: {
+		assetModuleFilename:"images/[name][ext]"
+	},
 	resolve: {
 		modules: [
 			"node_modules",
