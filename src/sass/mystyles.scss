@@ -33,6 +33,7 @@ $input-shadow: $primary;
 @import "../../node_modules/bulma/sass/base/_all.sass";
 @import "../../node_modules/bulma/sass/grid/columns.sass";
 @import "../../node_modules/bulma/sass/elements/button.sass";
+@import "../../node_modules/bulma/sass/elements/box.sass";
 @import "../../node_modules/bulma/sass/elements/container.sass";
 @import "../../node_modules/bulma/sass/elements/title.sass";
 @import "../../node_modules/bulma/sass/form/_all.sass";
@@ -143,4 +144,12 @@ $input-shadow: $primary;
 
 .proof.complete .proof-rows > .proof-row:last-child {
 	border: solid green;
+}
+
+.centered-text {
+    text-align: center;
+}
+
+.button {
+	width: 105px;
 }
