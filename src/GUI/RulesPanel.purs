@@ -90,12 +90,16 @@ ruleButtonPanel =
       [HP.classes [ HH.ClassName "box" ]]
       [ HH.div
           [HP.classes [HH.ClassName "centered-text"]]
-          [HH.text $ maybe "" (\{sequent: tp} -> tp) st]
+          [HH.text $ maybe hintString (\{sequent: tp} -> tp) st]
       , HH.br_
       , HH.div
           [HP.classes [HH.ClassName "centered-text"]]
           [HH.text $ maybe "" (\{textualHint: th} -> th) st]
       ]
+    where
+      hintString :: String
+      hintString = "Please click one of the rules above to " <>
+                   "get a description of the rule."
   
   buttonText :: Array String
   buttonText = [ "Premise"
