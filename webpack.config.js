@@ -5,6 +5,9 @@ const path = require('path'),
 	  HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = {
+	output: {
+		assetModuleFilename:"images/[name][ext]"
+	},
 	resolve: {
 		modules: [
 			"node_modules",
@@ -48,6 +51,10 @@ module.exports = {
 					"sass-loader",
 				],
 			},
+			{
+              test:/\.(png|jpeg|jpg)$/i,
+			  type: "asset/resource"
+			}
 		]
 	}
 };
