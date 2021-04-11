@@ -23,14 +23,14 @@ substitute =
     <$> ss
   where
   ss =
-    [ Tuple "an" "∧"
-    , Tuple "or" "∨"
-    , Tuple "->" "→"
-    , Tuple "no" "¬"
+    [ Tuple "an" "∧"       
+    , Tuple "or|v" "∨"
+    , Tuple "->|imp" "→"
+    , Tuple "not|neg|!" "¬"
     -- Quantifiers
     , Tuple "f[ao]" "∀"
     , Tuple "ex|te" "∃"
-    , Tuple "bo" "⊥"
+    , Tuple "bo|con" "⊥"
     ]
 
 data Query a
