@@ -68,13 +68,11 @@ ruleButtonPanel =
       <> [ createButtons ]
       <> [ hintBox st ]
 
--- I don't understand why the buttons does not fill out the whole space?
+  -- I don't understand why the buttons does not fill out the whole space?
   createButtons =
-    HH.div [ HP.classes [ HH.ClassName "columns" ] ]
-      [ HH.div [ HP.classes [ HH.ClassName "column", HH.ClassName "is-flex-grow-1" 
-                            , HH.ClassName "is-justify-content-center" ] ] leftb
-      , HH.div [ HP.classes [ HH.ClassName "column", HH.ClassName "is-flex-grow-1"
-                            , HH.ClassName "is-justify-content-center" ] ] rightb
+    HH.div [ HP.classes [ HH.ClassName "columns", HH.ClassName "is-gapless" ] ]
+      [ HH.div [ HP.classes [ HH.ClassName "column", HH.ClassName "is-half" ] ] leftb
+      , HH.div [ HP.classes [ HH.ClassName "column", HH.ClassName "is-half" ] ] rightb
       ]
     where
     (Tuple leftb rightb) =
@@ -90,7 +88,7 @@ ruleButtonPanel =
 
   createButton i rule =
     HH.button
-      [ HP.classes [ HH.ClassName "button" ]
+      [ HP.classes [ HH.ClassName "button", HH.ClassName "is-fullwidth" ]
       , HP.type_ HP.ButtonSubmit
       , HE.onClick $ \_ -> rule
       ]
