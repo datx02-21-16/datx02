@@ -1,7 +1,7 @@
 module GUI.Proof (Query(..), proof) where
 
 import Prelude
-import Data.Array ((!!), all, length, unsafeIndex)
+import Data.Array ((!!), unsafeIndex)
 import Data.Array as Array
 import Data.Either (isRight, hush)
 import Data.FoldableWithIndex (foldlWithIndex)
