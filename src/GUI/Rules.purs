@@ -1,11 +1,67 @@
-module GUI.Rules (Rules(..)) where
+module GUI.Rules (RuleType(..), rules) where
 
-{-
-The other rules we already have in the repository contains some numbers to
-indicate what operands to apply a rule to. When we click a button in the GUI we
-don't (yet) have that information, so I have added this sum type here to be able
-to differentiate between clicks on different buttons.
--}
-data Rules = AndElim1
-           | AndElim2
-           | AndIntro
+import Data.Show
+
+data RuleType
+  = RtPremise
+  | RtAssumption
+  | AndElim1
+  | AndElim2
+  | AndIntro
+  | OrElim
+  | OrIntro1
+  | OrIntro2
+  | ImplElim
+  | ImplIntro
+  | NegElim
+  | NegIntro
+  | BottomElim
+  | DoubleNegElim
+  | ModusTollens
+  | DoubleNegIntro
+  | PBC
+  | LEM
+-- We need to add copy here
+
+instance showRuleType :: Show RuleType where
+  show r = case r of
+    RtPremise -> "Premise"
+    RtAssumption -> "Ass."
+    AndElim1 -> "∧e1"
+    AndElim2 -> "∧e2"
+    AndIntro -> "∧i"
+    OrElim -> "∨e"
+    OrIntro1 -> "∨i1"
+    OrIntro2 -> "∨i2"
+    ImplElim -> "→e"
+    ImplIntro -> "→i"
+    NegElim -> "¬e"
+    NegIntro -> "¬i"
+    BottomElim -> "⊥e"
+    DoubleNegElim -> "¬¬e"
+    ModusTollens -> "MT"
+    DoubleNegIntro -> "¬¬i"
+    PBC -> "PBC"
+    LEM -> "LEM"
+
+rules :: Array RuleType
+rules =
+  [ RtPremise
+  , RtAssumption
+  , AndElim1
+  , AndElim2
+  , AndIntro
+  , OrElim
+  , OrIntro1
+  , OrIntro2
+  , ImplElim
+  , ImplIntro
+  , NegElim
+  , NegIntro
+  , BottomElim
+  , DoubleNegElim
+  , ModusTollens
+  , DoubleNegIntro
+  , PBC
+  , LEM
+  ]
