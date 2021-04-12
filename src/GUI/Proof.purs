@@ -47,6 +47,7 @@ data Rule
   | Assumption
     { boxEndIdx :: Int -- Inclusive end of box
     }
+  | Copy Int
 
 derive instance eqRule :: Eq Rule
 
@@ -54,6 +55,7 @@ instance showRule :: Show Rule where
   show (Rule s) = s
   show Premise = "Premise"
   show (Assumption { boxEndIdx }) = "Assumption (box ends at " <> show boxEndIdx <> ")"
+  show (Copy n) = "Copy " <> show n
 
 data RuleType
   = RtPremise
@@ -74,6 +76,7 @@ data RuleType
   | DoubleNegIntro
   | PBC
   | LEM
+  | RtCopy
 
 data RuleArg
   = RowIdx Int
@@ -115,6 +118,7 @@ ruleArgTypes = case _ of
   DoubleNegIntro -> [ parseRowIdx ]
   PBC -> [ parseBoxRange ]
   LEM -> []
+  RtCopy -> [ parseRowIdx ]
 
 parseRuleArgs :: RuleType -> Array String -> Array (Maybe RuleArg)
 parseRuleArgs ruleType ruleArgs =
@@ -143,6 +147,7 @@ parseRuleText = case _ of
   "¬¬i" -> Just DoubleNegIntro
   "PBC" -> Just PBC
   "LEM" -> Just LEM
+  "Copy" -> Just RtCopy
   _ -> Nothing
 
 parseRule :: ProofRow -> Maybe P.Rule
@@ -168,6 +173,7 @@ parseRule { rule, ruleArgs } = do
     DoubleNegIntro, [ RowIdx i ] -> Just $ P.DoubleNegIntro i
     PBC, [ BoxRange i j ] -> Just $ P.PBC (Tuple i j)
     LEM, [] -> Just P.LEM
+    RtCopy, [ RowIdx i ] -> Just $ P.Copy i
     _, _ -> Nothing
 
 ruleText :: Rule -> String
@@ -176,6 +182,8 @@ ruleText (Rule s) = s
 ruleText Premise = "Premise"
 
 ruleText (Assumption _) = "Ass."
+
+ruleText (Copy _) = "Copy"
 
 errorText :: P.NdError -> String
 errorText = case _ of
@@ -657,4 +665,5 @@ ruleFromString :: String -> Int -> Rule
 ruleFromString s rowIdx
   | s == "Ass." || s == "as" = Assumption { boxEndIdx: rowIdx }
   | s == "pr" || s == "Premise" = Premise
+  | s == "cp" || s == "Copy" = Copy rowIdx
   | otherwise = Rule s

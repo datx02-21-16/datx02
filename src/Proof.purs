@@ -47,6 +47,7 @@ data Rule
   | DoubleNegIntro Int
   | PBC Box
   | LEM
+  | Copy Int
 
 derive instance eqRule :: Eq Rule
 
@@ -69,6 +70,7 @@ instance showRule :: Show Rule where
   show (DoubleNegIntro _) = "Double neg introduction"
   show (PBC _) = "Proof by contradiction"
   show LEM = "Law of excluded middle"
+  show (Copy _) = "Copy"
 
 data NdError
   = BadRef
@@ -272,6 +274,7 @@ applyRule rule formula = do
       Just f@(Or f1 f2)
         | f1 == Not f2 || f2 == Not f1 -> pure f
       _ -> throwError BadRule
+    Copy i -> proofRef i
 
 -- | Add a row to the derivation.
 -- |
