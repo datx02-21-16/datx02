@@ -41,6 +41,7 @@ $input-shadow: $primary;
 @import "../../node_modules/bulma/sass/layout/hero.sass";
 @import "../../node_modules/bulma/sass/layout/section.sass";
 @import "../../node_modules/bulma/sass/components/panel.sass";
+@import "../../node_modules/bulma/sass/helpers/typography.sass";
 
 .proof {
 	width: 100%;
@@ -144,10 +145,6 @@ $input-shadow: $primary;
 
 .proof.complete .proof-rows > .proof-row:last-child {
 	border: solid green;
-}
-
-.centered-text {
-    text-align: center;
 }
 
 .button {

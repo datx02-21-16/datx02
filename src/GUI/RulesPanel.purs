@@ -89,11 +89,11 @@ ruleButtonPanel =
     HH.div
       [HP.classes [ HH.ClassName "box" ]]
       [ HH.div
-          [HP.classes [HH.ClassName "centered-text"]]
+          [HP.classes [HH.ClassName "has-text-centered"]]
           [HH.text $ maybe hintString (\{sequent: tp} -> tp) st]
       , HH.br_
       , HH.div
-          [HP.classes [HH.ClassName "centered-text"]]
+          [HP.classes [HH.ClassName "has-text-centered"]]
           [HH.text $ maybe "" (\{textualHint: th} -> th) st]
       ]
     where
