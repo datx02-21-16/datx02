@@ -108,6 +108,30 @@ siteBody =
           ]
       ]
 
+  manualModal :: Boolean -> HH.HTML _ _
+  manualModal isActive = mkModal "How to use the editor." manualBody isActive
+    where
+    manualBody = HH.text "Show the manual"
+
+  shortcutModal :: Boolean -> HH.HTML _ _
+  shortcutModal isActive = mkModal "Syntax shortcuts." shortcutBody isActive
+    where
+    shortcutBody = HH.text "Show the shortcuts"
+
+  mkModal :: String -> (HH.HTML _ _) -> Boolean -> HH.HTML _ _
+  mkModal title modalBody isActive =
+    HH.div [ HP.classes $ [ HH.ClassName "modal" ] <> if isActive then [ HH.ClassName "is-active" ] else [] ]
+      [ HH.div [ HP.classes [ HH.ClassName "modal-background" ] ] []
+      , HH.div [ HP.classes [ HH.ClassName "modal-card" ] ]
+          [ HH.header [ HP.classes [ HH.ClassName "modal-card-head" ] ]
+              [ HH.p [ HP.classes [ HH.ClassName "modal-card-title" ] ] [ HH.text title ]
+              , HH.button [ HP.classes [ HH.ClassName "delete" ], ARIA.label "close" ] []
+              ]
+          , HH.section [ HP.classes [ HH.ClassName "modal-card-body" ] ] [ modalBody ]
+          --, HH.footer [ HP.classes [ HH.ClassName "modal-card-foot" ] ] [ HH.text "Manual footer" ]
+          ]
+      ]
+
   handleAction = case _ of
     ActivateModal m -> H.put (Just m)
     CloseModals -> H.put Nothing
