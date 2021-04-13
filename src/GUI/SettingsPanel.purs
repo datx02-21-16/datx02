@@ -1,18 +1,24 @@
 module GUI.SettingsPanel where
 
-import GUI.Config.Text as GCT
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Prelude (identity)
 
-settingsPanel :: forall query input output m. H.Component query input output m
+type Output
+  = Modal
+
+data Modal
+  = ManualModal
+  | ShortcutModal
+
+settingsPanel :: forall query input m. H.Component query input Output m
 settingsPanel =
   H.mkComponent
     { initialState: identity
     , render
-    , eval: H.mkEval H.defaultEval
+    , eval: H.mkEval H.defaultEval { handleAction = handleAction }
     }
   where
   render state =
@@ -23,15 +29,17 @@ settingsPanel =
           [ HH.text "Settings" ]
       , HH.div
           [ HP.classes [ HH.ClassName "panel-block" ] ]
-          [ HH.a 
-                [HP.href "staticAssets/manual.html" , HP.target "_blank"] 
-                [HH.button 
-                     [HP.classes[HH.ClassName "button"]] 
-                     [HH.text "Manual"]]
-           , HH.a 
-                [HP.href "staticAssets/shortcuts.html" , HP.target "_blank"] 
-                [HH.button 
-                     [HP.classes[HH.ClassName "button"]] 
-                     [HH.text "Shortcuts"]]          
+          [ HH.button
+              [ HP.classes [ HH.ClassName "button" ]
+              , HE.onClick (\_ -> ManualModal)
+              ]
+              [ HH.text "Manual" ]
+          , HH.button
+              [ HP.classes [ HH.ClassName "button" ]
+              , HE.onClick (\_ -> ShortcutModal)
+              ]
+              [ HH.text "Shortcuts" ]
           ]
       ]
+
+  handleAction action = H.raise action
