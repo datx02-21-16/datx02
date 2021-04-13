@@ -7,7 +7,8 @@
   "scripts": {
     "build": "webpack",
     "test": "spago test",
-    "start": "webpack serve --mode=development"
+    "start": "webpack serve --mode=development",
+    "cssbuild": "node-sass --omit-source-map-url src/sass/mystyles.scss src/GUI/static/styles.css"
   },
   "repository": {
     "type": "git",
