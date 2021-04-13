@@ -6,7 +6,7 @@ const path = require('path'),
 
 module.exports = {
 	output: {
-		assetModuleFilename:"images/[name][ext]"
+		assetModuleFilename:"staticAssets/[name][ext]"
 	},
 	resolve: {
 		modules: [
@@ -40,6 +40,7 @@ module.exports = {
 					},
 				]
 			},
+
 			{
 				test: /\.s[ac]ss$/i,
 				use: [
@@ -52,9 +53,14 @@ module.exports = {
 				],
 			},
 			{
-              test:/\.(png|jpeg|jpg)$/i,
+              test:/\.(png|jpeg|jpg|html|css)$/i,
 			  type: "asset/resource"
-			}
+			},
+			
+		//	{
+        //	  test: /\.html$/i,
+        //      loader: 'html-loader',
+         //   }
 		]
 	}
 };

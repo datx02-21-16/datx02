@@ -24,12 +24,12 @@ settingsPanel =
       , HH.div
           [ HP.classes [ HH.ClassName "panel-block" ] ]
           [ HH.a 
-                [HP.href "TODO-Open the manual page" , HP.target "_blank"] 
+                [HP.href "staticAssets/manual.html" , HP.target "_blank"] 
                 [HH.button 
                      [HP.classes[HH.ClassName "button"]] 
                      [HH.text "Manual"]]
            , HH.a 
-                [HP.href "TODO-Open the shortcut page" , HP.target "_blank"] 
+                [HP.href "staticAssets/shortcuts.html" , HP.target "_blank"] 
                 [HH.button 
                      [HP.classes[HH.ClassName "button"]] 
                      [HH.text "Shortcuts"]]          
