@@ -31,6 +31,10 @@ substitute =
     , Tuple "f[ao]" "∀"
     , Tuple "ex|te" "∃"
     , Tuple "bo|con" "⊥"
+    -- Derived rules
+    , Tuple "mt" "MT"
+    , Tuple "pbc" "PBC"
+    , Tuple "lem" "LEM"
     ]
 
 data Query a

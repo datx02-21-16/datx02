@@ -102,7 +102,9 @@ siteBody =
                              , HH.tr_
                                  [ HH.th_ [ HH.text "Add Assumption box"]
                                  , HH.td_ [ HH.text "Opens an assumption box at a specific row when inputting the shortcut in the rule field."]
-                                 , HH.td_ [ HH.strong_ [ HH.text "TODO"]]
+                                 , HH.td_ [ HH.strong_ [ HH.text "as"]
+                                          , HH.text ", "
+                                          , HH.strong_ [ HH.text "Ass."]]
                                  ]
                              , HH.tr_
                                  [ HH.th_ [ HH.text "Add row outside of assumption box"]
@@ -112,12 +114,14 @@ siteBody =
                              , HH.tr_
                                  [ HH.th_ [ HH.text "Add Premise"]
                                  , HH.td_ [ HH.text "Adds a Premise in the rule field."]
-                                 , HH.td_ [ HH.strong_ [ HH.text "TODO"]]
+                                 , HH.td_ [ HH.strong_ [ HH.text "pr"]
+                                          , HH.text ", "
+                                          , HH.strong_ [ HH.text "Premise"]]
                                  ]
                              ]
                          ]
                      ]
-                     , HH.h1 [HP.classes [ HH.ClassName "has-text-centered"]] [HH.text "Symbols"]
+                     , HH.h1 [HP.classes [ HH.ClassName "title", HH.ClassName "has-text-centered"]] [HH.text "Symbols"]
                      , HH.table [HP.classes [HH.ClassName "table", HH.ClassName "is-fullwidth"]]
                          [ HH.thead_
                              [ HH.tr_
@@ -184,7 +188,7 @@ siteBody =
                                  ]
                              ]
                          ]
-                     , HH.h1 [HP.classes [ HH.ClassName "has-text-centered"]] [HH.text "Rules"]
+                     , HH.h1 [HP.classes [ HH.ClassName "title", HH.ClassName "has-text-centered"]] [HH.text "Rules"]
                      , HH.table [HP.classes [HH.ClassName "table", HH.ClassName "is-fullwidth"]]
                          [ HH.thead_
                              [ HH.tr_
@@ -291,21 +295,22 @@ siteBody =
                              , HH.tr_
                                  [ HH.th_ [ HH.text "MT"]
                                  , HH.td_ [ HH.text "Modus Tollens"]
-                                 , HH.td_ [ HH.strong_ [ HH.text "MT"]]
+                                 , HH.td_ [ HH.strong_ [ HH.text "mt"]]
                                  ]
                              , HH.tr_
                                  [ HH.th_ [ HH.text "PBC"]
                                  , HH.td_ [ HH.text "Proof by Contraction"]
-                                 , HH.td_ [ HH.strong_ [ HH.text "TODO"]]
+                                 , HH.td_ [ HH.strong_ [ HH.text "pbc"]]
                                  ]
                              , HH.tr_
                                  [ HH.th_ [ HH.text "LEM"]
                                  , HH.td_ [ HH.text "Law of Excluded Middle"]
-                                 , HH.td_ [ HH.strong_ [ HH.text "TODO"]]
+                                 , HH.td_ [ HH.strong_ [ HH.text "lem"]]
                                  ]
                              ]
                          ]
                      ]
+
 
   mkModal :: String -> (HH.HTML _ _) -> Boolean -> HH.HTML _ _
   mkModal title modalBody isActive =
