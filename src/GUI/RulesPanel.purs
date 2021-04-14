@@ -1,20 +1,20 @@
 module GUI.RulesPanel where
 
-import Prelude (Unit, Void, discard, identity, pure, ($), (<>), show)
-import Type.Proxy (Proxy(..))
+import Data.Eq
+import Data.EuclideanRing
+import Data.Foldable
+import Data.Maybe
+import Data.Tuple
+import Data.Array as Array
 import Effect.Class (class MonadEffect)
-import Halogen as H
-import Halogen.HTML as HH
-import Halogen.HTML.Properties as HP
-import Halogen.HTML.Events as HE
 import GUI.Proof as GP
 import GUI.Rules (RuleType(..), rules)
-import Data.Tuple
-import Data.Eq
-import Data.Maybe
-import Data.Array as Array
-import Data.Foldable
-import Data.EuclideanRing
+import Halogen as H
+import Halogen.HTML as HH
+import Halogen.HTML.Events as HE
+import Halogen.HTML.Properties as HP
+import Prelude (Unit, Void, discard, identity, pure, ($), (<>), show, map)
+import Type.Proxy (Proxy(..))
 
 type Slots
   = ( proofPanel :: forall query. H.Slot query Void Int
@@ -69,30 +69,17 @@ ruleButtonPanel =
       <> [ hintBox st ]
 
   -- I don't understand why the buttons does not fill out the whole space?
-  createButtons =
-    HH.div [ HP.classes [ HH.ClassName "columns", HH.ClassName "is-gapless" ] ]
-      [ HH.div [ HP.classes [ HH.ClassName "column", HH.ClassName "is-half" ] ] leftb
-      , HH.div [ HP.classes [ HH.ClassName "column", HH.ClassName "is-half" ] ] rightb
-      ]
-    where
-    (Tuple leftb rightb) =
-      foldl
-        ( \(Tuple c1 c2) (Tuple t i) ->
-            if eq (i `mod` 2) 0 then
-              (Tuple (Array.snoc c1 (createButton i t)) c2)
-            else
-              (Tuple c1 (Array.snoc c2 (createButton i t)))
-        )
-        (Tuple [] [])
-        (Array.zip rules (Array.range 0 (Array.length rules)))
+  createButtons = HH.div [ HP.classes [ HH.ClassName "columns", HH.ClassName "is-multiline", HH.ClassName "is-gapless" ] ] (map createButton rules)
 
-  createButton i rule =
-    HH.button
-      [ HP.classes [ HH.ClassName "button", HH.ClassName "is-fullwidth" ]
-      , HP.type_ HP.ButtonSubmit
-      , HE.onClick $ \_ -> rule
+  createButton rule =
+    HH.div [ HP.classes [ HH.ClassName "column", HH.ClassName "is-half" ] ]
+      [ HH.button
+          [ HP.classes [ HH.ClassName "button", HH.ClassName "is-fullwidth" ]
+          , HP.type_ HP.ButtonSubmit
+          , HE.onClick $ \_ -> rule
+          ]
+          [ HH.text (show rule) ]
       ]
-      [ HH.text (show rule) ]
 
   hintBox st =
     HH.div
