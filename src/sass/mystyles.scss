@@ -131,10 +131,9 @@ $input-shadow: $primary;
 	}
 }
 
-//.rule-arg-input {
-//	width: 4rem;
-//}
-
+.proof-row {
+	border: solid transparent;
+}
 
 .proof-row .invalid input, .formula-field.invalid input{
 	border-color: $danger;
