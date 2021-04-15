@@ -15,9 +15,9 @@ import Halogen.HTML.Properties.ARIA as ARIA
 import Type.Proxy (Proxy(..))
 
 type Slots
-  = ( ruleButtonPanel :: H.Slot RP.Query RP.Output Int
+  = ( ruleButtonPanel :: forall query output. H.Slot query output Int
     , settingsPanel :: forall query. H.Slot query SP.Output Int
-    , proofPanel :: H.Slot PP.Query Void Int
+    , proofPanel :: forall query. H.Slot query Void Int
     )
 
 _proofPanel = Proxy :: Proxy "proofPanel"
@@ -27,8 +27,7 @@ _settingsPanel = Proxy :: Proxy "settingsPanel"
 _ruleButtonPanel = Proxy :: Proxy "ruleButtonPanel"
 
 data Action
-  = HandleButton RP.Output
-  | ActivateModal SP.Modal
+  = ActivateModal SP.Modal
   | CloseModals
 
 siteBody :: forall q i output m. MonadEffect m => H.Component q i output m
@@ -56,7 +55,7 @@ siteBody =
                   [ HH.slot _proofPanel 0 PP.proofPanel 0 identity ]
               , HH.div
                   [ HP.classes [ HH.ClassName "column" ] ]
-                  [ HH.slot _ruleButtonPanel 1 RP.ruleButtonPanel 0 HandleButton
+                  [ HH.slot _ruleButtonPanel 1 RP.ruleButtonPanel 0 identity
                   , HH.slot _settingsPanel 2 SP.settingsPanel 0 ActivateModal
                   ]
               ]
@@ -371,9 +370,6 @@ siteBody =
       ]
 
   handleAction = case _ of
-    HandleButton output -> do
-      H.tell _proofPanel 0 (PP.Tell output)
-      H.modify_ \st -> st
     ActivateModal m -> case m of
       SP.ManualModal -> H.modify_ \st -> st { showManualModal = true }
       SP.ShortcutModal -> H.modify_ \st -> st { showShortcutModal = true }
