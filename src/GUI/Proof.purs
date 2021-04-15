@@ -311,30 +311,50 @@ render st =
     ]
     [ proofHeader, proofRows ]
   where
+  proofHeader :: HH.HTML _ _
   proofHeader =
     HH.div
-      [ HP.classes [ HH.ClassName "proof-header" ] ]
-      [ HH.span [] [ HH.text premises, HH.text " ⊢ " ]
-      , formulaField (-1) "Conclusion" st.conclusion UpdateConclusion
+      [ HP.classes
+          [ HH.ClassName "columns"
+          , HH.ClassName "is-mobile"
+          , HH.ClassName "proof-header"
+          ]
+      ]
+      [ premiseDisplay
+      , HH.div_ [ HH.p_ [ HH.text " ⊢ " ], HH.p_ [] ]
+      , conclusionField (-1) "Conclusion" st.conclusion UpdateConclusion
       ]
 
-  -- | All premises used in the proof as a string.
-  premises =
-    joinWith ", " $ Array.nub
-      $ _.formulaText
-      <$> Array.filter ((_ == Premise) <<< _.rule) st.rows
-
-  -- | Renders an input field that verifies the parsability of the inputted formula.
-  formulaField :: Int -> String -> String -> (String -> Action) -> HH.HTML _ _
-  formulaField i placeholder text outputMap =
+  -- | Displays the premises in the header.
+  premiseDisplay :: HH.HTML _ _
+  premiseDisplay =
     HH.span
-      [ HP.classes $ [ HH.ClassName "column", HH.ClassName "formula-field" ]
+      [ HP.classes
+          [ HH.ClassName "column"
+          , HH.ClassName "is-half"
+          , HH.ClassName "has-text-right"
+          ]
+      ]
+      [ HH.text premises ]
+
+  -- | Renders the conclusion field.
+  conclusionField :: Int -> String -> String -> (String -> Action) -> HH.HTML _ _
+  conclusionField i placeholder text outputMap =
+    HH.span
+      [ HP.classes $ [ HH.ClassName "column", HH.ClassName "is-half", HH.ClassName "conclusion-field" ]
           <> if isOk then [] else [ HH.ClassName "invalid" ]
       , HE.onKeyDown $ FormulaKeyDown i
       ]
       [ HH.slot _symbolInput (2 * i) (symbolInput placeholder) text outputMap ]
     where
     isOk = isRight $ parseFormula text
+
+  -- | All premises used in the proof as a string.
+  premises :: String
+  premises =
+    joinWith ", " $ Array.nub
+      $ _.formulaText
+      <$> Array.filter ((_ == Premise) <<< _.rule) st.rows
 
   -- FIXME: Cannot get "Tuple complete verification = ..." to work?
   verification' =
