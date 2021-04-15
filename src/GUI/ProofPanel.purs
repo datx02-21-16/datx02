@@ -9,33 +9,23 @@ import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
 
 import GUI.Proof as GP
-import GUI.Rules as R
 
 import Data.Maybe (Maybe(..))
 
-type Command = R.Rules
-
-type Slots = ( proofPanel ::                H.Slot Query Void Int
-             , proof      :: forall output. H.Slot GP.Query output Int)
+type Slots = ( proofPanel :: forall query       . H.Slot query Void Int
+             , proof      :: forall output query. H.Slot query output Int)
 
 _proofPanel = Proxy :: Proxy "proofPanel"
 _proof      = Proxy :: Proxy "proof"
 
-data Query a = Tell Command a
-
-proofPanel :: forall input output m. MonadEffect m => H.Component Query input output m
+proofPanel :: forall input output query m. MonadEffect m => H.Component query input output m
 proofPanel =
   H.mkComponent
     { initialState: identity
     , render
-    , eval: H.mkEval H.defaultEval { handleQuery = handleQuery}
+    , eval: H.mkEval H.defaultEval
     }
   where
-  
-  handleQuery :: forall a state action. Query a -> H.HalogenM state action Slots output m (Maybe a)
-  handleQuery (Tell command a) = do
-    H.tell _proof 0 (GP.Tell command)
-    pure (Just a)
 
   render :: forall state action. state -> H.ComponentHTML action Slots m
   render _ =

@@ -1,41 +1,38 @@
 module GUI.RulesPanel where
 
-import Prelude (Unit, Void, discard, identity, pure, ($))
-import Type.Proxy (Proxy(..))
+import Data.Eq
+import Data.EuclideanRing
+import Data.Foldable
+import Data.Maybe
+import Data.Tuple
+import Data.Array as Array
 import Effect.Class (class MonadEffect)
-
+import GUI.Proof as GP
+import GUI.Rules (RuleType(..), rules)
 import Halogen as H
 import Halogen.HTML as HH
-import Halogen.HTML.Properties as HP
 import Halogen.HTML.Events as HE
+import Halogen.HTML.Properties as HP
+import Prelude (Unit, Void, discard, identity, pure, ($), (<>), show, map)
+import Type.Proxy (Proxy(..))
 
-import GUI.Proof as GP
-import GUI.Rules as R
-
-import Data.Maybe
-
-type Slots = ( proofPanel ::                H.Slot Query Void Int
-             , proof      :: forall output. H.Slot GP.Query output Int)
+type Slots
+  = ( proofPanel :: forall query. H.Slot query Void Int
+    , proof :: forall output query. H.Slot query output Int
+    )
 
 _proofPanel = Proxy :: Proxy "proofPanel"
-_proof      = Proxy :: Proxy "proof"
 
-data Query a = Tell Output a
+_proof = Proxy :: Proxy "proof"
 
-proofPanel :: forall input output m. MonadEffect m => H.Component Query input output m
+proofPanel :: forall input output query m. MonadEffect m => H.Component query input output m
 proofPanel =
   H.mkComponent
     { initialState: identity
     , render
-    , eval: H.mkEval H.defaultEval { handleQuery = handleQuery}
+    , eval: H.mkEval H.defaultEval
     }
   where
-  
-  handleQuery :: forall a state action. Query a -> H.HalogenM state action Slots output m (Maybe a)
-  handleQuery (Tell command a) = do
-    H.tell _proof 0 (GP.Tell command)
-    pure (Just a)
-
   render :: forall state action. state -> H.ComponentHTML action Slots m
   render _ =
     HH.div
@@ -45,46 +42,143 @@ proofPanel =
           [ HH.text "Proof" ]
       , HH.div
           [ HP.classes [ HH.ClassName "panel-block" ] ]
-          [ HH.slot_ _proof 0 GP.proof { } ]
+          [ HH.slot_ _proof 0 GP.proof {} ]
       ]
 
-type Action = R.Rules
-type Output = R.Rules
+type State
+  = Maybe RuleType
 
-ruleButtonPanel :: forall query m . MonadEffect m => H.Component query Int Output m
+ruleButtonPanel :: forall query output m. MonadEffect m => H.Component query Int output m
 ruleButtonPanel =
   H.mkComponent
-    { initialState: identity
+    { initialState: initialState
     , render
-    , eval: H.mkEval H.defaultEval { handleAction = handleAction}
+    , eval: H.mkEval H.defaultEval { handleAction = handleAction }
     }
   where
+  initialState _ = Nothing
 
-  render _ =
+  render st =
     HH.div
       [ HP.classes [ HH.ClassName "panel", HH.ClassName "is-primary" ] ]
-      [ HH.p
-          [ HP.classes [ HH.ClassName "panel-heading" ] ]
-          [ HH.text "Rules" ]
-      , HH.button
-          [ HP.classes [ HH.ClassName "button" ]
+      $ [ HH.p
+            [ HP.classes [ HH.ClassName "panel-heading" ] ]
+            [ HH.text "Rules" ]
+        ]
+      <> [ createButtons ]
+      <> [ hintBox st ]
+
+  -- I don't understand why the buttons does not fill out the whole space?
+  createButtons = HH.div [ HP.classes [ HH.ClassName "columns", HH.ClassName "is-multiline", HH.ClassName "is-gapless" ] ] (map createButton rules)
+
+  createButton rule =
+    HH.div [ HP.classes [ HH.ClassName "column", HH.ClassName "is-half" ] ]
+      [ HH.button
+          [ HP.classes [ HH.ClassName "button", HH.ClassName "is-fullwidth" ]
           , HP.type_ HP.ButtonSubmit
-          , HE.onClick (\_ -> R.AndElim1)
+          , HE.onClick $ \_ -> rule
           ]
-          [ HH.text "∧e1" ]
-      , HH.button
-          [ HP.classes [ HH.ClassName "button"]
-          , HP.type_ HP.ButtonSubmit
-          , HE.onClick $ \_ -> R.AndElim2
-          ]
-          [ HH.text "∧e2" ]
-      , HH.button
-          [ HP.classes [ HH.ClassName "button"]
-          , HP.type_ HP.ButtonSubmit
-          , HE.onClick (\_ -> R.AndIntro)
-          ]
-          [ HH.text "∧i" ]
+          [ HH.text (show rule) ]
       ]
-    
-  handleAction :: forall state. Action -> H.HalogenM state Action () Output m Unit
-  handleAction action = H.raise action
+
+  hintBox st =
+    HH.div
+      [ HP.classes [ HH.ClassName "box" ] ]
+      [ HH.div
+          [ HP.classes [ HH.ClassName "has-text-centered" ] ]
+          [ HH.text $ maybe hintString sequent st ]
+      , HH.br_
+      , HH.div
+          [ HP.classes [ HH.ClassName "has-text-centered" ] ]
+          [ HH.text $ maybe "" textualHint st ]
+      ]
+    where
+    hintString :: String
+    hintString =
+      "Please click one of the rules above to "
+        <> "get a description of the rule."
+
+  sequent :: RuleType -> String
+  sequent r = case r of
+    RtPremise -> "⊢ A"
+    -- Not sure if this is correct or how to (or even if we should) represent assumption as a sequent?
+    RtAssumption -> "(⊢ A)"
+    AndElim1 -> "A ∧ B ⊢ A"
+    AndElim2 -> "A ∧ B ⊢ B"
+    AndIntro -> "A,B ⊢ A ∧ B"
+    OrElim -> "(A ⊢ C), (B ⊢ C), A ∨ B ⊢ C"
+    OrIntro1 -> "A ⊢ A ∨ B"
+    OrIntro2 -> "B ⊢ A ∨ B"
+    ImplElim -> "A → B, A ⊢ B"
+    ImplIntro -> "(A ⊢ B) ⊢ A → B"
+    NegElim -> "A,¬A ⊢ ⊥"
+    NegIntro -> "(A ⊢ ⊥) ⊢ ¬A"
+    BottomElim -> "⊥ ⊢ A"
+    DoubleNegElim -> "¬¬A ⊢ A"
+    ModusTollens -> "A → B, ¬B ⊢ ¬A"
+    DoubleNegIntro -> "A ⊢ ¬¬A"
+    PBC -> "(¬A ⊢ ⊥) ⊢ A"
+    LEM -> "⊢ A ∨ ¬A"
+    RtCopy -> "A ⊢ A"
+
+  textualHint :: RuleType -> String
+  textualHint r = case r of
+    RtPremise ->
+      "A premise is something that is assumed to be universally true, "
+        <> "and therefore need no justification."
+    RtAssumption ->
+      "An assumption introduces a new fact without justification, "
+        <> "but does so inside a new scope. The assumption or any conclusions "
+        <> "drawn from it is not allowed to escape this scope."
+    AndElim1 ->
+      "The left conjunction elimination rule concludes "
+        <> "the formula A from the premise A∧B."
+    AndElim2 ->
+      "The right conjunction elimination rule concludes "
+        <> "the formula B from the premise A∧B."
+    AndIntro ->
+      "The conjunction introduction rule concludes the "
+        <> "formula A ∧ B from the premises A, B."
+    OrElim ->
+      "To eliminate a disjunction we must show that we can conclude "
+        <> "C regardless of which of A or B holds. We show this by assuming, "
+        <> "in turn, A and B respectively and showing that they both will lead to C"
+    OrIntro1 ->
+      "The left disjunction introduction rule concludes A ∨ B from the "
+        <> "knowledge that A holds."
+    OrIntro2 ->
+      "The right disjunction introduction rule concludes A ∨ B from the "
+        <> "knowledge that B holds."
+    ImplElim ->
+      "If A→B and A are both known facts, the implication elimination "
+        <> "rule can conclude that B also hold."
+    ImplIntro ->
+      "The implication introduction rule can conclude that A implies B "
+        <> "from a box where the initial assumption is A and the final "
+        <> "conclusion is B."
+    NegElim ->
+      "The negation elimination rule concludes absurdity from the knowledge "
+        <> "that both A and ¬A hold."
+    NegIntro ->
+      "The negation introduction rule can conclude that A does not hold if "
+        <> "from the assumption that A does hold absurdity is concluded."
+    BottomElim ->
+      "The absurdity elimination rule can conclude anything from the "
+        <> "knowledge of absurdity."
+    DoubleNegElim -> "Double negation elimination concludes A from ¬¬A."
+    ModusTollens ->
+      "The Modus Tollens rule concludes that A does not hold from the "
+        <> "knowledge that A → B and ¬B."
+    DoubleNegIntro -> "Double negation introduction concludes ¬¬A from A."
+    PBC ->
+      "To prove something by contradiction we open a box with the assumption "
+        <> "that that which we want to prove does not hold. If we can conclude "
+        <> "absurdity within the box, the assumption is clearly false and the "
+        <> "opposite must be true."
+    LEM ->
+      "The Law of Excluded Middle concludes that either A must hold or "
+        <> "¬A must hold."
+    RtCopy -> "A proven formula can always be copied if it is in scope."
+
+  handleAction :: forall output. RuleType -> H.HalogenM State RuleType () output m Unit
+  handleAction rule = H.modify_ $ \_ -> Just rule

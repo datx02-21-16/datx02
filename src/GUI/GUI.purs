@@ -12,23 +12,24 @@ import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
 import Effect.Class (class MonadEffect)
 
-type Slots = ( ruleButtonPanel ::               H.Slot RP.Query RP.Output Int
-             , settingsPanel   :: forall query. H.Slot query Void Int
-             , proofPanel      ::               H.Slot PP.Query Void Int
-             )
+type Slots
+  = ( ruleButtonPanel :: forall query. H.Slot query Void Int
+    , settingsPanel :: forall query. H.Slot query Void Int
+    , proofPanel :: forall query. H.Slot query Void Int
+    )
 
-_proofPanel      = Proxy :: Proxy "proofPanel"
-_settingsPanel   = Proxy :: Proxy "settingsPanel"
+_proofPanel = Proxy :: Proxy "proofPanel"
+
+_settingsPanel = Proxy :: Proxy "settingsPanel"
+
 _ruleButtonPanel = Proxy :: Proxy "ruleButtonPanel"
-
-data Action = HandleButton RP.Output
 
 siteBody :: forall q i output m. MonadEffect m => H.Component q i output m
 siteBody =
   H.mkComponent
     { initialState: identity
     , render
-    , eval: H.mkEval H.defaultEval { handleAction = handleAction}
+    , eval: H.mkEval H.defaultEval
     }
   where
   render _ =
@@ -46,15 +47,10 @@ siteBody =
                   [ HH.slot _proofPanel 0 PP.proofPanel 0 identity ]
               , HH.div
                   [ HP.classes [ HH.ClassName "column" ] ]
-                  [ HH.slot _ruleButtonPanel 1 RP.ruleButtonPanel 0 HandleButton
+                  [ HH.slot _ruleButtonPanel 1 RP.ruleButtonPanel 0 identity
                   , HH.slot _settingsPanel 2 SP.settingsPanel 0 identity
                   ]
               ]
           ]
       , SE.siteFooter
       ]
-
-  handleAction = case _ of
-      HandleButton output -> do
-        H.tell _proofPanel 0 (PP.Tell output)
-        H.modify_ \st -> st
