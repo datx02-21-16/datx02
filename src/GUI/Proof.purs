@@ -404,15 +404,17 @@ render st =
       isOk = isRight $ parseFormula text
 
     ruleDisplay :: HH.HTML _ _
-    ruleDisplay = HH.span [ HP.classes [ HH.ClassName "column is-half" ] ] [ HH.div [ HP.classes [ HH.ClassName "columns is-gapless" ] ] ([ ruleField ] <> argFields) ]
+    ruleDisplay =
+      HH.span [ HP.classes [ HH.ClassName "column is-half" ] ]
+        [ HH.div [ HP.classes [ HH.ClassName "columns is-gapless" ] ] ([ ruleField ] <> argFields) ]
 
     ruleField :: HH.HTML _ _
     ruleField =
       HH.span
-        ( [ HP.classes ([ HH.ClassName "column rule-field" ] <> if isJust error then [ HH.ClassName "invalid" ] else []) ]
-            <> maybe [] (\e -> [ HP.title $ errorText e ]) error
+        [ HP.classes ([ HH.ClassName "column rule-field" ] <> if isJust error then [ HH.ClassName "invalid" ] else []) ]
+        ( [ HH.slot _symbolInput (2 * i + 1) (symbolInput "Rule") (ruleText rule) (UpdateRule i) ]
+            <> [ HH.p [ HP.classes [ HH.ClassName "help", HH.ClassName "is-danger" ] ] (maybe [] (\e -> [ HH.text $ errorText e ]) error) ]
         )
-        [ HH.slot _symbolInput (2 * i + 1) (symbolInput "Rule") (ruleText rule) (UpdateRule i) ]
 
     argField :: Tuple Int (Tuple (Maybe RuleArg) String) -> HH.HTML _ _
     argField (Tuple j (Tuple res s)) =

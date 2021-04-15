@@ -18,6 +18,8 @@ $family-sans-serif: "Nunito", sans-serif;
 $grey-dark: $brown;
 $grey-light: $beige-light;
 $primary: $blue;
+$danger: red;
+$success: green;
 $link: $pink;
 $widescreen-enabled: false;
 $fullhd-enabled: false;
@@ -135,16 +137,16 @@ $input-shadow: $primary;
 
 
 .proof-row .invalid input, .formula-field.invalid input{
-	border-color: red;
+	border-color: $danger;
 }
 
 
 .proof.complete .proof-rows > .proof-row:last-child {
-	border: solid green;
+	border: solid $success;
 }
 
 .conclusion-field.invalid input{
-	border-bottom: 2px solid red;
+	border-bottom: 2px solid $danger;
 }
 
 .conclusion-field input {
