@@ -23,7 +23,7 @@ $widescreen-enabled: false;
 $fullhd-enabled: false;
 
 // Update some of Bulma's component variables
-$body-background-color: $beige-lighter;
+$body-background-color: white;
 $control-border-width: 2px;
 $input-border-color: transparent;
 $input-shadow: $primary;
@@ -40,6 +40,7 @@ $input-shadow: $primary;
 @import "../../node_modules/bulma/sass/layout/hero.sass";
 @import "../../node_modules/bulma/sass/layout/section.sass";
 @import "../../node_modules/bulma/sass/components/panel.sass";
+@import "../../node_modules/bulma/sass/helpers/typography.sass";
 
 .proof {
 	width: 100%;
@@ -52,7 +53,6 @@ $input-shadow: $primary;
 	align-items: center;
 
 	margin: 1rem auto;
-	width: 50%;
 
 	white-space: nowrap;
 }
@@ -99,12 +99,6 @@ $input-shadow: $primary;
 	border-width: medium;
 }
 
-.rule-field {
-	/* Fixed width in order for rules column to line up */
-	display: inline flow-root;
-	width: 5rem;
-}
-
 .proof-row.dragged-over {
 	flex-wrap: wrap;
 
@@ -133,14 +127,35 @@ $input-shadow: $primary;
 	}
 }
 
-.rule-arg-input {
-	width: 4rem;
-}
+//.rule-arg-input {
+//	width: 4rem;
+//}
 
-.proof-row .invalid input, .formula-field.invalid input {
+
+.proof-row .invalid input, .formula-field.invalid input{
 	border-color: red;
 }
 
+
 .proof.complete .proof-rows > .proof-row:last-child {
 	border: solid green;
+}
+
+.conclusion-field.invalid input{
+	border-bottom: solid red;
+}
+
+.conclusion-field input {
+	border: none;
+}
+
+.input {
+	border-top: none;
+	border-left: none;
+	border-right: none;
+	
+}
+
+.arg-field {
+	width: 4rem;
 }

@@ -11,8 +11,8 @@ import Data.List (List(Nil), (:))
 import Data.Maybe (Maybe(..), fromJust, isJust, isNothing, fromMaybe, maybe)
 import Data.MediaType (MediaType(MediaType))
 import Data.NonEmpty ((:|))
-import Data.String as String
 import Data.String (Pattern(..), split)
+import Data.String as String
 import Data.String.Common (joinWith)
 import Data.Traversable (sequence)
 import Data.Tuple (Tuple(Tuple), fst, snd)
@@ -34,9 +34,9 @@ import Web.Event.Event as Event
 import Web.HTML.Event.DataTransfer as DataTransfer
 import Web.HTML.Event.DragEvent (DragEvent)
 import Web.HTML.Event.DragEvent as DragEvent
+import Web.HTML.HTMLInputElement as HTMLInputElement
 import Web.UIEvent.KeyboardEvent (KeyboardEvent)
 import Web.UIEvent.KeyboardEvent as KeyboardEvent
-import Web.HTML.HTMLInputElement as HTMLInputElement
 
 -- For GUI proof state we use a representation that is easy to modify,
 -- i.e. has a single contiguous array of all rows. When rendering or
@@ -406,33 +406,53 @@ render st =
       , HE.onDrop $ Drop i
       , HE.onDragEnd $ DragEnd i
       ]
-      ( [ HH.span
-            [ HP.classes [ HH.ClassName "column", HH.ClassName "is-narrow" ] ]
-            [ HH.h4
-                [ HP.classes [ HH.ClassName "title", HH.ClassName "row-index" ] ]
-                [ HH.text (show (1 + i)) ]
-            ]
-        , formulaField i "Enter formula" formulaText (UpdateFormula i)
-        , HH.span
-            [ HP.classes [ HH.ClassName "column", HH.ClassName "is-narrow" ] ]
-            [ HH.span
-                ( [ HP.classes ([ HH.ClassName "rule-field" ] <> if isJust error then [ HH.ClassName "invalid" ] else []) ]
-                    <> maybe [] (\e -> [ HP.title $ errorText e ]) error
-                )
-                [ HH.slot _symbolInput (2 * i + 1) (symbolInput "Rule") (ruleText rule) (UpdateRule i) ]
-            ]
-        ]
-          <> argFields
-      )
+      [ rowIndex
+      , formulaField "Enter formula" formulaText (UpdateFormula i)
+      , ruleDisplay
+      ]
     where
     error = (unsafePartial $ verification.rows `unsafeIndex` i).error
 
+    -- | Displays the row index.
+    rowIndex :: HH.HTML _ _
+    rowIndex =
+      HH.span
+        [ HP.classes [ HH.ClassName "column", HH.ClassName "is-narrow" ] ]
+        [ HH.h4
+            [ HP.classes [ HH.ClassName "title", HH.ClassName "row-index" ] ]
+            [ HH.text (show (1 + i)) ]
+        ]
+
+    -- | Renders an input field that verifies the parsability of the inputted formula.
+    formulaField :: String -> String -> (String -> Action) -> HH.HTML _ _
+    formulaField placeholder text outputMap =
+      HH.span
+        [ HP.classes $ [ HH.ClassName "column", HH.ClassName "formula-field" ]
+            <> if isOk then [] else [ HH.ClassName "invalid" ]
+        , HE.onKeyDown $ FormulaKeyDown i
+        ]
+        [ HH.slot _symbolInput (2 * i) (symbolInput placeholder) text outputMap ]
+      where
+      isOk = isRight $ parseFormula text
+
+    ruleDisplay :: HH.HTML _ _
+    ruleDisplay = HH.span [ HP.classes [ HH.ClassName "column is-half" ] ] [ HH.div [ HP.classes [ HH.ClassName "columns is-gapless" ] ] ([ ruleField ] <> argFields) ]
+
+    ruleField :: HH.HTML _ _
+    ruleField =
+      HH.span
+        ( [ HP.classes ([ HH.ClassName "column rule-field" ] <> if isJust error then [ HH.ClassName "invalid" ] else []) ]
+            <> maybe [] (\e -> [ HP.title $ errorText e ]) error
+        )
+        [ HH.slot _symbolInput (2 * i + 1) (symbolInput "Rule") (ruleText rule) (UpdateRule i) ]
+
+    argField :: Tuple Int (Tuple (Maybe RuleArg) String) -> HH.HTML _ _
     argField (Tuple j (Tuple res s)) =
       HH.span [ HP.classes [ HH.ClassName "column", HH.ClassName "is-narrow" ] ]
         [ HH.input
             [ HP.classes
-                ( [ HH.ClassName "input", HH.ClassName "rule-arg-input" ]
-                    <> if isNothing res then [ HH.ClassName "invalid" ] else []
+                ( [ HH.ClassName "input", HH.ClassName "arg-field" ]
+                    <> if isNothing res then [ HH.ClassName "is-danger" ] else [ HH.ClassName "is-primary" ]
                 )
             , HP.value s
             , HP.placeholder "Row"
