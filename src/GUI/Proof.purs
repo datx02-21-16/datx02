@@ -1,4 +1,4 @@
-module GUI.Proof (Query(..), proof) where
+module GUI.Proof (proof) where
 
 import Prelude
 import Data.Array ((!!), unsafeIndex)
@@ -18,6 +18,7 @@ import Data.Traversable (sequence)
 import Data.Tuple (Tuple(Tuple), fst, snd)
 import Effect.Class (class MonadEffect)
 import Effect.Console (logShow)
+import GUI.Rules (RuleType(..)) -- don't want to prefix rules with R
 import GUI.Rules as R
 import GUI.SymbolInput (symbolInput)
 import GUI.SymbolInput as SI
@@ -56,27 +57,6 @@ instance showRule :: Show Rule where
   show Premise = "Premise"
   show (Assumption { boxEndIdx }) = "Assumption (box ends at " <> show boxEndIdx <> ")"
   show (Copy n) = "Copy " <> show n
-
-data RuleType
-  = RtPremise
-  | RtAssumption
-  | AndElim1
-  | AndElim2
-  | AndIntro
-  | OrElim
-  | OrIntro1
-  | OrIntro2
-  | ImplElim
-  | ImplIntro
-  | NegElim
-  | NegIntro
-  | BottomElim
-  | DoubleNegElim
-  | ModusTollens
-  | DoubleNegIntro
-  | PBC
-  | LEM
-  | RtCopy
 
 data RuleArg
   = RowIdx Int
@@ -228,15 +208,12 @@ data Action
 
 _symbolInput = Proxy :: Proxy "symbolInput"
 
-data Query a
-  = Tell R.Rules a
-
 type Slots
-  = ( proof :: forall output. H.Slot Query output Int
+  = ( proof :: forall output query. H.Slot query output Int
     , symbolInput :: H.Slot SI.Query SI.Output Int
     )
 
-proof :: forall input output m. MonadEffect m => H.Component Query input output m
+proof :: forall input output query m. MonadEffect m => H.Component query input output m
 proof =
   H.mkComponent
     { initialState
@@ -245,7 +222,6 @@ proof =
         H.mkEval
           H.defaultEval
             { handleAction = handleAction
-            , handleQuery = handleQuery
             }
     }
 
@@ -255,22 +231,6 @@ initialState _ =
   , rows: [ emptyRow ]
   , draggingOver: Nothing
   }
-
-handleQuery :: forall a state action output m. MonadEffect m => Query a -> H.HalogenM state action Slots output m (Maybe a)
-handleQuery (Tell command a) = case command of
-  R.AndElim1 -> do
-    H.liftEffect $ logShow "and elim 1"
-    -- When we are here the button click from AndElim1 has been propagated all
-    -- the way to the proof component, and we can now update the state accordingly,
-    -- inserting new rows etc.
-    pure Nothing
-  R.AndElim2 -> do
-    H.liftEffect $ logShow "and elim 2"
-    pure Nothing
-  R.AndIntro -> do
-    H.liftEffect $ logShow "and introduction"
-    pure Nothing
-  _ -> pure Nothing
 
 -- | Tree representation of a ND proof,
 -- |
