@@ -26,7 +26,7 @@ settingsPanel =
       [ HP.classes [ HH.ClassName "panel", HH.ClassName "is-primary" ] ]
       [ HH.p
           [ HP.classes [ HH.ClassName "panel-heading" ] ]
-          [ HH.text "Settings" ]
+          [ HH.text "Instructions" ]
       , HH.div
           [ HP.classes [ HH.ClassName "panel-block" ] ]
           [ HH.button
