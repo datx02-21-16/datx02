@@ -82,13 +82,13 @@ data NdError
   | InvalidRule
 
 instance showNdError :: Show NdError where
-    show BadRef          = "bad reference"
-    show RefDiscarded    = "reference discarded"
-    show RefOutOfBounds  = "reference out of bounds"
-    show BadRule         = "bad rule"
-    show BadFormula      = "bad formula"
-    show FormulaMismatch = "formula mismatch"
-    show InvalidRule     = "invalid rule"
+  show BadRef = "bad reference"
+  show RefDiscarded = "reference discarded"
+  show RefOutOfBounds = "reference out of bounds"
+  show BadRule = "bad rule"
+  show BadFormula = "bad formula"
+  show FormulaMismatch = "formula mismatch"
+  show InvalidRule = "invalid rule"
 
 derive instance eqNdError :: Eq NdError
 

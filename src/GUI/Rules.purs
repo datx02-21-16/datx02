@@ -21,8 +21,9 @@ data RuleType
   | DoubleNegIntro
   | PBC
   | LEM
--- We need to add copy here
+  | RtCopy
 
+-- We need to add copy here
 instance showRuleType :: Show RuleType where
   show r = case r of
     RtPremise -> "Premise"
@@ -43,6 +44,7 @@ instance showRuleType :: Show RuleType where
     DoubleNegIntro -> "¬¬i"
     PBC -> "PBC"
     LEM -> "LEM"
+    RtCopy -> "Copy"
 
 rules :: Array RuleType
 rules =
@@ -64,4 +66,5 @@ rules =
   , DoubleNegIntro
   , PBC
   , LEM
+  , RtCopy
   ]

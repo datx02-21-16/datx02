@@ -78,7 +78,7 @@ parseBoxRange s = do
     _ -> Nothing
 
 -- | Given a rule, returns specification of the number and types of arguments it expects.
-ruleArgTypes :: RuleType -> Array (String -> Maybe RuleArg)
+ruleArgTypes :: R.RuleType -> Array (String -> Maybe RuleArg)
 ruleArgTypes = case _ of
   RtPremise -> []
   RtAssumption -> []

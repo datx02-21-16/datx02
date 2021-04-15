@@ -12,13 +12,16 @@ import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
 import Effect.Class (class MonadEffect)
 
-type Slots = ( ruleButtonPanel :: forall query. H.Slot query Void Int
-             , settingsPanel   :: forall query. H.Slot query Void Int
-             , proofPanel      :: forall query. H.Slot query Void Int
-             )
+type Slots
+  = ( ruleButtonPanel :: forall query. H.Slot query Void Int
+    , settingsPanel :: forall query. H.Slot query Void Int
+    , proofPanel :: forall query. H.Slot query Void Int
+    )
 
-_proofPanel      = Proxy :: Proxy "proofPanel"
-_settingsPanel   = Proxy :: Proxy "settingsPanel"
+_proofPanel = Proxy :: Proxy "proofPanel"
+
+_settingsPanel = Proxy :: Proxy "settingsPanel"
+
 _ruleButtonPanel = Proxy :: Proxy "ruleButtonPanel"
 
 siteBody :: forall q i output m. MonadEffect m => H.Component q i output m
