@@ -119,6 +119,7 @@ ruleButtonPanel =
     DoubleNegIntro -> "A ⊢ ¬¬A"
     PBC -> "(¬A ⊢ ⊥) ⊢ A"
     LEM -> "⊢ A ∨ ¬A"
+    RtCopy -> "A ⊢ A"
 
   textualHint :: RuleType -> String
   textualHint r = case r of
@@ -177,6 +178,7 @@ ruleButtonPanel =
     LEM ->
       "The Law of Excluded Middle concludes that either A must hold or "
         <> "¬A must hold."
+    RtCopy -> "A proven formula can always be copied if it is in scope."
 
   handleAction :: forall output. RuleType -> H.HalogenM State RuleType () output m Unit
   handleAction rule = H.modify_ $ \_ -> Just rule
