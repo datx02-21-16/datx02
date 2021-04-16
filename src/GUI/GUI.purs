@@ -1,5 +1,6 @@
 module GUI (siteBody) where
 
+import Data.Maybe (Maybe(..))
 import Prelude
 import Type.Proxy (Proxy(..))
 import Data.Maybe (Maybe(..))
@@ -108,15 +109,21 @@ siteBody =
           ]
       ]
 
-  manualModal :: Boolean -> HH.HTML _ _
-  manualModal isActive = mkModal "How to use the editor." SE.manualModalBody isActive
+  modal :: Maybe SP.Modal -> HH.HTML _ _
+  modal m = case m of
+    Just SP.ManualModal -> manualModal
+    Just SP.ShortcutModal -> shortcutModal
+    Nothing -> HH.p_ []
 
-  shortcutModal :: Boolean -> HH.HTML _ _
-  shortcutModal isActive = mkModal "Syntax shortcuts." SE.shortcutModalBody isActive
+  manualModal :: HH.HTML _ _
+  manualModal = mkModal "How to use the editor." SE.manualModalBody
 
-  mkModal :: String -> (HH.HTML _ _) -> Boolean -> HH.HTML _ _
-  mkModal title modalBody isActive =
-    HH.div [ HP.classes $ [ HH.ClassName "modal" ] <> if isActive then [ HH.ClassName "is-active" ] else [] ]
+  shortcutModal :: HH.HTML _ _
+  shortcutModal = mkModal "Syntax shortcuts." SE.shortcutModalBody
+
+  mkModal :: String -> (HH.HTML _ _) -> HH.HTML _ _
+  mkModal title modalBody =
+    HH.div [ HP.classes [ HH.ClassName "modal", HH.ClassName "is-active" ] ]
       [ HH.div
           [ HP.classes [ HH.ClassName "modal-background" ]
           , HE.onClick (\_ -> CloseModals)
