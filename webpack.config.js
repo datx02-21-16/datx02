@@ -53,14 +53,9 @@ module.exports = {
 				],
 			},
 			{
-              test:/\.(png|jpeg|jpg|html|css)$/i,
+              test:/\.(png|jpeg|jpg)$/i,
 			  type: "asset/resource"
-			},
-			
-		//	{
-        //	  test: /\.html$/i,
-        //      loader: 'html-loader',
-         //   }
+			}
 		]
 	}
 };

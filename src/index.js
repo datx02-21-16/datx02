@@ -2,10 +2,7 @@
 
 import "./sass/mystyles.scss"
 import "./GUI/img/logoMockupV1.png";
-import "./GUI/html/shortcuts.html"
-import "./GUI/html/manual.html"
 import "./GUI/img/intro.png"
-import "./GUI/static/styles.css"
 import "./GUI/img/Ex1ProofPanel.png"
 import "./GUI/img/Ex1Step1.png"
 import "./GUI/img/Ex1Step2.png"
