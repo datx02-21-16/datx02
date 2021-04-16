@@ -67,19 +67,19 @@ ruleButtonPanel =
         ]
       <> [ createButtons ]
       <> [ hintBox st ]
+    where
+    -- I don't understand why the buttons does not fill out the whole space?
+    createButtons = HH.div [ HP.classes [ HH.ClassName "columns", HH.ClassName "is-multiline", HH.ClassName "is-gapless" ] ] (map createButton rules)
 
-  -- I don't understand why the buttons does not fill out the whole space?
-  createButtons = HH.div [ HP.classes [ HH.ClassName "columns", HH.ClassName "is-multiline", HH.ClassName "is-gapless" ] ] (map createButton rules)
-
-  createButton rule =
-    HH.div [ HP.classes [ HH.ClassName "column", HH.ClassName "is-half" ] ]
-      [ HH.button
-          [ HP.classes [ HH.ClassName "button", HH.ClassName "is-fullwidth" ]
-          , HP.type_ HP.ButtonSubmit
-          , HE.onClick $ \_ -> rule
-          ]
-          [ HH.text (show rule) ]
-      ]
+    createButton rule =
+      HH.div [ HP.classes [ HH.ClassName "column", HH.ClassName "is-half" ] ]
+        [ HH.button
+            [ HP.classes ([ HH.ClassName "button", HH.ClassName "is-fullwidth" ] <> maybe [] (\rt -> if (rt == rule) then [ HH.ClassName "is-primary" ] else []) st)
+            , HP.type_ HP.ButtonSubmit
+            , HE.onClick $ \_ -> rule
+            ]
+            [ HH.text (show rule) ]
+        ]
 
   hintBox st =
     HH.div

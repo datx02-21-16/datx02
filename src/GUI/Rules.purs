@@ -1,6 +1,7 @@
 module GUI.Rules (RuleType(..), rules) where
 
 import Data.Show
+import Prelude (class Eq)
 
 data RuleType
   = RtPremise
@@ -22,6 +23,8 @@ data RuleType
   | PBC
   | LEM
   | RtCopy
+
+derive instance eqRt :: Eq RuleType
 
 -- We need to add copy here
 instance showRuleType :: Show RuleType where
