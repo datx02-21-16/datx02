@@ -1,7 +1,10 @@
 @charset "utf-8";
 
+@import "../../node_modules/bulma/sass/utilities/functions.sass";
+
 // Import a Google Font
 @import url("https://fonts.googleapis.com/css?family=Nunito:400,700");
+
 
 // Set your brand colors
 $purple: #8a4d76;
@@ -30,6 +33,9 @@ $body-background-color: white;
 $control-border-width: 2px;
 $input-border-color: transparent;
 $input-shadow: $primary;
+
+$modal-card-head-background-color: $primary;
+$modal-card-title-color: findColorInvert($modal-card-head-background-color);
 
 // Import only what you need from Bulma
 @import "bulma/sass/utilities/_all.sass";
