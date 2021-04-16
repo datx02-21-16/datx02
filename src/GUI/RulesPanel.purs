@@ -48,6 +48,10 @@ proofPanel =
 type State
   = Maybe RuleType
 
+data Action
+  = SetRule RuleType
+  | ClearRule
+
 ruleButtonPanel :: forall query output m. MonadEffect m => H.Component query Int output m
 ruleButtonPanel =
   H.mkComponent
@@ -76,7 +80,7 @@ ruleButtonPanel =
         [ HH.button
             [ HP.classes ([ HH.ClassName "button", HH.ClassName "is-fullwidth" ] <> maybe [] (\rt -> if (rt == rule) then [ HH.ClassName "is-primary" ] else []) st)
             , HP.type_ HP.ButtonSubmit
-            , HE.onClick $ \_ -> rule
+            , HE.onClick $ \_ -> if st == (Just rule) then ClearRule else SetRule rule
             ]
             [ HH.text (show rule) ]
         ]
@@ -180,5 +184,7 @@ ruleButtonPanel =
         <> "¬A must hold."
     RtCopy -> "A proven formula can always be copied if it is in scope."
 
-  handleAction :: forall output. RuleType -> H.HalogenM State RuleType () output m Unit
-  handleAction rule = H.modify_ $ \_ -> Just rule
+  handleAction :: forall output. Action -> H.HalogenM State Action () output m Unit
+  handleAction action = case action of
+    SetRule rule -> H.modify_ $ \_ -> Just rule
+    ClearRule -> H.modify_ $ \_ -> Nothing
