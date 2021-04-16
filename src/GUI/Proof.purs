@@ -396,9 +396,9 @@ render st =
         ( [ HH.slot _symbolInput (2 * i + 1) (symbolInput "Rule") (ruleText rule) (UpdateRule i) ]
             <> [ HH.p [ HP.classes [ HH.ClassName "help", HH.ClassName "is-danger" ] ] (maybe [] (\e -> [ HH.text $ errorText e ]) error) ]
         )
-
-    argField :: Tuple Int (Tuple RuleArgType String) -> HH.HTML _ _
-    argField (Tuple j (Tuple ruleArgType s)) =
+            <> [ HH.p [ HP.classes [ HH.ClassName "help", HH.ClassName "is-danger" ] ] (maybe [] (\e -> if e == BadFormula then [] else [ HH.text $ errorText e ]) error) ]
+    argField :: Tuple Int (Tuple (Maybe RuleArg) String) -> HH.HTML _ _
+    argField (Tuple j (Tuple res s)) =
       HH.span [ HP.classes [ HH.ClassName "column", HH.ClassName "is-narrow" ] ]
         [ HH.input
             [ HP.classes
