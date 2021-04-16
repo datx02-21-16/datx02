@@ -1,5 +1,6 @@
 module GUI where
 
+import Data.Maybe (Maybe(..))
 import Prelude
 import Effect.Class (class MonadEffect)
 import GUI.Config.Text as GCT
@@ -38,7 +39,7 @@ siteBody =
     , eval: H.mkEval H.defaultEval { handleAction = handleAction }
     }
   where
-  initialState _ = { showManualModal: false, showShortcutModal: false }
+  initialState _ = Nothing
 
   render st =
     HH.div
@@ -61,19 +62,24 @@ siteBody =
               ]
           ]
       , SE.siteFooter
-      , manualModal st.showManualModal
-      , shortcutModal st.showShortcutModal
+      , modal st
       ]
 
-  manualModal :: Boolean -> HH.HTML _ _
-  manualModal isActive = mkModal "How to use the editor." SE.manualModalBody isActive
+  modal :: Maybe SP.Modal -> HH.HTML _ _
+  modal m = case m of
+    Just SP.ManualModal -> manualModal
+    Just SP.ShortcutModal -> shortcutModal
+    Nothing -> HH.p_ []
 
-  shortcutModal :: Boolean -> HH.HTML _ _
-  shortcutModal isActive = mkModal "Syntax shortcuts." SE.shortcutModalBody isActive
+  manualModal :: HH.HTML _ _
+  manualModal = mkModal "How to use the editor." SE.manualModalBody
 
-  mkModal :: String -> (HH.HTML _ _) -> Boolean -> HH.HTML _ _
-  mkModal title modalBody isActive =
-    HH.div [ HP.classes $ [ HH.ClassName "modal" ] <> if isActive then [ HH.ClassName "is-active" ] else [] ]
+  shortcutModal :: HH.HTML _ _
+  shortcutModal = mkModal "Syntax shortcuts." SE.shortcutModalBody
+
+  mkModal :: String -> (HH.HTML _ _) -> HH.HTML _ _
+  mkModal title modalBody =
+    HH.div [ HP.classes [ HH.ClassName "modal", HH.ClassName "is-active" ] ]
       [ HH.div
           [ HP.classes [ HH.ClassName "modal-background" ]
           , HE.onClick (\_ -> CloseModals)
@@ -95,6 +101,6 @@ siteBody =
 
   handleAction = case _ of
     ActivateModal m -> case m of
-      SP.ManualModal -> H.modify_ \st -> st { showManualModal = true }
-      SP.ShortcutModal -> H.modify_ \st -> st { showShortcutModal = true }
-    CloseModals -> H.modify_ \st -> st { showManualModal = false, showShortcutModal = false }
+      SP.ManualModal -> H.modify_ \st -> Just SP.ManualModal
+      SP.ShortcutModal -> H.modify_ \st -> Just SP.ShortcutModal
+    CloseModals -> H.modify_ \st -> Nothing
