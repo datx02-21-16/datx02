@@ -240,13 +240,13 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
         case formula of
           Just f@(Or f1 _) -> do
             a <- proofRef i
-            if a == f1 then pure f else throwError BadFormula
+            if a == f1 then pure f else throwError FormulaMismatch
           _ -> throwError BadRule
       OrIntro2 i -> do
         case formula of
           Just f@(Or _ f2) -> do
             a <- proofRef i
-            if a == f2 then pure f else throwError BadFormula
+            if a == f2 then pure f else throwError FormulaMismatch
           _ -> throwError BadRule
       ImplElim i j -> do
         a <- proofRef i
