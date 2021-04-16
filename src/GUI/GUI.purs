@@ -109,11 +109,10 @@ siteBody =
           ]
       ]
 
-  modal :: Maybe SP.Modal -> HH.HTML _ _
+  modal :: SP.Modal -> HH.HTML _ _
   modal m = case m of
-    Just SP.ManualModal -> manualModal
-    Just SP.ShortcutModal -> shortcutModal
-    Nothing -> HH.p_ []
+    SP.ManualModal -> manualModal
+    SP.ShortcutModal -> shortcutModal
 
   manualModal :: HH.HTML _ _
   manualModal = mkModal "How to use the editor." SE.manualModalBody
