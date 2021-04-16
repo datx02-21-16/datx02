@@ -46,30 +46,33 @@ siteBody =
       [ HP.classes
           [ HH.ClassName "container" ]
       ]
-      [ SE.siteHeader GCT.editorName GCT.editorSlogan
-      , HH.section
-          [ HP.classes [ HH.ClassName "section" ] ]
-          [ HH.div
-              [ HP.classes [ HH.ClassName "columns" ] ]
-              [ HH.div
-                  [ HP.classes [ HH.ClassName "column", HH.ClassName "is-three-quarters" ] ]
-                  [ HH.slot _proofPanel 0 PP.proofPanel 0 identity ]
-              , HH.div
-                  [ HP.classes [ HH.ClassName "column" ] ]
-                  [ HH.slot _ruleButtonPanel 1 RP.ruleButtonPanel 0 identity
-                  , HH.slot _settingsPanel 2 SP.settingsPanel 0 ActivateModal
-                  ]
-              ]
-          ]
-      , SE.siteFooter
-      , modal st
-      ]
+      ( [ SE.siteHeader GCT.editorName GCT.editorSlogan
+        , HH.section
+            [ HP.classes [ HH.ClassName "section" ] ]
+            [ HH.div
+                [ HP.classes [ HH.ClassName "columns" ] ]
+                [ HH.div
+                    [ HP.classes [ HH.ClassName "column", HH.ClassName "is-three-quarters" ] ]
+                    [ HH.slot _proofPanel 0 PP.proofPanel 0 identity ]
+                , HH.div
+                    [ HP.classes [ HH.ClassName "column" ] ]
+                    [ HH.slot _ruleButtonPanel 1 RP.ruleButtonPanel 0 identity
+                    , HH.slot _settingsPanel 2 SP.settingsPanel 0 ActivateModal
+                    ]
+                ]
+            ]
+        , SE.siteFooter
+        ]
+          <> ( case st of
+                Just m -> [ modal m ]
+                Nothing -> []
+            )
+      )
 
-  modal :: Maybe SP.Modal -> HH.HTML _ _
+  modal :: SP.Modal -> HH.HTML _ _
   modal m = case m of
-    Just SP.ManualModal -> manualModal
-    Just SP.ShortcutModal -> shortcutModal
-    Nothing -> HH.p_ []
+    SP.ManualModal -> manualModal
+    SP.ShortcutModal -> shortcutModal
 
   manualModal :: HH.HTML _ _
   manualModal = mkModal "How to use the editor." SE.manualModalBody
@@ -100,7 +103,5 @@ siteBody =
       ]
 
   handleAction = case _ of
-    ActivateModal m -> case m of
-      SP.ManualModal -> H.modify_ \st -> Just SP.ManualModal
-      SP.ShortcutModal -> H.modify_ \st -> Just SP.ShortcutModal
-    CloseModals -> H.modify_ \st -> Nothing
+    ActivateModal m -> H.modify_ \_ -> Just m
+    CloseModals -> H.modify_ \_ -> Nothing
