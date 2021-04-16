@@ -162,7 +162,7 @@ errorText = case _ of
   P.RefDiscarded -> "Reference to row in discarded box"
   P.RefOutOfBounds -> "Reference to non-existent row"
   P.BadRule -> "Bad rule application"
-  P.BadFormula -> "Bad inputed formula"
+  P.BadFormula -> "Cannot parse formula."
   P.FormulaMismatch -> "Formula does not match output from rule"
   P.InvalidRule -> "Non-existent rule"
 
