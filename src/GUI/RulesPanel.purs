@@ -1,49 +1,13 @@
 module GUI.RulesPanel where
 
-import Data.Eq
-import Data.EuclideanRing
-import Data.Foldable
-import Data.Maybe
-import Data.Tuple
-import Data.Array as Array
+import Data.Maybe (Maybe(..), maybe)
 import Effect.Class (class MonadEffect)
-import GUI.Proof as GP
 import GUI.Rules (RuleType(..), rules)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
-import Prelude (Unit, Void, discard, identity, pure, ($), (<>), show, map)
-import Type.Proxy (Proxy(..))
-
-type Slots
-  = ( proofPanel :: forall query. H.Slot query Void Int
-    , proof :: forall output query. H.Slot query output Int
-    )
-
-_proofPanel = Proxy :: Proxy "proofPanel"
-
-_proof = Proxy :: Proxy "proof"
-
-proofPanel :: forall input output query m. MonadEffect m => H.Component query input output m
-proofPanel =
-  H.mkComponent
-    { initialState: identity
-    , render
-    , eval: H.mkEval H.defaultEval
-    }
-  where
-  render :: forall state action. state -> H.ComponentHTML action Slots m
-  render _ =
-    HH.div
-      [ HP.classes [ HH.ClassName "panel", HH.ClassName "is-primary" ] ]
-      [ HH.p
-          [ HP.classes [ HH.ClassName "panel-heading" ] ]
-          [ HH.text "Proof" ]
-      , HH.div
-          [ HP.classes [ HH.ClassName "panel-block" ] ]
-          [ HH.slot_ _proof 0 GP.proof {} ]
-      ]
+import Prelude (Unit, ($), (<>), show, map, (==))
 
 type State
   = Maybe RuleType
@@ -184,7 +148,7 @@ ruleButtonPanel =
         <> "¬A must hold."
     RtCopy -> "A proven formula can always be copied if it is in scope."
 
-  handleAction :: forall output. Action -> H.HalogenM State Action () output m Unit
+  handleAction :: Action -> H.HalogenM State Action () output m Unit
   handleAction action = case action of
     SetRule rule -> H.modify_ $ \_ -> Just rule
     ClearRule -> H.modify_ $ \_ -> Nothing
