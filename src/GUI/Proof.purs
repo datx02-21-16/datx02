@@ -322,10 +322,9 @@ render st =
   premises =
     joinWith ", " $ Array.nub
       $ _.formulaText
-      <$> Array.filter ((_ == Premise) <<< _.rule) st.rows
+      <$> Array.takeWhile ((_ == Premise) <<< _.rule) st.rows
 
-  -- FIXME: Cannot get "Tuple complete verification = ..." to work?
-  verification' =
+  Tuple complete verification =
     let
       proofTreeAction :: ProofTree -> Array (P.ND Unit)
       proofTreeAction = case _ of
@@ -340,10 +339,6 @@ render st =
       conclusion = hush $ parseFormula st.conclusion
     in
       P.runND conclusion (sequence $ proofTree st >>= proofTreeAction)
-
-  complete = fst verification'
-
-  verification = snd verification'
 
   proofRows :: HH.HTML _ _
   proofRows =
