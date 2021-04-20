@@ -132,16 +132,23 @@ $input-shadow: $primary;
 }
 
 .proof-row {
+	// Leave some space for success indication on last row
 	border: solid transparent;
 }
 
-.proof-row .invalid input, .formula-field.invalid input{
+.proof-row .invalid input, .formula-field.invalid input {
 	border-color: $danger;
 }
 
-
 .proof.complete .proof-rows > .proof-row:last-child {
 	border: solid $success;
+}
+
+// Make the premises always take up at least one line to avoid having
+// stuff move around when the first premise is added.
+.proof-header .premises:empty::before {
+	// In absense of premises: Insert a single ZeroWidthSpace
+	content: '\200B';
 }
 
 .conclusion-field.invalid input{

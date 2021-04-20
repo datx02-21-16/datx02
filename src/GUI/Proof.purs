@@ -301,6 +301,7 @@ render st =
           [ HH.ClassName "column"
           , HH.ClassName "is-half"
           , HH.ClassName "has-text-right"
+          , HH.ClassName "premises"
           ]
       ]
       [ HH.text premises ]
