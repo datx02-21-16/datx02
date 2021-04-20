@@ -28,6 +28,7 @@ import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Parser (parseFormula)
 import Partial.Unsafe (unsafePartial, unsafeCrashWith)
+import Proof (NdError(..))
 import Proof as P
 import Type.Proxy (Proxy(..))
 import Util (enumerate, moveWithin)
@@ -385,6 +386,20 @@ render st =
             [ HH.text (show (1 + i)) ]
         ]
 
+    -- | Renders an input field that verifies the parsability of the inputted formula.
+    formulaField :: String -> String -> (String -> Action) -> HH.HTML _ _
+    formulaField placeholder text outputMap =
+      HH.span
+        [ HP.classes $ [ HH.ClassName "column", HH.ClassName "formula-field" ]
+            <> if isOk then [] else [ HH.ClassName "invalid" ]
+        , HE.onKeyDown $ FormulaKeyDown i
+        ]
+        ( [ HH.slot _symbolInput (2 * i) (symbolInput placeholder) text outputMap ]
+            <> [ HH.p [ HP.classes [ HH.ClassName "help", HH.ClassName "is-danger" ] ] (maybe [] (\e -> if e == BadFormula then [ HH.text $ errorText e ] else []) error) ]
+        )
+      where
+      isOk = isRight $ parseFormula text
+
     ruleDisplay :: HH.HTML _ _
     ruleDisplay =
       HH.span [ HP.classes [ HH.ClassName "column is-half" ] ]
@@ -395,9 +410,9 @@ render st =
       HH.span
         [ HP.classes ([ HH.ClassName "column rule-field" ] <> if isJust error then [ HH.ClassName "invalid" ] else []) ]
         ( [ HH.slot _symbolInput (2 * i + 1) (symbolInput "Rule") (ruleText rule) (UpdateRule i) ]
-            <> [ HH.p [ HP.classes [ HH.ClassName "help", HH.ClassName "is-danger" ] ] (maybe [] (\e -> [ HH.text $ errorText e ]) error) ]
-        )
             <> [ HH.p [ HP.classes [ HH.ClassName "help", HH.ClassName "is-danger" ] ] (maybe [] (\e -> if e == BadFormula then [] else [ HH.text $ errorText e ]) error) ]
+        )
+
     argField :: Tuple Int (Tuple (Maybe RuleArg) String) -> HH.HTML _ _
     argField (Tuple j (Tuple res s)) =
       HH.span [ HP.classes [ HH.ClassName "column", HH.ClassName "is-narrow" ] ]
