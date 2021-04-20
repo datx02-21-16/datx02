@@ -324,7 +324,8 @@ render st =
     HH.HTML _ Action
   formulaField { i, placeholder, text, outputMap, classes } =
     HH.span
-      [ HP.classes $ classes
+      [ HP.classes $ [ HH.ClassName "formula-field" ]
+          <> classes
           <> if isOk then [] else [ HH.ClassName "invalid" ]
       , HE.onKeyDown $ FormulaKeyDown i
       ]
@@ -378,7 +379,7 @@ render st =
       , HE.onDragEnd $ DragEnd i
       ]
       [ rowIndex
-      , formulaField { i, placeholder: "Enter formula", text: formulaText, outputMap: UpdateFormula i, classes: [ HH.ClassName "column", HH.ClassName "formula-field" ] }
+      , formulaField { i, placeholder: "Enter formula", text: formulaText, outputMap: UpdateFormula i, classes: [ HH.ClassName "column" ] }
       , ruleDisplay
       ]
     where
