@@ -19,6 +19,11 @@ siteHeader title subtitle =
         ]
     ]
 
--- | Footer for the page
-siteFooter :: forall t1 t2. HH.HTML t2 t1
-siteFooter = HH.section_ [ HH.p_ [ HH.text "Licensed under GPLv3" ] ]
+-- | Footer for the page.
+siteFooter :: forall w i. HH.HTML w i
+siteFooter =
+  HH.footer [ HP.classes [ HH.ClassName "footer" ] ]
+    [ HH.div [ HP.classes [ HH.ClassName "content", HH.ClassName "has-text-centered" ] ]
+        [ HH.p_ [ HH.text "Licensed under ", HH.a [ HP.href "https://opensource.org/licenses/GPL-3.0" ] [ HH.text "GPLv3" ] ]
+        ]
+    ]
