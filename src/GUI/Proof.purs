@@ -290,7 +290,7 @@ render st =
       ]
       [ premiseDisplay
       , HH.div_ [ HH.p_ [ HH.text " ⊢ " ], HH.p_ [] ]
-      , conclusionField (-1) "Conclusion" st.conclusion UpdateConclusion
+      , formulaField { i: (-1), placeholder: "Conclusion", text: st.conclusion, outputMap: UpdateConclusion, classes: [ HH.ClassName "columns", HH.ClassName "is-half", HH.ClassName "conclusion-field" ] }
       ]
 
   -- | Displays the premises in the header.
@@ -305,24 +305,31 @@ render st =
       ]
       [ HH.text premises ]
 
-  -- | Renders the conclusion field.
-  conclusionField :: Int -> String -> String -> (String -> Action) -> HH.HTML _ _
-  conclusionField i placeholder text outputMap =
-    HH.span
-      [ HP.classes $ [ HH.ClassName "column", HH.ClassName "is-half", HH.ClassName "conclusion-field" ]
-          <> if isOk then [] else [ HH.ClassName "invalid" ]
-      , HE.onKeyDown $ FormulaKeyDown i
-      ]
-      [ HH.slot _symbolInput (2 * i) (symbolInput placeholder) text outputMap ]
-    where
-    isOk = isRight $ parseFormula text
-
   -- | All premises used in the proof as a string.
   premises :: String
   premises =
     joinWith ", " $ Array.nub
       $ _.formulaText
       <$> Array.takeWhile ((_ == Premise) <<< _.rule) st.rows
+
+  -- | Renders an input field that verifies the parsability of the inputted formula.
+  formulaField ::
+    { i :: Int
+    , placeholder :: String
+    , text :: String
+    , outputMap :: String -> Action
+    , classes :: Array HH.ClassName
+    } ->
+    HH.HTML _ Action
+  formulaField { i, placeholder, text, outputMap, classes } =
+    HH.span
+      [ HP.classes $ classes
+          <> if isOk then [] else [ HH.ClassName "invalid" ]
+      , HE.onKeyDown $ FormulaKeyDown i
+      ]
+      [ HH.slot _symbolInput (2 * i) (symbolInput placeholder) text outputMap ]
+    where
+    isOk = isRight $ parseFormula text
 
   Tuple complete verification =
     let
@@ -370,7 +377,7 @@ render st =
       , HE.onDragEnd $ DragEnd i
       ]
       [ rowIndex
-      , formulaField "Enter formula" formulaText (UpdateFormula i)
+      , formulaField { i, placeholder: "Enter formula", text: formulaText, outputMap: UpdateFormula i, classes: [ HH.ClassName "column", HH.ClassName "formula-field" ] }
       , ruleDisplay
       ]
     where
@@ -385,18 +392,6 @@ render st =
             [ HP.classes [ HH.ClassName "title", HH.ClassName "row-index" ] ]
             [ HH.text (show (1 + i)) ]
         ]
-
-    -- | Renders an input field that verifies the parsability of the inputted formula.
-    formulaField :: String -> String -> (String -> Action) -> HH.HTML _ _
-    formulaField placeholder text outputMap =
-      HH.span
-        [ HP.classes $ [ HH.ClassName "column", HH.ClassName "formula-field" ]
-            <> if isOk then [] else [ HH.ClassName "invalid" ]
-        , HE.onKeyDown $ FormulaKeyDown i
-        ]
-        [ HH.slot _symbolInput (2 * i) (symbolInput placeholder) text outputMap ]
-      where
-      isOk = isRight $ parseFormula text
 
     ruleDisplay :: HH.HTML _ _
     ruleDisplay =
