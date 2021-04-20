@@ -80,6 +80,7 @@ data NdError
   | BadFormula
   | FormulaMismatch
   | InvalidRule
+  | NotABox
 
 instance showNdError :: Show NdError where
   show BadRef = "bad reference"
@@ -89,6 +90,7 @@ instance showNdError :: Show NdError where
   show BadFormula = "bad formula"
   show FormulaMismatch = "formula mismatch"
   show InvalidRule = "invalid rule"
+  show NotABox = "not a box"
 
 derive instance eqNdError :: Eq NdError
 
@@ -190,6 +192,7 @@ boxRef ref = do
   { rows, scopes } <- get
   { formula: maybeF1, error: e1 } <- except $ note RefOutOfBounds $ rows Array.!! (i - 1)
   { formula: maybeF2, error: e2 } <- except $ note RefOutOfBounds $ rows Array.!! (j - 1)
+  when (isNotBox box scopes) $ throwError NotABox
   when (not (boxInScope box scopes)) $ throwError RefDiscarded
   when (e1 == Just BadFormula || e2 == Just BadFormula) $ throwError BadRef -- User needs to have input the formula
   let
@@ -340,6 +343,10 @@ closeBox = do
 -- | Check if a proof row is a Premise.
 isPremise :: ProofRow -> Boolean
 isPremise r = r.rule == Just Premise
+
+-- | Check if a box is really a box.
+isNotBox :: Box -> List Scope -> Boolean
+isNotBox b@(Tuple l1 l2) ss = lineInScope l1 ss && lineInScope l2 ss && not (boxInScope b ss)
 
 -- | Check if a box is in scope in a stack of scopes.
 boxInScope :: Box -> List Scope -> Boolean

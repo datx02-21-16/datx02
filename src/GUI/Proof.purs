@@ -165,6 +165,7 @@ errorText = case _ of
   P.BadFormula -> "Cannot parse formula."
   P.FormulaMismatch -> "Formula does not match output from rule"
   P.InvalidRule -> "Non-existent rule"
+  P.NotABox -> "The argument is not a box"
 
 type ProofRow
   = { formulaText :: String
