@@ -7,8 +7,7 @@
   "scripts": {
     "build": "webpack",
     "test": "spago test",
-    "start": "webpack serve --mode=development",
-    "cssbuild": "node-sass --omit-source-map-url src/sass/mystyles.scss src/GUI/static/styles.css"
+    "start": "webpack serve --mode=development"
   },
   "repository": {
     "type": "git",
@@ -27,7 +26,6 @@
   "devDependencies": {
     "bulma": "^0.9.2",
     "css-loader": "^5.1.1",
-    "html-loader": "^2.1.2",
     "html-webpack-plugin": "^5.1.0",
     "node-sass": "^5.0.0",
     "purescript": "^0.14.0",
