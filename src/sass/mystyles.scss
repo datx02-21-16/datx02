@@ -18,12 +18,14 @@ $family-sans-serif: "Nunito", sans-serif;
 $grey-dark: $brown;
 $grey-light: $beige-light;
 $primary: $blue;
+$danger: red;
+$success: green;
 $link: $pink;
 $widescreen-enabled: false;
 $fullhd-enabled: false;
 
 // Update some of Bulma's component variables
-$body-background-color: $beige-lighter;
+$body-background-color: white;
 $control-border-width: 2px;
 $input-border-color: transparent;
 $input-shadow: $primary;
@@ -43,6 +45,14 @@ $input-shadow: $primary;
 @import "../../node_modules/bulma/sass/components/panel.sass";
 @import "../../node_modules/bulma/sass/helpers/typography.sass";
 @import "../../node_modules/bulma/sass/helpers/flexbox.sass";
+
+.input {
+	// Less distracting text fields
+	border-top: none;
+	border-left: none;
+	border-right: none;
+}
+
 .proof {
 	width: 100%;
 	height: 100%;
@@ -54,7 +64,6 @@ $input-shadow: $primary;
 	align-items: center;
 
 	margin: 1rem auto;
-	width: 50%;
 
 	white-space: nowrap;
 }
@@ -80,50 +89,51 @@ $input-shadow: $primary;
 
 	border-color: $black;
 	border-bottom: solid;
+
+	/* Work around Bulma .column negative margin */
+	&:not(:first-child) {
+		margin-top: -0.75rem;
+	}
+
+	&::before {
+		content: '';
+		position: absolute;
+
+		top: 1.5em;
+		height: calc(100% - 1.5em);
+		left: 0;
+		width: 0.5em;
+
+		border-style: solid none none solid;
+		border-color: inherit;
+		border-width: medium;
+	}
 }
 
-/* Work around Bulma .column negative margin */
-.proof-box:not(:first-child) {
-	margin-top: -0.75rem;
-}
+.proof-row {
+	// Leave some space for success indication on last row
+	border: solid transparent;
+	.proof.complete .proof-rows > &:last-child {
+		border-color: $success; // Indicate correct proof
+	}
 
-.proof-box::before {
-	content: '';
-	position: absolute;
+	&.dragged-over {
+		flex-wrap: wrap;
+		background-color: $beige-light;
 
-	top: 1.5em;
-	height: calc(100% - 1.5em);
-	left: 0;
-	width: 0.5em;
+		&::after {
+			content: '';
 
-	border-style: solid none none solid;
-	border-color: inherit;
-	border-width: medium;
-}
+			flex-basis: 100%;
+			height: 0;
+			margin: 0.5rem 2rem;
 
-.rule-field {
-	/* Fixed width in order for rules column to line up */
-	display: inline flow-root;
-	width: 5rem;
-}
+			border-bottom: thick dashed $pink;
 
-.proof-row.dragged-over {
-	flex-wrap: wrap;
-
-	background-color: $beige-light;
-}
-
-.proof-row.dragged-over::after {
-	content: '';
-
-	flex-basis: 100%;
-	height: 0;
-	margin: 0.5rem 2rem;
-
-	border-bottom: thick dashed $pink;
-
-	animation-duration: 1s;
-	animation-name: fadein;
+			animation-duration: 1s;
+			animation-name: fadein;
+		}
+	}
 }
 
 @keyframes fadein {
@@ -135,14 +145,22 @@ $input-shadow: $primary;
 	}
 }
 
-.rule-arg-input {
-	width: 4rem;
-}
-
 .proof-row .invalid input, .formula-field.invalid input {
-	border-color: red;
+	border-color: $danger;
 }
 
-.proof.complete .proof-rows > .proof-row:last-child {
-	border: solid green;
+// Make the premises always take up at least one line to avoid having
+// stuff move around when the first premise is added.
+.proof-header .premises:empty::before {
+	// In absense of premises: Insert a single ZeroWidthSpace
+	content: '\200B';
+}
+
+// No border under conclusion text field
+.conclusion-field:not(.invalid) > input {
+	border-color: transparent;
+}
+
+.arg-field {
+	width: 4rem;
 }

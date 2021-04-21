@@ -11,8 +11,8 @@ import Data.List (List(Nil), (:))
 import Data.Maybe (Maybe(..), fromJust, isJust, isNothing, fromMaybe, maybe)
 import Data.MediaType (MediaType(MediaType))
 import Data.NonEmpty ((:|))
-import Data.String as String
 import Data.String (Pattern(..), split)
+import Data.String as String
 import Data.String.Common (joinWith)
 import Data.Traversable (sequence)
 import Data.Tuple (Tuple(Tuple), fst, snd)
@@ -35,9 +35,9 @@ import Web.Event.Event as Event
 import Web.HTML.Event.DataTransfer as DataTransfer
 import Web.HTML.Event.DragEvent (DragEvent)
 import Web.HTML.Event.DragEvent as DragEvent
+import Web.HTML.HTMLInputElement as HTMLInputElement
 import Web.UIEvent.KeyboardEvent (KeyboardEvent)
 import Web.UIEvent.KeyboardEvent as KeyboardEvent
-import Web.HTML.HTMLInputElement as HTMLInputElement
 
 -- For GUI proof state we use a representation that is easy to modify,
 -- i.e. has a single contiguous array of all rows. When rendering or
@@ -279,24 +279,53 @@ render st =
     ]
     [ proofHeader, proofRows ]
   where
+  proofHeader :: HH.HTML _ _
   proofHeader =
     HH.div
-      [ HP.classes [ HH.ClassName "proof-header" ] ]
-      [ HH.span [] [ HH.text premises, HH.text " ⊢ " ]
-      , formulaField (-1) "Conclusion" st.conclusion UpdateConclusion
+      [ HP.classes
+          [ HH.ClassName "columns"
+          , HH.ClassName "is-mobile"
+          , HH.ClassName "proof-header"
+          ]
+      ]
+      [ premiseDisplay
+      , HH.div_ [ HH.p_ [ HH.text " ⊢ " ], HH.p_ [] ]
+      , formulaField { i: (-1), placeholder: "Conclusion", text: st.conclusion, outputMap: UpdateConclusion, classes: [ HH.ClassName "column", HH.ClassName "is-half", HH.ClassName "conclusion-field" ] }
       ]
 
+  -- | Displays the premises in the header.
+  premiseDisplay :: HH.HTML _ _
+  premiseDisplay =
+    HH.span
+      [ HP.classes
+          [ HH.ClassName "column"
+          , HH.ClassName "is-half"
+          , HH.ClassName "has-text-right"
+          , HH.ClassName "premises"
+          ]
+      ]
+      [ HH.text premises ]
+
   -- | All premises used in the proof as a string.
+  premises :: String
   premises =
     joinWith ", " $ Array.nub
       $ _.formulaText
-      <$> Array.filter ((_ == Premise) <<< _.rule) st.rows
+      <$> Array.takeWhile ((_ == Premise) <<< _.rule) st.rows
 
   -- | Renders an input field that verifies the parsability of the inputted formula.
-  formulaField :: Int -> String -> String -> (String -> Action) -> HH.HTML _ _
-  formulaField i placeholder text outputMap =
+  formulaField ::
+    { i :: Int
+    , placeholder :: String
+    , text :: String
+    , outputMap :: String -> Action
+    , classes :: Array HH.ClassName
+    } ->
+    HH.HTML _ Action
+  formulaField { i, placeholder, text, outputMap, classes } =
     HH.span
-      [ HP.classes $ [ HH.ClassName "column", HH.ClassName "formula-field" ]
+      [ HP.classes $ [ HH.ClassName "formula-field" ]
+          <> classes
           <> if isOk then [] else [ HH.ClassName "invalid" ]
       , HE.onKeyDown $ FormulaKeyDown i
       ]
@@ -304,8 +333,7 @@ render st =
     where
     isOk = isRight $ parseFormula text
 
-  -- FIXME: Cannot get "Tuple complete verification = ..." to work?
-  verification' =
+  Tuple complete verification =
     let
       proofTreeAction :: ProofTree -> Array (P.ND Unit)
       proofTreeAction = case _ of
@@ -320,10 +348,6 @@ render st =
       conclusion = hush $ parseFormula st.conclusion
     in
       P.runND conclusion (sequence $ proofTree st >>= proofTreeAction)
-
-  complete = fst verification'
-
-  verification = snd verification'
 
   proofRows :: HH.HTML _ _
   proofRows =
@@ -354,33 +378,43 @@ render st =
       , HE.onDrop $ Drop i
       , HE.onDragEnd $ DragEnd i
       ]
-      ( [ HH.span
-            [ HP.classes [ HH.ClassName "column", HH.ClassName "is-narrow" ] ]
-            [ HH.h4
-                [ HP.classes [ HH.ClassName "title", HH.ClassName "row-index" ] ]
-                [ HH.text (show (1 + i)) ]
-            ]
-        , formulaField i "Enter formula" formulaText (UpdateFormula i)
-        , HH.span
-            [ HP.classes [ HH.ClassName "column", HH.ClassName "is-narrow" ] ]
-            [ HH.span
-                ( [ HP.classes ([ HH.ClassName "rule-field" ] <> if isJust error then [ HH.ClassName "invalid" ] else []) ]
-                    <> maybe [] (\e -> [ HP.title $ errorText e ]) error
-                )
-                [ HH.slot _symbolInput (2 * i + 1) (symbolInput "Rule") (ruleText rule) (UpdateRule i) ]
-            ]
-        ]
-          <> argFields
-      )
+      [ rowIndex
+      , formulaField { i, placeholder: "Enter formula", text: formulaText, outputMap: UpdateFormula i, classes: [ HH.ClassName "column" ] }
+      , ruleDisplay
+      ]
     where
     error = (unsafePartial $ verification.rows `unsafeIndex` i).error
 
+    -- | Displays the row index.
+    rowIndex :: HH.HTML _ _
+    rowIndex =
+      HH.span
+        [ HP.classes [ HH.ClassName "column", HH.ClassName "is-narrow" ] ]
+        [ HH.h4
+            [ HP.classes [ HH.ClassName "title", HH.ClassName "row-index" ] ]
+            [ HH.text (show (1 + i)) ]
+        ]
+
+    ruleDisplay :: HH.HTML _ _
+    ruleDisplay =
+      HH.span [ HP.classes [ HH.ClassName "column is-half" ] ]
+        [ HH.div [ HP.classes [ HH.ClassName "columns is-gapless" ] ] ([ ruleField ] <> argFields) ]
+
+    ruleField :: HH.HTML _ _
+    ruleField =
+      HH.span
+        [ HP.classes ([ HH.ClassName "column rule-field" ] <> if isJust error then [ HH.ClassName "invalid" ] else []) ]
+        ( [ HH.slot _symbolInput (2 * i + 1) (symbolInput "Rule") (ruleText rule) (UpdateRule i) ]
+            <> [ HH.p [ HP.classes [ HH.ClassName "help", HH.ClassName "is-danger" ] ] (maybe [] (\e -> [ HH.text $ errorText e ]) error) ]
+        )
+
+    argField :: Tuple Int (Tuple (Maybe RuleArg) String) -> HH.HTML _ _
     argField (Tuple j (Tuple res s)) =
       HH.span [ HP.classes [ HH.ClassName "column", HH.ClassName "is-narrow" ] ]
         [ HH.input
             [ HP.classes
-                ( [ HH.ClassName "input", HH.ClassName "rule-arg-input" ]
-                    <> if isNothing res then [ HH.ClassName "invalid" ] else []
+                ( [ HH.ClassName "input", HH.ClassName "arg-field" ]
+                    <> if isNothing res then [ HH.ClassName "is-danger" ] else [ HH.ClassName "is-primary" ]
                 )
             , HP.value s
             , HP.placeholder "Row"

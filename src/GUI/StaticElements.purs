@@ -7,7 +7,7 @@ import Halogen.HTML.Properties as HP
 siteHeader :: forall t1 t2. String -> String -> HH.HTML t2 t1
 siteHeader title subtitle =
   HH.section
-    [ HP.classes [ HH.ClassName "hero", HH.ClassName "is-primary" ] ]
+    [ HP.classes [ HH.ClassName "hero", HH.ClassName "is-small", HH.ClassName "is-primary" ] ]
     [ HH.div
         [ HP.class_ (HH.ClassName "hero-body") ]
         [ HH.p
