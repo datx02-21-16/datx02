@@ -163,7 +163,7 @@ errorText = case _ of
   P.RefDiscarded -> "Reference to row in discarded box"
   P.RefOutOfBounds -> "Reference to non-existent row"
   P.BadRule -> "Bad rule application"
-  P.BadFormula -> "Cannot parse formula."
+  P.BadFormula -> "Cannot parse formula. Note: formulas need to use capital letters only."
   P.FormulaMismatch -> "Formula does not match output from rule"
   P.InvalidRule -> "Non-existent rule"
   P.NotABox -> "The argument is not a box"
