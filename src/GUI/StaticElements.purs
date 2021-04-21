@@ -1,11 +1,16 @@
 module GUI.StaticElements where
 
+import Prelude
+import Effect.Class (class MonadEffect)
+import Type.Proxy (Proxy(..))
 import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
-import Prelude (($), (<>))
+import GUI.RawHTML as RawHTML
+
+_rawHTML = Proxy :: Proxy "rawHTML"
 
 -- | Main page header.
-siteHeader :: forall t1 t2. String -> String -> HH.HTML t2 t1
+siteHeader :: forall w i. String -> String -> HH.HTML w i
 siteHeader title subtitle =
   HH.section
     [ HP.classes [ HH.ClassName "hero", HH.ClassName "is-small", HH.ClassName "is-primary" ] ]
@@ -29,10 +34,10 @@ siteFooter =
         ]
     ]
 
-manualModalBody :: HH.HTML _ _
-manualModalBody = HH.text lorem
+manualModalBody :: forall r action m. MonadEffect m => HH.ComponentHTML action ( rawHTML :: RawHTML.Slot Int | r ) m
+manualModalBody = HH.slot_ _rawHTML 0 RawHTML.component "nice"
 
-shortcutModalBody :: HH.HTML _ _
+shortcutModalBody :: forall w i. HH.HTML w i
 shortcutModalBody =
   HH.div_
     [ HH.section [ HP.classes [ HH.ClassName "section" ] ]
@@ -306,7 +311,3 @@ shortcutModalBody =
             ]
         ]
     ]
-
--- Placeholder
-lorem :: String
-lorem = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Fusce lobortis nulla a eros ullamcorper, vitae tincidunt tortor auctor. Quisque quis sapien lobortis, rutrum diam quis, porttitor urna. Donec tristique ut quam sit amet luctus. In finibus est feugiat maximus blandit. Nunc vel accumsan neque, sed tristique justo. Vestibulum sit amet vulputate felis, vitae malesuada dolor. Proin odio lacus, iaculis sed luctus et, pellentesque eget tortor. Curabitur maximus lorem massa. Donec ornare pretium justo eu malesuada. Aenean sed libero molestie, consequat justo eu, dapibus nisi. Cras vestibulum sapien at risus luctus, id fermentum massa mattis. Aliquam nec nulla dui. Praesent laoreet enim suscipit lorem facilisis, volutpat laoreet turpis aliquam. Vivamus cursus efficitur diam quis cursus. Integer tempus convallis metus vitae tincidunt. Vestibulum maximus maximus euismod. Fusce imperdiet et tellus luctus pellentesque. In eu egestas velit. Phasellus luctus lectus vitae justo venenatis accumsan. Suspendisse dapibus quam vitae pharetra gravida. Vivamus sit amet elementum tellus, sit amet maximus sem. Etiam cursus pellentesque elit, sit amet volutpat tellus maximus quis. Sed molestie tortor neque, nec sollicitudin turpis luctus sit amet. Mauris eu massa at nisl condimentum congue. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec tincidunt dignissim mauris, facilisis vehicula metus mattis id. Donec quis risus ipsum. Praesent faucibus faucibus ullamcorper. Cras eu fringilla magna, ac sodales augue. Aliquam aliquet congue velit, vitae vulputate nunc elementum ut. Cras ultricies consectetur commodo. Proin rhoncus quam sed leo blandit, et feugiat justo iaculis. Nam odio odio, tincidunt id augue vel, vulputate gravida purus. Sed semper risus nec nisi aliquet iaculis quis non augue. Maecenas quis turpis ut mauris ultrices facilisis. In quis est accumsan erat consequat placerat vel pretium enim. Nunc accumsan, neque eget dictum malesuada, ante metus rhoncus lacus, ac volutpat nunc magna rutrum felis. Donec quis turpis at tellus mattis porta a eu dolor. Quisque venenatis lacus a ligula lacinia dignissim. Aliquam placerat mi a ullamcorper euismod. Nullam sit amet nisl neque. Phasellus nec lobortis nunc. Quisque feugiat volutpat aliquet. Nunc ut pulvinar velit. Praesent sed tellus erat. Nulla volutpat ipsum nec ipsum ornare, id condimentum nisl varius. Curabitur nec purus ac leo rutrum fringilla. Donec eu mi ut lectus dapibus sodales. Phasellus hendrerit facilisis ornare. Donec mi augue, volutpat quis semper non, aliquet a elit. Phasellus commodo sagittis velit, a bibendum quam suscipit eu. Suspendisse potenti. Nullam posuere neque euismod, vestibulum purus vitae, fermentum orci. Curabitur elementum dui eu quam consequat maximus. Aliquam quis erat tincidunt quam ornare tincidunt. Integer viverra efficitur suscipit. Sed volutpat lectus vitae ultricies consequat. Cras ut porttitor magna. Vestibulum tortor augue, mollis a tempus nec, suscipit vitae lectus. Aliquam a bibendum turpis. Pellentesque id tempor orci. Duis elit massa, accumsan eu turpis sed, consectetur molestie ipsum. Vivamus eu commodo lectus. Donec facilisis mi id lectus auctor tempus. Curabitur nec mauris nec lorem varius consequat. Fusce tristique ligula vel lectus fermentum, nec laoreet est dapibus. In ultricies mauris nibh, nec ultrices tellus viverra maximus. Ut a mi nec mi scelerisque facilisis sit amet eget elit. Curabitur semper nulla."

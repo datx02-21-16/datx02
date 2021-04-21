@@ -53,8 +53,12 @@ module.exports = {
 				],
 			},
 			{
-              test:/\.(png|jpeg|jpg)$/i,
+              test: /\.(png|jpeg|jpg)$/i,
 			  type: "asset/resource"
+			},
+			{
+				test: /\.html$/i,
+				use: [ "html-loader" ]
 			}
 		]
 	}

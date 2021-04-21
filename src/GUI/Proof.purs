@@ -209,9 +209,7 @@ data Action
 _symbolInput = Proxy :: Proxy "symbolInput"
 
 type Slots
-  = ( proof :: forall output query. H.Slot query output Int
-    , symbolInput :: H.Slot SI.Query SI.Output Int
-    )
+  = ( symbolInput :: SI.Slot Int )
 
 proof :: forall input output query m. MonadEffect m => H.Component query input output m
 proof =

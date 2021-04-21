@@ -1,4 +1,4 @@
-module GUI.ProofPanel where
+module GUI.ProofPanel (Slot, proofPanel) where
 
 import Prelude
 import Type.Proxy (Proxy(..))
@@ -8,12 +8,11 @@ import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
 import GUI.Proof as GP
 
-type Slots
-  = ( proofPanel :: forall query. H.Slot query Void Int
-    , proof :: forall output query. H.Slot query output Int
-    )
+type Slot id
+  = forall query. H.Slot query Void id
 
-_proofPanel = Proxy :: Proxy "proofPanel"
+type Slots
+  = ( proof :: forall output query. H.Slot query output Unit )
 
 _proof = Proxy :: Proxy "proof"
 
@@ -34,5 +33,5 @@ proofPanel =
           [ HH.text "Proof" ]
       , HH.div
           [ HP.classes [ HH.ClassName "panel-block" ] ]
-          [ HH.slot_ _proof 0 GP.proof {} ]
+          [ HH.slot_ _proof unit GP.proof {} ]
       ]

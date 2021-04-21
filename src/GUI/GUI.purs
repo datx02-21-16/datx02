@@ -15,17 +15,21 @@ import Halogen.HTML.Properties as HP
 import Halogen.HTML.Properties.ARIA as ARIA
 import Type.Proxy (Proxy(..))
 
-type Slots
-  = ( ruleButtonPanel :: forall query output. H.Slot query output Int
-    , settingsPanel :: forall query. H.Slot query SP.Output Int
-    , proofPanel :: forall query. H.Slot query Void Int
-    )
-
 _proofPanel = Proxy :: Proxy "proofPanel"
 
 _settingsPanel = Proxy :: Proxy "settingsPanel"
 
 _ruleButtonPanel = Proxy :: Proxy "ruleButtonPanel"
+
+type Slots
+  = ( proofPanel :: PP.Slot Unit
+    , ruleButtonPanel :: forall query. H.Slot query Void Unit
+    , settingsPanel :: SP.Slot Unit
+    , rawHTML :: forall query output. H.Slot query output Int
+    )
+
+type State
+  = Maybe SP.Modal
 
 data Action
   = ActivateModal SP.Modal
@@ -41,6 +45,7 @@ siteBody =
   where
   initialState _ = Nothing
 
+  render :: State -> H.ComponentHTML Action Slots m
   render st =
     HH.div
       [ HP.classes
@@ -53,11 +58,11 @@ siteBody =
                 [ HP.classes [ HH.ClassName "columns" ] ]
                 [ HH.div
                     [ HP.classes [ HH.ClassName "column", HH.ClassName "is-three-quarters" ] ]
-                    [ HH.slot _proofPanel 0 PP.proofPanel 0 identity ]
+                    [ HH.slot_ _proofPanel unit PP.proofPanel 0 ]
                 , HH.div
                     [ HP.classes [ HH.ClassName "column" ] ]
-                    [ HH.slot _ruleButtonPanel 1 RP.ruleButtonPanel 0 identity
-                    , HH.slot _settingsPanel 2 SP.settingsPanel 0 ActivateModal
+                    [ HH.slot_ _ruleButtonPanel unit RP.ruleButtonPanel 0
+                    , HH.slot _settingsPanel unit SP.settingsPanel 0 ActivateModal
                     ]
                 ]
             ]

@@ -1,6 +1,6 @@
 -- | This module defines a Halogen component that renders a given
 -- | static string of raw HTML.
-module GUI.RawHTML (component) where
+module GUI.RawHTML (Slot, component) where
 
 import Prelude
 import Data.Maybe (Maybe(Just), fromMaybe')
@@ -12,6 +12,9 @@ import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
 import Partial.Unsafe (unsafeCrashWith)
+
+type Slot id
+  = forall query output. H.Slot query output id
 
 type Input
   = String
