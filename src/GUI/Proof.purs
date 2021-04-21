@@ -290,7 +290,7 @@ render st =
       ]
       [ premiseDisplay
       , HH.div_ [ HH.p_ [ HH.text " ⊢ " ], HH.p_ [] ]
-      , formulaField { i: (-1), placeholder: "Conclusion", text: st.conclusion, outputMap: UpdateConclusion, classes: [ HH.ClassName "columns", HH.ClassName "is-half", HH.ClassName "conclusion-field" ] }
+      , formulaField { i: (-1), placeholder: "Conclusion", text: st.conclusion, outputMap: UpdateConclusion, classes: [ HH.ClassName "column", HH.ClassName "is-half", HH.ClassName "conclusion-field" ] }
       ]
 
   -- | Displays the premises in the header.
