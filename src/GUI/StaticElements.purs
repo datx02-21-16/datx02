@@ -7,6 +7,8 @@ import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
 import GUI.RawHTML as RawHTML
 
+foreign import manualHTMLString :: String
+
 _rawHTML = Proxy :: Proxy "rawHTML"
 
 -- | Main page header.
@@ -35,7 +37,7 @@ siteFooter =
     ]
 
 manualModalBody :: forall r action m. MonadEffect m => HH.ComponentHTML action ( rawHTML :: RawHTML.Slot Int | r ) m
-manualModalBody = HH.slot_ _rawHTML 0 RawHTML.component "nice"
+manualModalBody = HH.slot_ _rawHTML 0 RawHTML.component manualHTMLString
 
 shortcutModalBody :: forall w i. HH.HTML w i
 shortcutModalBody =
