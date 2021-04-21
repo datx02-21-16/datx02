@@ -39,7 +39,6 @@ ruleButtonPanel =
       <> [ createButtons ]
       <> [ hintBox st ]
     where
-    -- I don't understand why the buttons does not fill out the whole space?
     createButtons = HH.div [ HP.classes [ HH.ClassName "columns", HH.ClassName "is-multiline", HH.ClassName "is-gapless" ] ] (map createButton rules)
 
     createButton rule =
@@ -57,7 +56,8 @@ ruleButtonPanel =
       [ HP.classes [ HH.ClassName "box" ] ]
       [ HH.div
           [ HP.classes [ HH.ClassName "has-text-centered" ] ]
-          [ HH.text $ maybe hintString sequent st ]
+          [ maybe (HH.text hintString) sequent st ]
+      --            HH.text $ maybe hintString sequent st ]
       , HH.br_
       , HH.div
           [ HP.classes [ HH.ClassName "has-text-centered" ] ]
@@ -69,29 +69,30 @@ ruleButtonPanel =
       "Please click one of the rules above to "
         <> "get a description of the rule."
 
-  sequent :: RuleType -> String
+  --  sequent :: RuleType -> String
   sequent r = case r of
-    RtPremise -> "⊢ A"
-    -- Not sure if this is correct or how to (or even if we should) represent assumption as a sequent?
-    RtAssumption -> "(⊢ A)"
-    AndElim1 -> "A ∧ B ⊢ A"
-    AndElim2 -> "A ∧ B ⊢ B"
-    AndIntro -> "A,B ⊢ A ∧ B"
-    OrElim -> "(A ⊢ C), (B ⊢ C), A ∨ B ⊢ C"
-    OrIntro1 -> "A ⊢ A ∨ B"
-    OrIntro2 -> "B ⊢ A ∨ B"
-    ImplElim -> "A → B, A ⊢ B"
-    ImplIntro -> "(A ⊢ B) ⊢ A → B"
-    NegElim -> "A,¬A ⊢ ⊥"
-    NegIntro -> "(A ⊢ ⊥) ⊢ ¬A"
-    BottomElim -> "⊥ ⊢ A"
-    DoubleNegElim -> "¬¬A ⊢ A"
-    ModusTollens -> "A → B, ¬B ⊢ ¬A"
-    DoubleNegIntro -> "A ⊢ ¬¬A"
-    PBC -> "(¬A ⊢ ⊥) ⊢ A"
-    LEM -> "⊢ A ∨ ¬A"
-    RtCopy -> "A ⊢ A"
-    _ -> "no show"
+    RtPremise -> HH.img [ HP.src $ image "premise.png" ]
+    RtAssumption -> HH.img [ HP.src $ image "assumption.png" ]
+    AndElim1 -> HH.img [ HP.src $ image "and-elim1.png" ]
+    AndElim2 -> HH.img [ HP.src $ image "and-elim2.png" ]
+    AndIntro -> HH.img [ HP.src $ image "and-intro.png" ]
+    OrElim -> HH.img [ HP.src $ image "or-elim.png" ]
+    OrIntro1 -> HH.img [ HP.src $ image "or-intro1.png" ]
+    OrIntro2 -> HH.img [ HP.src $ image "or-intro2.png" ]
+    ImplElim -> HH.img [ HP.src $ image "implication-elim.png" ]
+    ImplIntro -> HH.img [ HP.src $ image "implication-intro.png" ]
+    NegElim -> HH.img [ HP.src $ image "negation-elim.png" ]
+    NegIntro -> HH.img [ HP.src $ image "negation-intro.png" ]
+    BottomElim -> HH.img [ HP.src $ image "bottom-elim.png" ]
+    DoubleNegElim -> HH.img [ HP.src $ image "double-negation-elim.png" ]
+    ModusTollens -> HH.img [ HP.src $ image "MT.png" ]
+    DoubleNegIntro -> HH.img [ HP.src $ image "double-negation-intro.png" ]
+    PBC -> HH.img [ HP.src $ image "PBC.png" ]
+    LEM -> HH.img [ HP.src $ image "LEM.png" ]
+    RtCopy -> HH.img [ HP.src $ image "copy.png" ]
+    where
+    image :: String -> String
+    image str = "src/GUI/Pictures/" <> str
 
   textualHint :: RuleType -> String
   textualHint r = case r of
