@@ -58,54 +58,40 @@ instance showRule :: Show Rule where
   show (Assumption { boxEndIdx }) = "Assumption (box ends at " <> show boxEndIdx <> ")"
   show (Copy n) = "Copy " <> show n
 
-data RuleArg
-  = RowIdx Int
-  | BoxRange Int Int
-
-instance showRuleArg :: Show RuleArg where
-  show (RowIdx i) = "RowIdx " <> show i
-  show (BoxRange i j) = "BoxRange " <> show i <> " " <> show j
-
-parseRowIdx :: String -> Maybe RuleArg
-parseRowIdx s = RowIdx <$> Int.fromString s
-
-parseBoxRange :: String -> Maybe RuleArg
-parseBoxRange s = do
-  let
-    args = map Int.fromString $ split (Pattern "-") s
-  case args of
-    [ Just i, Just j ] -> Just $ BoxRange i j
-    _ -> Nothing
+data RuleArgType
+  = RowIdx
+  | BoxRange
 
 -- | Given a rule, returns specification of the number and types of arguments it expects.
-ruleArgTypes :: R.RuleType -> Array (String -> Maybe RuleArg)
+ruleArgTypes :: R.RuleType -> Array RuleArgType
 ruleArgTypes = case _ of
   RtPremise -> []
   RtAssumption -> []
-  AndElim1 -> [ parseRowIdx ]
-  AndElim2 -> [ parseRowIdx ]
-  AndIntro -> [ parseRowIdx, parseRowIdx ]
-  OrElim -> [ parseRowIdx, parseBoxRange, parseBoxRange ]
-  OrIntro1 -> [ parseRowIdx ]
-  OrIntro2 -> [ parseRowIdx ]
-  ImplElim -> [ parseRowIdx, parseRowIdx ]
-  ImplIntro -> [ parseBoxRange ]
-  NegElim -> [ parseRowIdx, parseRowIdx ]
-  NegIntro -> [ parseBoxRange ]
-  BottomElim -> [ parseRowIdx ]
-  DoubleNegElim -> [ parseRowIdx ]
-  ModusTollens -> [ parseRowIdx, parseRowIdx ]
-  DoubleNegIntro -> [ parseRowIdx ]
-  PBC -> [ parseBoxRange ]
+  AndElim1 -> [ RowIdx ]
+  AndElim2 -> [ RowIdx ]
+  AndIntro -> [ RowIdx, RowIdx ]
+  OrElim -> [ RowIdx, BoxRange, BoxRange ]
+  OrIntro1 -> [ RowIdx ]
+  OrIntro2 -> [ RowIdx ]
+  ImplElim -> [ RowIdx, RowIdx ]
+  ImplIntro -> [ BoxRange ]
+  NegElim -> [ RowIdx, RowIdx ]
+  NegIntro -> [ BoxRange ]
+  BottomElim -> [ RowIdx ]
+  DoubleNegElim -> [ RowIdx ]
+  ModusTollens -> [ RowIdx, RowIdx ]
+  DoubleNegIntro -> [ RowIdx ]
+  PBC -> [ BoxRange ]
   LEM -> []
-  RtCopy -> [ parseRowIdx ]
+  RtCopy -> [ RowIdx ]
 
-parseRuleArgs :: RuleType -> Array String -> Array (Maybe RuleArg)
-parseRuleArgs ruleType ruleArgs =
-  let
-    argTypes = ruleArgTypes ruleType
-  in
-    Array.zipWith ($) argTypes (ruleArgs <> Array.replicate (Array.length argTypes) "")
+parseRowIdx :: String -> Maybe Int
+parseRowIdx = Int.fromString
+
+parseBoxRange :: String -> Maybe P.Box
+parseBoxRange s = case Int.fromString <$> split (Pattern "-") s of
+  [ Just i, Just j ] -> Just $ Tuple i j
+  _ -> Nothing
 
 parseRuleText :: String -> Maybe RuleType
 parseRuleText = case _ of
@@ -131,30 +117,35 @@ parseRuleText = case _ of
   _ -> Nothing
 
 parseRule :: ProofRow -> Maybe P.Rule
-parseRule { rule, ruleArgs } = do
-  ruleType <- parseRuleText (ruleText rule)
-  args <- sequence $ parseRuleArgs ruleType ruleArgs
-  case ruleType, args of
-    RtAssumption, [] -> Just P.Assumption
-    RtPremise, [] -> Just P.Premise
-    AndElim1, [ RowIdx i ] -> Just $ P.AndElim1 i
-    AndElim2, [ RowIdx i ] -> Just $ P.AndElim2 i
-    AndIntro, [ RowIdx i, RowIdx j ] -> Just $ P.AndIntro i j
-    OrElim, [ RowIdx i, BoxRange j1 j2, BoxRange k1 k2 ] -> Just $ P.OrElim i (Tuple j1 j2) (Tuple k1 k2)
-    OrIntro1, [ RowIdx i ] -> Just $ P.OrIntro1 i
-    OrIntro2, [ RowIdx i ] -> Just $ P.OrIntro2 i
-    ImplElim, [ RowIdx i, RowIdx j ] -> Just $ P.ImplElim i j
-    ImplIntro, [ BoxRange i j ] -> Just $ P.ImplIntro (Tuple i j)
-    NegElim, [ RowIdx i, RowIdx j ] -> Just $ P.NegElim i j
-    NegIntro, [ BoxRange i j ] -> Just $ P.NegIntro (Tuple i j)
-    BottomElim, [ RowIdx i ] -> Just $ P.BottomElim i
-    DoubleNegElim, [ RowIdx i ] -> Just $ P.DoubleNegElim i
-    ModusTollens, [ RowIdx i, RowIdx j ] -> Just $ P.ModusTollens i j
-    DoubleNegIntro, [ RowIdx i ] -> Just $ P.DoubleNegIntro i
-    PBC, [ BoxRange i j ] -> Just $ P.PBC (Tuple i j)
-    LEM, [] -> Just P.LEM
-    RtCopy, [ RowIdx i ] -> Just $ P.Copy i
-    _, _ -> Nothing
+parseRule { rule, ruleArgs } =
+  parseRuleText (ruleText rule)
+    >>= \ruleType ->
+        let
+          argCount = Array.length (ruleArgTypes ruleType)
+
+          args = Array.take argCount $ ruleArgs <> Array.replicate argCount ""
+        in
+          case ruleType, args of
+            RtAssumption, [] -> Just P.Assumption
+            RtPremise, [] -> Just P.Premise
+            AndElim1, [ a ] -> Just $ P.AndElim1 (parseRowIdx a)
+            AndElim2, [ a ] -> Just $ P.AndElim2 (parseRowIdx a)
+            AndIntro, [ a, b ] -> Just $ P.AndIntro (parseRowIdx a) (parseRowIdx b)
+            OrElim, [ a, b, c ] -> Just $ P.OrElim (parseRowIdx a) (parseBoxRange b) (parseBoxRange c)
+            OrIntro1, [ a ] -> Just $ P.OrIntro1 (parseRowIdx a)
+            OrIntro2, [ a ] -> Just $ P.OrIntro2 (parseRowIdx a)
+            ImplElim, [ a, b ] -> Just $ P.ImplElim (parseRowIdx a) (parseRowIdx b)
+            ImplIntro, [ a ] -> Just $ P.ImplIntro (parseBoxRange a)
+            NegElim, [ a, b ] -> Just $ P.NegElim (parseRowIdx a) (parseRowIdx b)
+            NegIntro, [ a ] -> Just $ P.NegIntro (parseBoxRange a)
+            BottomElim, [ a ] -> Just $ P.BottomElim (parseRowIdx a)
+            DoubleNegElim, [ a ] -> Just $ P.DoubleNegElim (parseRowIdx a)
+            ModusTollens, [ a, b ] -> Just $ P.ModusTollens (parseRowIdx a) (parseRowIdx b)
+            DoubleNegIntro, [ a ] -> Just $ P.DoubleNegIntro (parseRowIdx a)
+            PBC, [ a ] -> Just $ P.PBC (parseBoxRange a)
+            LEM, [] -> Just P.LEM
+            RtCopy, [ a ] -> Just $ P.Copy (parseRowIdx a)
+            _, _ -> Nothing
 
 ruleText :: Rule -> String
 ruleText (Rule s) = s
@@ -406,28 +397,36 @@ render st =
             <> [ HH.p [ HP.classes [ HH.ClassName "help", HH.ClassName "is-danger" ] ] (maybe [] (\e -> [ HH.text $ errorText e ]) error) ]
         )
 
-    argField :: Tuple Int (Tuple (Maybe RuleArg) String) -> HH.HTML _ _
-    argField (Tuple j (Tuple res s)) =
+    argField :: Tuple Int (Tuple RuleArgType String) -> HH.HTML _ _
+    argField (Tuple j (Tuple ruleArgType s)) =
       HH.span [ HP.classes [ HH.ClassName "column", HH.ClassName "is-narrow" ] ]
         [ HH.input
             [ HP.classes
                 ( [ HH.ClassName "input", HH.ClassName "arg-field" ]
-                    <> if isNothing res then [ HH.ClassName "is-danger" ] else [ HH.ClassName "is-primary" ]
+                    <> if isOk then [ HH.ClassName "is-primary" ] else [ HH.ClassName "is-danger" ]
                 )
             , HP.value s
-            , HP.placeholder "Row"
+            , HP.placeholder placeholder
             , HE.onValueInput $ UpdateRuleArg i j
             ]
         ]
+      where
+      placeholder = case ruleArgType of
+        RowIdx -> "Row"
+        BoxRange -> "Box"
+
+      isOk = case ruleArgType of
+        RowIdx -> isJust $ parseRowIdx s
+        BoxRange -> isJust $ parseBoxRange s
 
     argFields =
       fromMaybe [] do
         ruleType <- parseRuleText (ruleText rule)
         let
-          argResults = parseRuleArgs ruleType ruleArgs
+          argTypes = ruleArgTypes ruleType
 
-          argStrings = ruleArgs <> Array.replicate (Array.length argResults) ""
-        pure $ argField <$> enumerate (Array.zip argResults argStrings)
+          argStrings = ruleArgs <> Array.replicate (Array.length argTypes) ""
+        pure $ argField <$> enumerate (Array.zip argTypes argStrings)
 
 -- | The media type for the index of a proof row as a string.
 rowMediaType :: MediaType
