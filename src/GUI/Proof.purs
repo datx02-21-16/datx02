@@ -320,7 +320,9 @@ render st =
           <> if isOk then [] else [ HH.ClassName "invalid" ]
       , HE.onKeyDown $ FormulaKeyDown i
       ]
-      [ HH.slot _symbolInput (2 * i) (symbolInput placeholder) text outputMap ]
+      ( [ HH.slot _symbolInput (2 * i) (symbolInput placeholder) text outputMap ]
+          <> [ HH.p [ HP.classes [ HH.ClassName "help", HH.ClassName "is-danger" ] ] (if isOk then [] else [ HH.text "Cannot parse formula." ]) ]
+      )
     where
     isOk = isRight $ parseFormula text
 

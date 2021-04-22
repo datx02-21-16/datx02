@@ -162,8 +162,9 @@ $modal-card-title-color: findColorInvert($modal-card-head-background-color);
 }
 
 // Make the premises always take up at least one line to avoid having
-// stuff move around when the first premise is added.
-.proof-header .premises:empty::before {
+// stuff move around when the first premise is added. Same thing for error messages.
+.proof-header .premises:empty::before,
+.help.is-danger:empty::before {
 	// In absense of premises: Insert a single ZeroWidthSpace
 	content: "\200B";
 }
