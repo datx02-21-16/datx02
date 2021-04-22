@@ -31,23 +31,23 @@ import Partial.Unsafe (unsafeCrashWith, unsafePartial)
 data Rule
   = Premise
   | Assumption
-  | AndElim1 Int
-  | AndElim2 Int
-  | AndIntro Int Int
-  | OrElim Int Box Box
-  | OrIntro1 Int
-  | OrIntro2 Int
-  | ImplElim Int Int
-  | ImplIntro Box
-  | NegElim Int Int
-  | NegIntro Box
-  | BottomElim Int
-  | DoubleNegElim Int
-  | ModusTollens Int Int
-  | DoubleNegIntro Int
-  | PBC Box
+  | AndElim1 (Maybe Int)
+  | AndElim2 (Maybe Int)
+  | AndIntro (Maybe Int) (Maybe Int)
+  | OrElim (Maybe Int) (Maybe Box) (Maybe Box)
+  | OrIntro1 (Maybe Int)
+  | OrIntro2 (Maybe Int)
+  | ImplElim (Maybe Int) (Maybe Int)
+  | ImplIntro (Maybe Box)
+  | NegElim (Maybe Int) (Maybe Int)
+  | NegIntro (Maybe Box)
+  | BottomElim (Maybe Int)
+  | DoubleNegElim (Maybe Int)
+  | ModusTollens (Maybe Int) (Maybe Int)
+  | DoubleNegIntro (Maybe Int)
+  | PBC (Maybe Box)
   | LEM
-  | Copy Int
+  | Copy (Maybe Int)
 
 derive instance eqRule :: Eq Rule
 
@@ -175,16 +175,18 @@ innerBoxStart :: List Scope -> Maybe Int
 innerBoxStart ss = (\s -> s.boxStart) $ unsafePartial $ fromJust $ List.head ss
 
 -- | Get the formula at the given one-based row index, if it is in scope.
-proofRef :: Int -> ExceptT NdError ND Formula
-proofRef i = do
+proofRef :: Maybe Int -> ExceptT NdError ND Formula
+proofRef ref = do
+  i <- except $ note BadRef ref
   { rows, scopes } <- get
   { formula, error } <- except $ note RefOutOfBounds $ rows Array.!! (i - 1)
   when (not (lineInScope i scopes)) $ throwError RefDiscarded
   when (error == Just BadFormula) $ throwError BadRef -- User needs to have input the formula
   except $ note BadRef formula
 
-boxRef :: Box -> ExceptT NdError ND (Tuple Formula Formula)
-boxRef box@(Tuple i j) = do
+boxRef :: Maybe Box -> ExceptT NdError ND (Tuple Formula Formula)
+boxRef ref = do
+  box@(Tuple i j) <- except $ note BadRef ref
   { rows, scopes } <- get
   { formula: maybeF1, error: e1 } <- except $ note RefOutOfBounds $ rows Array.!! (i - 1)
   { formula: maybeF2, error: e2 } <- except $ note RefOutOfBounds $ rows Array.!! (j - 1)

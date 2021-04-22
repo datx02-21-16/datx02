@@ -1,12 +1,12 @@
 module Test.Proof where
 
-import Prelude (Unit, discard, ($))
+import Prelude
 import Formula (Formula(..))
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
-import Data.List
+import Data.List (List(Nil), (:))
 import Data.Set as Set
-import Proof
+import Proof (Rule(..), addProof, closeBox, openBox, runND)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
@@ -42,21 +42,22 @@ testInference =
                   }
                 addProof
                   { formula: Just (And a b)
-                  , rule: Just (ImplElim 1 2)
+                  , rule: Just (ImplElim (Just 1) (Just 2))
                   }
                 addProof
                   { formula: Just b
-                  , rule: Just (AndElim2 3)
+                  , rule: Just (AndElim2 (Just 3))
                   }
                 closeBox
                 addProof
                   { formula: Just (Implies p b)
-                  , rule: Just (ImplIntro (Tuple 2 4))
+                  , rule: Just (ImplIntro (Just $ Tuple 2 4))
                   }
       in
         do
           completed `shouldEqual` true
-          proof `shouldEqual` 
+          proof
+            `shouldEqual`
               { rows:
                   [ { error: Nothing
                     , formula: (Just (Implies p (And a b)))
@@ -68,24 +69,26 @@ testInference =
                     }
                   , { error: Nothing
                     , formula: (Just (And a b))
-                    , rule: (Just (ImplElim 1 2))
+                    , rule: (Just (ImplElim (Just 1) (Just 2)))
                     }
                   , { error: Nothing
                     , formula: Just b
-                    , rule: Just (AndElim2 3)
+                    , rule: Just (AndElim2 (Just 3))
                     }
                   , { error: Nothing
                     , formula: Just (Implies p b)
-                    , rule: Just (ImplIntro (Tuple 2 4))}
+                    , rule: Just (ImplIntro (Just $ Tuple 2 4))
+                    }
                   ]
               , scopes:
-                  ({ boxes: [Tuple 2 4]
-                   , lines: Set.insert 5 (Set.singleton 1) --[ 5, 1 ]
-                   , vars: []
-                   , boxStart: Nothing
-                    }:Nil)
-                  
-              }              
+                  ( { boxes: [ Tuple 2 4 ]
+                    , lines: Set.insert 5 (Set.singleton 1) --[ 5, 1 ]
+                    , vars: []
+                    , boxStart: Nothing
+                    }
+                      : Nil
+                  )
+              }
     it "can do and intro"
       let
         (Tuple completed proof) =
@@ -101,7 +104,7 @@ testInference =
                   }
                 addProof
                   { formula: Just (And a b)
-                  , rule: Just (AndIntro 1 2)
+                  , rule: Just (AndIntro (Just 1) (Just 2))
                   }
       in
         do
@@ -119,15 +122,17 @@ testInference =
                     }
                   , { error: Nothing
                     , formula: (Just (And a b))
-                    , rule: (Just (AndIntro 1 2))
+                    , rule: (Just (AndIntro (Just 1) (Just 2)))
                     }
                   ]
               , scopes:
-                  ({ boxes: []
+                  ( { boxes: []
                     , lines: Set.insert 3 (Set.insert 2 (Set.singleton 1)) --[ 3, 2, 1 ]
                     , vars: []
                     , boxStart: Nothing
-                    }:Nil)
+                    }
+                      : Nil
+                  )
               }
     it "can do and elim 1"
       let
@@ -140,7 +145,7 @@ testInference =
                   }
                 addProof
                   { formula: Just a
-                  , rule: Just (AndElim1 1)
+                  , rule: Just (AndElim1 (Just 1))
                   }
       in
         do
@@ -154,13 +159,15 @@ testInference =
                     }
                   , { error: Nothing
                     , formula: (Just a)
-                    , rule: (Just (AndElim1 1))
+                    , rule: (Just (AndElim1 (Just 1)))
                     }
                   ]
               , scopes:
-                  ({ boxes: []
+                  ( { boxes: []
                     , lines: Set.insert 2 (Set.singleton 1) --[ 2, 1 ]
                     , vars: []
                     , boxStart: Nothing
-                    }:Nil)
+                    }
+                      : Nil
+                  )
               }
