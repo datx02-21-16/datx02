@@ -310,6 +310,7 @@ render st =
               [ HH.ClassName "input"
               , HH.ClassName "has-text-right"
               , HH.ClassName "premise-display"
+              , HH.ClassName "is-static"
               ]
           , HP.readOnly true
           , HP.value premises
