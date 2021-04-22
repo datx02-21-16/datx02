@@ -59,17 +59,17 @@ shortcutModalBody =
             , HH.tbody []
                 [ HH.tr_
                     [ HH.th_ [ HH.text "Add row" ]
-                    , HH.td_ [ HH.text "Add an empty row beneath a current one." ]
+                    , HH.td_ [ HH.text "Adds an empty row beneath the current one." ]
                     , HH.td_ [ HH.strong_ [ HH.text "enter" ] ]
                     ]
                 , HH.tr_
                     [ HH.th_ [ HH.text "Delete row" ]
-                    , HH.td_ [ HH.text "Delete a current row. Note, the formula field in the proof panel needs to be empty to remove a row. If it is not empty, then pressing backspace until the formula is gone will delete the row." ]
+                    , HH.td_ [ HH.text "Deletes the current row if pressed while having the cursor in the formula field. Note, the formula field needs to be empty for this to work." ]
                     , HH.td_ [ HH.strong_ [ HH.text "backspace" ] ]
                     ]
                 , HH.tr_
-                    [ HH.th_ [ HH.text "Add Assumption box" ]
-                    , HH.td_ [ HH.text "Opens an assumption box at a specific row when inputting the shortcut in the rule field." ]
+                    [ HH.th_ [ HH.text "Add assumption box" ]
+                    , HH.td_ [ HH.text "Opens an assumption box in the current row when you write this command in the rule field." ]
                     , HH.td_
                         [ HH.strong_ [ HH.text "as" ]
                         , HH.text ", "
@@ -78,12 +78,12 @@ shortcutModalBody =
                     ]
                 , HH.tr_
                     [ HH.th_ [ HH.text "Add row outside of assumption box" ]
-                    , HH.td_ [ HH.text "When inside an assumption box, pressing enter will add a row in that current box. This command is used to jump outside of the box and add a row outside of it." ]
+                    , HH.td_ [ HH.text "While inside an assumption box, pressing enter will add a row in that current box. This command is used to jump out of the box and add a new empty row outside of it." ]
                     , HH.td_ [ HH.strong_ [ HH.text "Alt+Enter" ] ]
                     ]
                 , HH.tr_
                     [ HH.th_ [ HH.text "Add Premise" ]
-                    , HH.td_ [ HH.text "Adds a Premise in the rule field." ]
+                    , HH.td_ [ HH.text "Adds the formula of the current row as a premise when you write this command in the rule field." ]
                     , HH.td_
                         [ HH.strong_ [ HH.text "pr" ]
                         , HH.text ", "
@@ -168,6 +168,9 @@ shortcutModalBody =
                 ]
             ]
         ]
+    ]
+
+{- This might be unnecessary information to include.
     , HH.section [ HP.classes [ HH.ClassName "section" ] ]
         [ HH.h1
             [ HP.classes [ HH.ClassName "title", HH.ClassName "has-text-centered" ] ]
@@ -313,3 +316,4 @@ shortcutModalBody =
             ]
         ]
     ]
+-}
