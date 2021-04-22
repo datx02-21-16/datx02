@@ -1,7 +1,6 @@
 module GUI.Rules (RuleType(..), rules) where
 
-import Data.Show
-import Prelude (class Eq)
+import Prelude
 
 data RuleType
   = RtPremise

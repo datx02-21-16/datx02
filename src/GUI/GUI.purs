@@ -9,6 +9,7 @@ import GUI.ProofPanel as PP
 import GUI.RulesPanel as RP
 import GUI.SettingsPanel as SP
 import GUI.StaticElements as SE
+import GUI.RawHTML as RawHTML
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
@@ -23,9 +24,9 @@ _ruleButtonPanel = Proxy :: Proxy "ruleButtonPanel"
 
 type Slots
   = ( proofPanel :: PP.Slot Unit
-    , ruleButtonPanel :: forall query. H.Slot query Void Unit
+    , ruleButtonPanel :: RP.Slot Unit
     , settingsPanel :: SP.Slot Unit
-    , rawHTML :: forall query output. H.Slot query output Int
+    , rawHTML :: RawHTML.Slot Int
     )
 
 type State
@@ -108,5 +109,5 @@ siteBody =
       ]
 
   handleAction = case _ of
-    ActivateModal m -> H.modify_ \_ -> Just m
-    CloseModals -> H.modify_ \_ -> Nothing
+    ActivateModal m -> H.put (Just m)
+    CloseModals -> H.put Nothing

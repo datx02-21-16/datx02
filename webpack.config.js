@@ -5,9 +5,6 @@ const path = require('path'),
 	  HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = {
-	output: {
-		assetModuleFilename:"staticAssets/[name][ext]"
-	},
 	resolve: {
 		modules: [
 			"node_modules",
@@ -40,7 +37,6 @@ module.exports = {
 					},
 				]
 			},
-
 			{
 				test: /\.s[ac]ss$/i,
 				use: [

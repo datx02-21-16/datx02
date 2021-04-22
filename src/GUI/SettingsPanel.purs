@@ -1,13 +1,13 @@
-module GUI.SettingsPanel (Slot, Modal(..), settingsPanel) where
+module GUI.SettingsPanel (Slot, Output, Modal(..), settingsPanel) where
 
+import Prelude
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
-import Prelude (identity)
 
 type Slot id
-  = forall query. H.Slot query Modal id
+  = forall query. H.Slot query Output id
 
 type Output
   = Modal
@@ -45,4 +45,4 @@ settingsPanel =
           ]
       ]
 
-  handleAction action = H.raise action
+  handleAction = H.raise

@@ -1,5 +1,6 @@
-module GUI.RulesPanel where
+module GUI.RulesPanel (Slot, ruleButtonPanel) where
 
+import Prelude
 import Data.Maybe (Maybe(..), maybe)
 import Effect.Class (class MonadEffect)
 import GUI.Rules (RuleType(..), rules)
@@ -7,7 +8,9 @@ import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
-import Prelude (Unit, ($), (<>), show, map, (==))
+
+type Slot id
+  = forall query output. H.Slot query output id
 
 type State
   = Maybe RuleType
@@ -150,5 +153,5 @@ ruleButtonPanel =
 
   handleAction :: Action -> H.HalogenM State Action () output m Unit
   handleAction action = case action of
-    SetRule rule -> H.modify_ $ \_ -> Just rule
-    ClearRule -> H.modify_ $ \_ -> Nothing
+    SetRule rule -> H.put $ Just rule
+    ClearRule -> H.put Nothing
