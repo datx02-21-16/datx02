@@ -277,11 +277,23 @@ render st =
           [ HH.ClassName "columns"
           , HH.ClassName "is-mobile"
           , HH.ClassName "proof-header"
+          , HH.ClassName "is-gapless"
           ]
       ]
       [ premiseDisplay
-      , HH.span_ [ HH.p_ [ HH.text " ⊢ " ] ]
-      , formulaField { i: (-1), placeholder: "Conclusion", text: st.conclusion, outputMap: UpdateConclusion, classes: [ HH.ClassName "column", HH.ClassName "is-half", HH.ClassName "conclusion-field" ] }
+      , HH.span [ HP.classes [ HH.ClassName "column", HH.ClassName "is-1" ] ]
+          [ HH.input
+              [ HP.classes
+                  [ HH.ClassName "input"
+                  , HH.ClassName "is-static"
+                  , HH.ClassName "has-text-centered"
+                  ]
+              , HP.readOnly true
+              , HP.value "⊢"
+              ]
+          , HH.p [ HP.classes [ HH.ClassName "help", HH.ClassName "is-danger" ] ] []
+          ]
+      , formulaField { i: (-1), placeholder: "Conclusion", text: st.conclusion, outputMap: UpdateConclusion, classes: [ HH.ClassName "column", HH.ClassName "conclusion-field" ] }
       ]
 
   -- | Displays the premises in the header.
@@ -290,12 +302,21 @@ render st =
     HH.span
       [ HP.classes
           [ HH.ClassName "column"
-          , HH.ClassName "is-half"
-          , HH.ClassName "has-text-right"
           , HH.ClassName "premises"
           ]
       ]
-      [ HH.text premises ]
+      [ HH.input
+          [ HP.classes
+              [ HH.ClassName "input"
+              , HH.ClassName "has-text-right"
+              , HH.ClassName "premise-display"
+              ]
+          , HP.readOnly true
+          , HP.value premises
+          , HP.title "Premises"
+          ]
+      , HH.p [ HP.classes [ HH.ClassName "help", HH.ClassName "is-danger" ] ] []
+      ]
 
   -- | All premises used in the proof as a string.
   premises :: String
