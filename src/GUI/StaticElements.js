@@ -1,3 +1,3 @@
-import manual from "./manual.html";
+"use strict";
 
-export const manualHTMLString = manual;
+exports.manualHTMLString = require("./manual.html").default;

@@ -1,7 +1,8 @@
-module GUI where
+module GUI (siteBody) where
 
-import Data.Maybe (Maybe(..))
 import Prelude
+import Type.Proxy (Proxy(..))
+import Data.Maybe (Maybe(..))
 import Effect.Class (class MonadEffect)
 import GUI.Config.Text as GCT
 import GUI.ProofPanel as PP
@@ -13,7 +14,6 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.HTML.Properties.ARIA as ARIA
-import Type.Proxy (Proxy(..))
 
 _proofPanel = Proxy :: Proxy "proofPanel"
 
