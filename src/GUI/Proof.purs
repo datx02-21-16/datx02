@@ -181,6 +181,7 @@ type State
   = { conclusion :: String
     , rows :: Array ProofRow
     , draggingOver :: Maybe Int
+    , dragged :: Maybe Int
     }
 
 data Action
@@ -219,6 +220,7 @@ initialState _ =
   { conclusion: ""
   , rows: [ emptyRow ]
   , draggingOver: Nothing
+  , dragged: Nothing
   }
 
 -- | Tree representation of a ND proof,
@@ -428,10 +430,6 @@ render st =
           argStrings = ruleArgs <> Array.replicate (Array.length argTypes) ""
         pure $ argField <$> enumerate (Array.zip argTypes argStrings)
 
--- | The media type for the index of a proof row as a string.
-rowMediaType :: MediaType
-rowMediaType = MediaType "application/x.row"
-
 handleAction :: forall output m. MonadEffect m => Action -> H.HalogenM State Action Slots output m Unit
 handleAction = case _ of
   UpdateFormula i s -> H.modify_ \st -> st { rows = unsafePartial $ fromJust $ Array.modifyAt i _ { formulaText = s } st.rows }
@@ -474,15 +472,14 @@ handleAction = case _ of
           H.liftEffect $ Event.preventDefault (KeyboardEvent.toEvent ev)
     _ -> pure unit
   DragStart i ev -> do
-    H.liftEffect $ DataTransfer.setData rowMediaType (show i)
-      $ DragEvent.dataTransfer ev
+    H.modify_ (\st -> st { dragged = Just i })
   DragOver i ev -> do
-    validDropZone <- isValidDropZone i ev
+    validDropZone <- isValidDropZone i
     when validDropZone do
       H.modify_ \st -> st { draggingOver = Just i }
       H.liftEffect $ Event.preventDefault $ DragEvent.toEvent ev
   DragEnter i ev -> do
-    validDropZone <- isValidDropZone i ev
+    validDropZone <- isValidDropZone i
     when validDropZone do
       H.liftEffect $ DataTransfer.setDropEffect DataTransfer.Move $ DragEvent.dataTransfer ev
       H.modify_ \st -> st { draggingOver = Just i }
@@ -491,31 +488,34 @@ handleAction = case _ of
     when (draggingOver /= Just i) do
       H.liftEffect $ DataTransfer.setDropEffect DataTransfer.None $ DragEvent.dataTransfer ev
       H.modify_ \st -> st { draggingOver = Nothing }
-  DragEnd i ev -> H.modify_ \st -> st { draggingOver = Nothing }
+  DragEnd i ev -> H.modify_ \st -> st { draggingOver = Nothing, dragged = Nothing }
   Drop i ev -> do
-    H.liftEffect $ Event.preventDefault $ DragEvent.toEvent ev
-    H.modify_ \st -> st { draggingOver = Nothing }
-    { start, end } <- draggedRows ev
-    H.modify_ \st ->
-      let
-        target = i + 1
+    validDropZone <- isValidDropZone i
+    when validDropZone do
+      dragged <- unsafePartial $ fromJust <$> H.gets _.dragged
+      H.liftEffect $ Event.preventDefault $ DragEvent.toEvent ev
+      { start, end } <- draggedRows
+      H.modify_ \st -> st { draggingOver = Nothing, dragged = Nothing }
+      H.modify_ \st ->
+        let
+          target = i + 1
 
-        newStart = target - if start < target then end - start else 0
+          newStart = target - if start < target then end - start else 0
 
-        updateBoxes =
-          mapWithIndex \j -> case _ of
-            row@{ rule: Assumption { boxEndIdx } }
-              -- Moved box
-              | start <= j, j < end -> row { rule = Assumption { boxEndIdx: boxEndIdx + (newStart - start) } }
-              -- Move before/inside box
-              | i <= boxEndIdx, boxEndIdx < start -> row { rule = Assumption { boxEndIdx: boxEndIdx + (end - start) } }
-              -- Move after box
-              | start <= boxEndIdx, boxEndIdx < i -> row { rule = Assumption { boxEndIdx: boxEndIdx - (end - start) } }
-            x -> x
+          updateBoxes =
+            mapWithIndex \j -> case _ of
+              row@{ rule: Assumption { boxEndIdx } }
+                -- Moved box
+                | start <= j, j < end -> row { rule = Assumption { boxEndIdx: boxEndIdx + (newStart - start) } }
+                -- Move before/inside box
+                | i <= boxEndIdx, boxEndIdx < start -> row { rule = Assumption { boxEndIdx: boxEndIdx + (end - start) } }
+                -- Move after box
+                | start <= boxEndIdx, boxEndIdx < i -> row { rule = Assumption { boxEndIdx: boxEndIdx - (end - start) } }
+              x -> x
 
-        rows' = moveWithin target start end $ updateBoxes st.rows
-      in
-        st { rows = rows' }
+          rows' = moveWithin target start end $ updateBoxes st.rows
+        in
+          st { rows = rows' }
   UpdateConclusion s -> H.modify_ \st -> st { conclusion = s }
   where
   addRowBelow i = do
@@ -587,11 +587,9 @@ handleAction = case _ of
       (enumerate rs)
 
   -- | Inclusive-exclusive interval of the rows that are currently being dragged.
-  draggedRows :: DragEvent -> H.HalogenM _ _ _ _ _ { start :: Int, end :: Int }
-  draggedRows ev = do
-    start <-
-      (\s -> unsafePartial $ fromJust $ Int.fromString s)
-        <$> (H.liftEffect $ DataTransfer.getData rowMediaType $ DragEvent.dataTransfer ev)
+  draggedRows :: H.HalogenM _ _ _ _ _ { start :: Int, end :: Int }
+  draggedRows = do
+    start <- unsafePartial $ fromJust <$> H.gets _.dragged
     rows <- H.gets _.rows
     let
       startRow = unsafePartial $ fromJust $ rows !! start
@@ -601,7 +599,12 @@ handleAction = case _ of
         _ -> start + 1
     pure { start, end }
 
-  isValidDropZone i ev = (\{ start, end } -> not (start <= i && i < end)) <$> draggedRows ev
+  isValidDropZone i = do
+    maybeDragged <- H.gets _.dragged
+    if isJust maybeDragged then
+      (\{ start, end } -> not (start <= i && i < end)) <$> draggedRows
+    else
+      pure false
 
 -- | Takes an index and a state and returns the starting position of the
 -- | innermost box which contains the index.
