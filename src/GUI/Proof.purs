@@ -410,10 +410,18 @@ render st =
     ruleField :: HH.HTML _ _
     ruleField =
       HH.span
-        [ HP.classes ([ HH.ClassName "column rule-field" ] <> if isJust error then [ HH.ClassName "invalid" ] else []) ]
+        [ HP.classes ([ HH.ClassName "column rule-field" ] <> if isRuleError error then [ HH.ClassName "invalid" ] else []) ]
         ( [ HH.slot _symbolInput (2 * i + 1) (symbolInput "Rule") (ruleText rule) (UpdateRule i) ]
-            <> [ HH.p [ HP.classes [ HH.ClassName "help", HH.ClassName "is-danger" ] ] (maybe [] (\e -> if e == BadFormula then [] else [ HH.text $ errorText e ]) error) ]
+            <> [ HH.p [ HP.classes [ HH.ClassName "help", HH.ClassName "is-danger" ] ]
+                  (if isRuleError error then [ HH.text $ errorText (unsafePartial $ fromJust error) ] else [])
+              ]
         )
+      where
+      isRuleError err = case err of
+        Nothing -> false
+        Just e -> case e of
+          BadFormula -> false
+          _ -> true
 
     argField :: Tuple Int (Tuple (Maybe RuleArg) String) -> HH.HTML _ _
     argField (Tuple j (Tuple res s)) =
