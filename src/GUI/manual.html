@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>Manual</title>
+	</head>
+	<body>
+		<section class="hero is-link">
+			<div class="hero-body">
+				<div class="content">
+					<h1>How to use the Proof Editor</h1>
+				</div>
+		</section>
+		<section class="hero">
+			<div class="hero-body">
+				<h1>Manual</h1>
+				<p>
+					This manual will give a brief explanation on how to do proofs in this editor. This will be done by using a step by step "learn by example"
+					paradigm by solving basic sequents. When starting the program, you are greeted with the following layout:
+					<img src="./img/intro.png" alt="">
+				<p>
+					The proof column is where the construction of proofs will take place, while the rule column simply lists the inference rules defined in this calculus where clicking on the buttons will give a brief explanation on what they do. The settings column lists this manual whose button you have clicked on because you are here =) , and the shortcut button lists various shortcut keyboard commands used when constructing proofs. An understanding of <a href="shortcuts.html" target="_blank">these shortcuts</a> is needed to be able to know what to type for specific symbols, rules and how to navigate when constructing proofs. In this section, we will for learning purpose write down each command shortcut involved in the process of constructing said proofs. But later when you want to prove sequents that have symbols and rules involved not present in these examples, it is necessary to check the shortcut page to learn how to type them.
+					<h1>Example: P∧Q , R ⊢ Q∧R</h1>
+					Initially the proof panel looks like this:
+					<img src="./img/Ex1ProofPanel.png" alt="">
+				<p>
+					Always when trying to prove a sequent, an input of the conclusion needs to be supplied to let the editor know what we are trying to conclude. In its initial state, we see that the conclusion part and the row below is highlighted with a red colour which defines some kind of error. For a more thourough explanation on errors, check the error section: <!--<strong>TODO Fix an error section that lists different kinds of errors?</strong>-->.
+					We start by adding the conclusion by typing <strong>QorR</strong> in the conclusion field and also the premises by executing the following sequence: <br>
+					<strong>PanQ</strong> in the formula field, and <strong>pr</strong> in the rule field. <br> Then pressing <strong>enter</strong> will add a new row. <br> And on the current row inputing <strong>R</strong> and <strong>pr</strong> in the formula, respectively the rule field.
+					<img src="./img/Ex1Step1.png" alt="">
+				<p>
+					Now it should be clear how to add rows and on each row we have a formula field and a rule field. Next step is to perform a conjunction elimination 2 by typing in the following formula <strong>Q</strong> and rule <strong>ane2 1</strong>:
+					<img src="./img/Ex1Step2.png" alt="">
+				<p>
+					Lastly we add a new row and type an and introduction by typing in the following formula <strong>QanR</strong> and rule <strong>ani 3 2</strong>:
+					<img src="./img/Ex1Step3.png" alt="">
+				<p>
+					We have successfully proven the sequent P∧Q , R ⊢ Q∧R using the editor. The last row is highlighted with a green color to indicate that the conclusion has been reached and is a valid proof. But what now? No assumptions or maybe an or elimination rule was involved that usually trips people up in introductory logic courses. Lets make it more interesting and prove a harder sequent containing these aspects.
+					<h1>Example: (P∨Q)∨R , R ⊢ P∨(Q∨R)</h1>
+				<p>
+					Start by adding the conclusion and the premise by typing <strong>Por(QorR)</strong> in the conclusion field, and <strong>(PorQ)orR , pr</strong> in the formula field and rule field at row 1.
+					<img src="./img/Ex2Step1.png" alt="">
+				<p>
+					Add a new row and type <strong>PorQ</strong> in the formula field and <strong>as</strong> in the rule field. This opens up a new assumption box with its own scope and assumed formula at the top row. Something to note is that currently when pressing enter, you will add rows inside this box.
+					<img src="./img/Ex2Step2.png" alt="">
+				<p>
+					We will now add two new assumptions inside the box we created, because we are going to perform a disjunction elimination at row 2 eventually. To add these assumptions and the inference rules involved, type in the following sequence:
+				<p>
+					Row 3:  Formula field: <strong>P</strong> Rule field: <strong>as</strong>
+				<p>
+					Row 4:  Formula field: <strong>Por(QorR)</strong> Rule field: <strong>ori1 3</strong>
+				<p>
+					The first assumption box is now finished and we want to add new rows outside of this box. Simply pressing enter doesnt work because it adds new rows inside of it as discussed before. The shortcut we are looking for is to press <strong>alt+enter</strong>. Now we do the second assumption and the inference rules involved by writing the sequence:
+				<p>
+					Row 5: Formula field: <strong>Q</strong> Rule field: <strong>as</strong>
+				<p>
+					Row 6: Formula field: <strong>QorR</strong> Rule field: <strong>ori1 5</strong>
+				<p>
+					Row 7: Formula field: <strong>Por(QorR)</strong> Rule field: <strong>ori2 6</strong>
+				<p>
+					The current state of the proof should now look like this:
+					<img src="./img/Ex2Step3.png" alt="">
+				<p>
+					Now we press <strong>shift+enter</strong> to get outside of the current box and add a new row. At this row we also input <strong>Por(QorR)</strong> and <strong>ore 2 3-4 5-7</strong>.
+					<img src="./img/Ex2Step4.png" alt="">
+				<p>
+					Add a new assumption box and inference rules inside of it by doing:<br>
+					Row 9: Formula field: <strong>R</strong> Rule field: <strong>as</strong>
+				<p>
+					Row 10: Formula field: <strong>QorR</strong> Rule field: <strong>ori2 9</strong>
+				<p>
+					Row 11: Formula field: <strong>Por(QorR)</strong> Rule field: <strong>ori2 10</strong> and lastly <strong>shift+enter</strong>. It should look like this:
+					<img src="./img/Ex2Step5.png" alt="">
+				<p>
+					We finish of the proof by adding the following <strong>Por(QorR)</strong> and <strong>ore 1 , 2-8 , 9-11</strong> which completes the proof:
+					<img src="./img/Ex2Step6.png" alt="">
+				<p>
+					Phew! This was a little harder than the first one but now you should have enough information about how to navigate and how the editor works by constructing various proofs. Remember to read the <a href="shortcuts.html" target="_blank">shortcuts</a> if you havnt to learn the various ways of constructing different symbols and rules that havn't been applied on these two example proofs. The best is now to keep on practicing by solving various sequents! Have fun!
+		</section>
+	</body>
+</html>

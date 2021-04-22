@@ -1,4 +1,4 @@
-module GUI.SymbolInput (Output(..), Query(..), symbolInput) where
+module GUI.SymbolInput (Slot, Output(..), Query(..), symbolInput) where
 
 import Prelude
 import Data.Array (foldl)
@@ -16,6 +16,9 @@ import Data.String.Regex (replace)
 import Data.Tuple (Tuple(..))
 import GUI.Utils (makeRegex)
 
+type Slot id
+  = H.Slot Query Output id
+
 substitute :: String -> String
 substitute =
   foldl (<<<) identity
@@ -24,13 +27,17 @@ substitute =
   where
   ss =
     [ Tuple "an" "∧"
-    , Tuple "or" "∨"
-    , Tuple "->" "→"
-    , Tuple "no" "¬"
+    , Tuple "or|v" "∨"
+    , Tuple "->|imp" "→"
+    , Tuple "not|neg|!" "¬"
     -- Quantifiers
     , Tuple "f[ao]" "∀"
     , Tuple "ex|te" "∃"
-    , Tuple "bo" "⊥"
+    , Tuple "bo|con" "⊥"
+    -- Derived rules
+    , Tuple "mt" "MT"
+    , Tuple "pbc" "PBC"
+    , Tuple "lem" "LEM"
     ]
 
 data Query a

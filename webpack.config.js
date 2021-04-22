@@ -48,6 +48,14 @@ module.exports = {
 					"sass-loader",
 				],
 			},
+			{
+              test: /\.(png|jpeg|jpg)$/i,
+			  type: "asset/resource"
+			},
+			{
+				test: /\.html$/i,
+				use: [ "html-loader" ]
+			}
 		]
 	}
 };

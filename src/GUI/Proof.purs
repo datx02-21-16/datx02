@@ -209,9 +209,7 @@ data Action
 _symbolInput = Proxy :: Proxy "symbolInput"
 
 type Slots
-  = ( proof :: forall output query. H.Slot query output Int
-    , symbolInput :: H.Slot SI.Query SI.Output Int
-    )
+  = ( symbolInput :: SI.Slot Int )
 
 proof :: forall input output query m. MonadEffect m => H.Component query input output m
 proof =
@@ -289,7 +287,7 @@ render st =
           ]
       ]
       [ premiseDisplay
-      , HH.div_ [ HH.p_ [ HH.text " ⊢ " ], HH.p_ [] ]
+      , HH.span_ [ HH.p_ [ HH.text " ⊢ " ] ]
       , formulaField { i: (-1), placeholder: "Conclusion", text: st.conclusion, outputMap: UpdateConclusion, classes: [ HH.ClassName "column", HH.ClassName "is-half", HH.ClassName "conclusion-field" ] }
       ]
 

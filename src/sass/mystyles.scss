@@ -1,17 +1,18 @@
 @charset "utf-8";
 
 // Import a Google Font
-@import url('https://fonts.googleapis.com/css?family=Nunito:400,700');
+@import url("https://fonts.googleapis.com/css?family=Nunito:400,700");
 
 // Set your brand colors
-$purple: #8A4D76;
-$pink: #FA7C91;
+$purple: #8a4d76;
+$pink: #fa7c91;
 $brown: #757763;
-$beige-light: #D0D1CD;
-$beige-lighter: #EFF0EB;
-$blue: #0039AA;
+$beige-light: #d0d1cd;
+$beige-lighter: #eff0eb;
+$blue: #0039aa;
 $black: #000000;
 $green: #009500;
+$white: #ffffff;
 
 // Update Bulma's global variables
 $family-sans-serif: "Nunito", sans-serif;
@@ -30,21 +31,28 @@ $control-border-width: 2px;
 $input-border-color: transparent;
 $input-shadow: $primary;
 
+$modal-card-head-background-color: $primary;
+$modal-card-title-color: findColorInvert($modal-card-head-background-color);
+
 // Import only what you need from Bulma
 @import "bulma/sass/utilities/_all.sass";
+@import "bulma/sass/utilities/functions.sass";
 @import "bulma/sass/base/_all.sass";
 @import "bulma/sass/grid/columns.sass";
 @import "bulma/sass/elements/button.sass";
 @import "bulma/sass/elements/box.sass";
 @import "bulma/sass/elements/container.sass";
 @import "bulma/sass/elements/content.sass";
+@import "bulma/sass/elements/other.sass";
 @import "bulma/sass/elements/title.sass";
+@import "bulma/sass/elements/table.sass";
 @import "bulma/sass/form/_all.sass";
 @import "bulma/sass/components/navbar.sass";
 @import "bulma/sass/layout/hero.sass";
 @import "bulma/sass/layout/section.sass";
 @import "bulma/sass/layout/footer.sass";
 @import "bulma/sass/components/panel.sass";
+@import "bulma/sass/components/modal.sass";
 @import "bulma/sass/helpers/typography.sass";
 @import "bulma/sass/helpers/flexbox.sass";
 
@@ -83,10 +91,8 @@ $input-shadow: $primary;
 	position: relative;
 	width: 100%;
 	/* Leave space for box indicator on the left */
-	padding: /* top */ 0.5em
-			 /* right */ 0
-			 /* bottom */ calc(0.5em + 0.5em)
-			 /* left */ calc(0.75em);
+	padding: /* top */ 0.5em /* right */ 0 /* bottom */ calc(0.5em + 0.5em)
+		/* left */ calc(0.75em);
 	margin-bottom: 1rem;
 
 	border-color: $black;
@@ -98,7 +104,7 @@ $input-shadow: $primary;
 	}
 
 	&::before {
-		content: '';
+		content: "";
 		position: absolute;
 
 		top: 1.5em;
@@ -124,7 +130,7 @@ $input-shadow: $primary;
 		background-color: $beige-light;
 
 		&::after {
-			content: '';
+			content: "";
 
 			flex-basis: 100%;
 			height: 0;
@@ -147,7 +153,8 @@ $input-shadow: $primary;
 	}
 }
 
-.proof-row .invalid input, .formula-field.invalid input {
+.proof-row .invalid input,
+.formula-field.invalid input {
 	border-color: $danger;
 }
 
@@ -155,7 +162,7 @@ $input-shadow: $primary;
 // stuff move around when the first premise is added.
 .proof-header .premises:empty::before {
 	// In absense of premises: Insert a single ZeroWidthSpace
-	content: '\200B';
+	content: "\200B";
 }
 
 // No border under conclusion text field
