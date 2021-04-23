@@ -79,7 +79,7 @@ shortcutModalBody =
                 , HH.tr_
                     [ HH.th_ [ HH.text "Add row outside of assumption box" ]
                     , HH.td_ [ HH.text "While inside an assumption box, pressing enter will add a row in that current box. This command is used to jump out of the box and add a new empty row outside of it." ]
-                    , HH.td_ [ HH.strong_ [ HH.text "Alt+Enter" ] ]
+                    , HH.td_ [ HH.strong_ [ HH.text "Shift+Enter" ] ]
                     ]
                 , HH.tr_
                     [ HH.th_ [ HH.text "Add Premise" ]
