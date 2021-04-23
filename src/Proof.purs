@@ -80,6 +80,7 @@ data NdError
   | BadFormula
   | FormulaMismatch
   | InvalidRule
+  | NotABox
 
 instance showNdError :: Show NdError where
   show BadRef = "bad reference"
@@ -89,6 +90,7 @@ instance showNdError :: Show NdError where
   show BadFormula = "bad formula"
   show FormulaMismatch = "formula mismatch"
   show InvalidRule = "invalid rule"
+  show NotABox = "not a box"
 
 derive instance eqNdError :: Eq NdError
 
@@ -190,6 +192,7 @@ boxRef ref = do
   { rows, scopes } <- get
   { formula: maybeF1, error: e1 } <- except $ note RefOutOfBounds $ rows Array.!! (i - 1)
   { formula: maybeF2, error: e2 } <- except $ note RefOutOfBounds $ rows Array.!! (j - 1)
+  when (isNotBox box scopes) $ throwError NotABox
   when (not (boxInScope box scopes)) $ throwError RefDiscarded
   when (e1 == Just BadFormula || e2 == Just BadFormula) $ throwError BadRef -- User needs to have input the formula
   let
@@ -206,92 +209,107 @@ boxRef ref = do
 -- | rules such as LEM, which violate the subformula property. They
 -- | can then return that formula as the result, provided it is valid.
 applyRule :: Rule -> Maybe Formula -> ExceptT NdError ND Formula
-applyRule rule formula = do
-  { rows, scopes } <- get
-  case rule of
-    Premise -> do
-      if all isPremise rows then except $ note BadFormula formula else throwError BadRule
-    -- TODO Check if this assumption is the first formula in the current box
-    Assumption -> except $ note BadFormula formula
-    AndElim1 i -> do
-      a <- proofRef i
-      case a of
-        And x _ -> pure x
+applyRule rule formula = if isJust formula then applyRule' else throwError BadFormula
+  where
+  applyRule' = do
+    { rows, scopes } <- get
+    case rule of
+      Premise -> do
+        if all isPremise rows then except $ note BadFormula formula else throwError BadRule
+      -- TODO Check if this assumption is the first formula in the current box
+      Assumption -> except $ note BadFormula formula
+      AndElim1 i -> do
+        a <- proofRef i
+        case a of
+          And x _ -> pure x
+          _ -> throwError BadRule
+      AndElim2 i -> do
+        a <- proofRef i
+        case a of
+          And _ x -> pure x
+          _ -> throwError BadRule
+      AndIntro i j -> do
+        a <- proofRef i
+        b <- proofRef j
+        pure $ And a b
+      OrElim i box1 box2 -> do
+        a <- proofRef i
+        (Tuple b1 b2) <- boxRef box1
+        (Tuple c1 c2) <- boxRef box2
+        case a of
+          Or f1 f2 -> if f1 == b1 && f2 == c1 && b2 == c2 then pure b2 else throwError BadRule
+          _ -> throwError BadRule
+      OrIntro1 i -> do
+        case formula of
+          Just f@(Or f1 _) -> do
+            a <- proofRef i
+            if a == f1 then pure f else throwError FormulaMismatch
+          _ -> throwError BadRule
+      OrIntro2 i -> do
+        case formula of
+          Just f@(Or _ f2) -> do
+            a <- proofRef i
+            if a == f2 then pure f else throwError FormulaMismatch
+          _ -> throwError BadRule
+      ImplElim i j -> do
+        a <- proofRef i
+        b <- proofRef j
+        case a, b of
+          Implies x y, z
+            | x == z -> pure y
+          z, Implies x y
+            | x == z -> pure y
+          _, _ -> throwError BadRule
+      ImplIntro box -> do
+        (Tuple a b) <- boxRef box
+        pure $ Implies a b
+      NegElim i j -> do
+        a <- proofRef i
+        b <- proofRef j
+        if a == Not b || Not a == b then pure bottomProp else throwError BadRule
+      NegIntro box -> do
+        (Tuple a b) <- boxRef box
+        if b == bottomProp then pure $ Not a else throwError BadRule
+      BottomElim i -> do
+        a <- proofRef i
+        if a == bottomProp then except $ note BadFormula formula else throwError BadRule
+      DoubleNegElim i -> do
+        a <- proofRef i
+        case a of
+          Not (Not x) -> pure x
+          _ -> throwError BadRule
+      ModusTollens i j -> throwError BadRule
+      DoubleNegIntro i -> do
+        (Not <<< Not) <$> proofRef i
+      PBC box -> do
+        (Tuple a b) <- boxRef box
+        case a, b of
+          Not f, bottom -> pure f
+          _, _ -> throwError BadRule
+      LEM -> case formula of
+        Just f@(Or f1 f2)
+          | f1 == Not f2 || f2 == Not f1 -> pure f
         _ -> throwError BadRule
-    AndElim2 i -> do
-      a <- proofRef i
-      case a of
-        And _ x -> pure x
+      ModusTollens i j -> do
+        a <- proofRef i
+        b <- proofRef j
+        case a, b of
+          Implies x y, Not z -> if y == z then pure (Not x) else throwError BadRule
+          Not z, Implies x y -> if y == z then pure (Not x) else throwError BadRule
+          _, _ -> throwError BadRule
+      DoubleNegIntro i -> do
+        (Not <<< Not) <$> proofRef i
+      PBC box -> do
+        (Tuple a b) <- boxRef box
+        case a, b of
+          Not f, bottom -> pure f
+          _, _ -> throwError BadRule
+      LEM -> case formula of
+        Just f@(Or f1 f2)
+          | f1 == Not f2 || f2 == Not f1 -> pure f
         _ -> throwError BadRule
-    AndIntro i j -> do
-      a <- proofRef i
-      b <- proofRef j
-      pure $ And a b
-    OrElim i box1 box2 -> do
-      a <- proofRef i
-      (Tuple b1 b2) <- boxRef box1
-      (Tuple c1 c2) <- boxRef box2
-      case a of
-        Or f1 f2 -> if f1 == b1 && f2 == c1 && b2 == c2 then pure b2 else throwError BadRule
-        _ -> throwError BadRule
-    OrIntro1 i -> do
-      case formula of
-        Just f@(Or f1 _) -> do
-          a <- proofRef i
-          if a == f1 then pure f else throwError BadFormula
-        _ -> throwError BadRule
-    OrIntro2 i -> do
-      case formula of
-        Just f@(Or _ f2) -> do
-          a <- proofRef i
-          if a == f2 then pure f else throwError BadFormula
-        _ -> throwError BadRule
-    ImplElim i j -> do
-      a <- proofRef i
-      b <- proofRef j
-      case a, b of
-        Implies x y, z
-          | x == z -> pure y
-        z, Implies x y
-          | x == z -> pure y
-        _, _ -> throwError BadRule
-    ImplIntro box -> do
-      (Tuple a b) <- boxRef box
-      pure $ Implies a b
-    NegElim i j -> do
-      a <- proofRef i
-      b <- proofRef j
-      if a == Not b || Not a == b then pure bottomProp else throwError BadRule
-    NegIntro box -> do
-      (Tuple a b) <- boxRef box
-      if b == bottomProp then pure $ Not a else throwError BadRule
-    BottomElim i -> do
-      a <- proofRef i
-      if a == bottomProp then except $ note BadFormula formula else throwError BadRule
-    DoubleNegElim i -> do
-      a <- proofRef i
-      case a of
-        Not (Not x) -> pure x
-        _ -> throwError BadRule
-    ModusTollens i j -> do
-      a <- proofRef i
-      b <- proofRef j
-      case a, b of
-        Implies x y, Not z -> if y == z then pure (Not x) else throwError BadRule
-        Not z, Implies x y -> if y == z then pure (Not x) else throwError BadRule
-        _, _ -> throwError BadRule
-    DoubleNegIntro i -> do
-      (Not <<< Not) <$> proofRef i
-    PBC box -> do
-      (Tuple a b) <- boxRef box
-      case a, b of
-        Not f, bottom -> pure f
-        _, _ -> throwError BadRule
-    LEM -> case formula of
-      Just f@(Or f1 f2)
-        | f1 == Not f2 || f2 == Not f1 -> pure f
-      _ -> throwError BadRule
-    Copy i -> proofRef i
+      Copy i -> proofRef i
+
 
 -- | Add a row to the derivation.
 -- |
@@ -344,6 +362,10 @@ closeBox = do
 -- | Check if a proof row is a Premise.
 isPremise :: ProofRow -> Boolean
 isPremise r = r.rule == Just Premise
+
+-- | Check if a box is really a box.
+isNotBox :: Box -> List Scope -> Boolean
+isNotBox b@(Tuple l1 l2) ss = lineInScope l1 ss && lineInScope l2 ss && not (boxInScope b ss)
 
 -- | Check if a box is in scope in a stack of scopes.
 boxInScope :: Box -> List Scope -> Boolean
