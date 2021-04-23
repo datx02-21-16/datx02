@@ -28,6 +28,7 @@ import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Parser (parseFormula)
 import Partial.Unsafe (unsafePartial, unsafeCrashWith)
+import Proof (NdError(..))
 import Proof as P
 import Type.Proxy (Proxy(..))
 import Util (enumerate, moveWithin)
@@ -162,9 +163,10 @@ errorText = case _ of
   P.RefDiscarded -> "Reference to row in discarded box"
   P.RefOutOfBounds -> "Reference to non-existent row"
   P.BadRule -> "Bad rule application"
-  P.BadFormula -> "Bad inputed formula"
+  P.BadFormula -> "No formula can be parsed"
   P.FormulaMismatch -> "Formula does not match output from rule"
   P.InvalidRule -> "Non-existent rule"
+  P.NotABox -> "Not a valid box"
 
 type ProofRow
   = { formulaText :: String
@@ -275,11 +277,12 @@ render st =
           [ HH.ClassName "columns"
           , HH.ClassName "is-mobile"
           , HH.ClassName "proof-header"
+          , HH.ClassName "is-gapless"
           ]
       ]
       [ premiseDisplay
-      , HH.span_ [ HH.p_ [ HH.text " ⊢ " ] ]
-      , formulaField { i: (-1), placeholder: "Conclusion", text: st.conclusion, outputMap: UpdateConclusion, classes: [ HH.ClassName "column", HH.ClassName "is-half", HH.ClassName "conclusion-field" ] }
+      , turnstile
+      , formulaField { i: (-1), placeholder: "Conclusion", text: st.conclusion, outputMap: UpdateConclusion, classes: [ HH.ClassName "column", HH.ClassName "conclusion-field" ] }
       ]
 
   -- | Displays the premises in the header.
@@ -288,12 +291,22 @@ render st =
     HH.span
       [ HP.classes
           [ HH.ClassName "column"
-          , HH.ClassName "is-half"
-          , HH.ClassName "has-text-right"
           , HH.ClassName "premises"
           ]
       ]
-      [ HH.text premises ]
+      [ HH.input
+          [ HP.classes
+              [ HH.ClassName "input"
+              , HH.ClassName "has-text-right"
+              , HH.ClassName "premise-display"
+              , HH.ClassName "is-static"
+              ]
+          , HP.readOnly true
+          , HP.value premises
+          , HP.title "Premises"
+          ]
+      , HH.p [ HP.classes [ HH.ClassName "help", HH.ClassName "is-danger" ] ] []
+      ]
 
   -- | All premises used in the proof as a string.
   premises :: String
@@ -301,6 +314,20 @@ render st =
     joinWith ", " $ Array.nub
       $ _.formulaText
       <$> Array.takeWhile ((_ == Premise) <<< _.rule) st.rows
+
+  turnstile =
+    HH.span [ HP.classes [ HH.ClassName "column", HH.ClassName "is-1" ] ]
+      [ HH.input
+          [ HP.classes
+              [ HH.ClassName "input"
+              , HH.ClassName "is-static"
+              , HH.ClassName "has-text-centered"
+              ]
+          , HP.readOnly true
+          , HP.value "⊢"
+          ]
+      , HH.p [ HP.classes [ HH.ClassName "help", HH.ClassName "is-danger" ] ] []
+      ]
 
   -- | Renders an input field that verifies the parsability of the inputted formula.
   formulaField ::
@@ -318,7 +345,9 @@ render st =
           <> if isOk then [] else [ HH.ClassName "invalid" ]
       , HE.onKeyDown $ FormulaKeyDown i
       ]
-      [ HH.slot _symbolInput (2 * i) (symbolInput placeholder) text outputMap ]
+      ( [ HH.slot _symbolInput (2 * i) (symbolInput placeholder) text outputMap ]
+          <> [ HH.p [ HP.classes [ HH.ClassName "help", HH.ClassName "is-danger" ] ] (if isOk then [] else [ HH.text "Cannot parse formula." ]) ]
+      )
     where
     isOk = isRight $ parseFormula text
 
@@ -392,10 +421,18 @@ render st =
     ruleField :: HH.HTML _ _
     ruleField =
       HH.span
-        [ HP.classes ([ HH.ClassName "column rule-field" ] <> if isJust error then [ HH.ClassName "invalid" ] else []) ]
+        [ HP.classes ([ HH.ClassName "column rule-field" ] <> if isRuleError error then [ HH.ClassName "invalid" ] else []) ]
         ( [ HH.slot _symbolInput (2 * i + 1) (symbolInput "Rule") (ruleText rule) (UpdateRule i) ]
-            <> [ HH.p [ HP.classes [ HH.ClassName "help", HH.ClassName "is-danger" ] ] (maybe [] (\e -> [ HH.text $ errorText e ]) error) ]
+            <> [ HH.p [ HP.classes [ HH.ClassName "help", HH.ClassName "is-danger" ] ]
+                  (if isRuleError error then [ HH.text $ errorText (unsafePartial $ fromJust error) ] else [])
+              ]
         )
+      where
+      isRuleError err = case err of
+        Nothing -> false
+        Just e -> case e of
+          BadFormula -> false
+          _ -> true
 
     argField :: Tuple Int (Tuple RuleArgType String) -> HH.HTML _ _
     argField (Tuple j (Tuple ruleArgType s)) =

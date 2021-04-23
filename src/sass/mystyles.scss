@@ -3,6 +3,28 @@
 // Import a Google Font
 @import url("https://fonts.googleapis.com/css?family=Nunito:400,700");
 
+// Import only what you need from Bulma
+@import "bulma/sass/utilities/_all.sass";
+@import "bulma/sass/utilities/functions.sass";
+@import "bulma/sass/base/_all.sass";
+@import "bulma/sass/grid/columns.sass";
+@import "bulma/sass/elements/button.sass";
+@import "bulma/sass/elements/box.sass";
+@import "bulma/sass/elements/container.sass";
+@import "bulma/sass/elements/content.sass";
+@import "bulma/sass/elements/other.sass";
+@import "bulma/sass/elements/title.sass";
+@import "bulma/sass/elements/table.sass";
+@import "bulma/sass/form/_all.sass";
+@import "bulma/sass/components/navbar.sass";
+@import "bulma/sass/layout/hero.sass";
+@import "bulma/sass/layout/section.sass";
+@import "bulma/sass/layout/footer.sass";
+@import "bulma/sass/components/panel.sass";
+@import "bulma/sass/components/modal.sass";
+@import "bulma/sass/helpers/typography.sass";
+@import "bulma/sass/helpers/flexbox.sass";
+
 // Set your brand colors
 $purple: #8a4d76;
 $pink: #fa7c91;
@@ -34,27 +56,7 @@ $input-shadow: $primary;
 $modal-card-head-background-color: $primary;
 $modal-card-title-color: findColorInvert($modal-card-head-background-color);
 
-// Import only what you need from Bulma
-@import "bulma/sass/utilities/_all.sass";
-@import "bulma/sass/utilities/functions.sass";
-@import "bulma/sass/base/_all.sass";
-@import "bulma/sass/grid/columns.sass";
-@import "bulma/sass/elements/button.sass";
-@import "bulma/sass/elements/box.sass";
-@import "bulma/sass/elements/container.sass";
-@import "bulma/sass/elements/content.sass";
-@import "bulma/sass/elements/other.sass";
-@import "bulma/sass/elements/title.sass";
-@import "bulma/sass/elements/table.sass";
-@import "bulma/sass/form/_all.sass";
-@import "bulma/sass/components/navbar.sass";
-@import "bulma/sass/layout/hero.sass";
-@import "bulma/sass/layout/section.sass";
-@import "bulma/sass/layout/footer.sass";
-@import "bulma/sass/components/panel.sass";
-@import "bulma/sass/components/modal.sass";
-@import "bulma/sass/helpers/typography.sass";
-@import "bulma/sass/helpers/flexbox.sass";
+
 
 .input {
 	// Less distracting text fields
@@ -159,8 +161,9 @@ $modal-card-title-color: findColorInvert($modal-card-head-background-color);
 }
 
 // Make the premises always take up at least one line to avoid having
-// stuff move around when the first premise is added.
-.proof-header .premises:empty::before {
+// stuff move around when the first premise is added. Same thing for error messages.
+.proof-header .premises:empty::before,
+.help.is-danger:empty::before {
 	// In absense of premises: Insert a single ZeroWidthSpace
 	content: "\200B";
 }
@@ -173,3 +176,10 @@ $modal-card-title-color: findColorInvert($modal-card-head-background-color);
 .arg-field {
 	width: 4rem;
 }
+
+.premises > .input.is-static{
+	padding-bottom: calc(0.5em - 2px);
+	padding-left: calc(0.75em - 2px);
+	padding-right: calc(0.75em - 2px);
+	padding-top: calc(0.5em - 2px);
+} 
