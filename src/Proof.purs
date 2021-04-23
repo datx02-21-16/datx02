@@ -278,18 +278,6 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
         case a of
           Not (Not x) -> pure x
           _ -> throwError BadRule
-      ModusTollens i j -> throwError BadRule
-      DoubleNegIntro i -> do
-        (Not <<< Not) <$> proofRef i
-      PBC box -> do
-        (Tuple a b) <- boxRef box
-        case a, b of
-          Not f, bottom -> pure f
-          _, _ -> throwError BadRule
-      LEM -> case formula of
-        Just f@(Or f1 f2)
-          | f1 == Not f2 || f2 == Not f1 -> pure f
-        _ -> throwError BadRule
       ModusTollens i j -> do
         a <- proofRef i
         b <- proofRef j
@@ -309,7 +297,6 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
           | f1 == Not f2 || f2 == Not f1 -> pure f
         _ -> throwError BadRule
       Copy i -> proofRef i
-
 
 -- | Add a row to the derivation.
 -- |
