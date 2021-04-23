@@ -535,7 +535,6 @@ handleAction = case _ of
       dragged <- unsafePartial $ fromJust <$> H.gets _.dragged
       H.liftEffect $ Event.preventDefault $ DragEvent.toEvent ev
       { start, end } <- draggedRows
-      H.modify_ \st -> st { draggingOver = Nothing, dragged = Nothing }
       H.modify_ \st ->
         let
           target = i + 1
