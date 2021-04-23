@@ -273,7 +273,13 @@ applyRule rule formula = do
       case a of
         Not (Not x) -> pure x
         _ -> throwError BadRule
-    ModusTollens i j -> throwError BadRule
+    ModusTollens i j -> do
+      a <- proofRef i
+      b <- proofRef j
+      case a, b of
+        Implies x y, Not z -> if y == z then pure (Not x) else throwError BadRule
+        Not z, Implies x y -> if y == z then pure (Not x) else throwError BadRule
+        _, _ -> throwError BadRule
     DoubleNegIntro i -> do
       (Not <<< Not) <$> proofRef i
     PBC box -> do
