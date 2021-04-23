@@ -3,27 +3,9 @@
 // Import a Google Font
 @import url("https://fonts.googleapis.com/css?family=Nunito:400,700");
 
-// Import only what you need from Bulma
-@import "bulma/sass/utilities/_all.sass";
+
+// Functions must be imported before use.
 @import "bulma/sass/utilities/functions.sass";
-@import "bulma/sass/base/_all.sass";
-@import "bulma/sass/grid/columns.sass";
-@import "bulma/sass/elements/button.sass";
-@import "bulma/sass/elements/box.sass";
-@import "bulma/sass/elements/container.sass";
-@import "bulma/sass/elements/content.sass";
-@import "bulma/sass/elements/other.sass";
-@import "bulma/sass/elements/title.sass";
-@import "bulma/sass/elements/table.sass";
-@import "bulma/sass/form/_all.sass";
-@import "bulma/sass/components/navbar.sass";
-@import "bulma/sass/layout/hero.sass";
-@import "bulma/sass/layout/section.sass";
-@import "bulma/sass/layout/footer.sass";
-@import "bulma/sass/components/panel.sass";
-@import "bulma/sass/components/modal.sass";
-@import "bulma/sass/helpers/typography.sass";
-@import "bulma/sass/helpers/flexbox.sass";
 
 // Set your brand colors
 $purple: #8a4d76;
@@ -56,7 +38,26 @@ $input-shadow: $primary;
 $modal-card-head-background-color: $primary;
 $modal-card-title-color: findColorInvert($modal-card-head-background-color);
 
-
+// Import only what you need from Bulma
+@import "bulma/sass/utilities/_all.sass";
+@import "bulma/sass/base/_all.sass";
+@import "bulma/sass/grid/columns.sass";
+@import "bulma/sass/elements/button.sass";
+@import "bulma/sass/elements/box.sass";
+@import "bulma/sass/elements/container.sass";
+@import "bulma/sass/elements/content.sass";
+@import "bulma/sass/elements/other.sass";
+@import "bulma/sass/elements/title.sass";
+@import "bulma/sass/elements/table.sass";
+@import "bulma/sass/form/_all.sass";
+@import "bulma/sass/components/navbar.sass";
+@import "bulma/sass/layout/hero.sass";
+@import "bulma/sass/layout/section.sass";
+@import "bulma/sass/layout/footer.sass";
+@import "bulma/sass/components/panel.sass";
+@import "bulma/sass/components/modal.sass";
+@import "bulma/sass/helpers/typography.sass";
+@import "bulma/sass/helpers/flexbox.sass";
 
 .input {
 	// Less distracting text fields
