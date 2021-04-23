@@ -3,6 +3,10 @@
 // Import a Google Font
 @import url("https://fonts.googleapis.com/css?family=Nunito:400,700");
 
+
+// Functions must be imported before use.
+@import "bulma/sass/utilities/functions.sass";
+
 // Set your brand colors
 $purple: #8a4d76;
 $pink: #fa7c91;
@@ -36,7 +40,6 @@ $modal-card-title-color: findColorInvert($modal-card-head-background-color);
 
 // Import only what you need from Bulma
 @import "bulma/sass/utilities/_all.sass";
-@import "bulma/sass/utilities/functions.sass";
 @import "bulma/sass/base/_all.sass";
 @import "bulma/sass/grid/columns.sass";
 @import "bulma/sass/elements/button.sass";
@@ -159,8 +162,9 @@ $modal-card-title-color: findColorInvert($modal-card-head-background-color);
 }
 
 // Make the premises always take up at least one line to avoid having
-// stuff move around when the first premise is added.
-.proof-header .premises:empty::before {
+// stuff move around when the first premise is added. Same thing for error messages.
+.proof-header .premises:empty::before,
+.help.is-danger:empty::before {
 	// In absense of premises: Insert a single ZeroWidthSpace
 	content: "\200B";
 }
@@ -173,3 +177,10 @@ $modal-card-title-color: findColorInvert($modal-card-head-background-color);
 .arg-field {
 	width: 4rem;
 }
+
+.premises > .input.is-static{
+	padding-bottom: calc(0.5em - 2px);
+	padding-left: calc(0.75em - 2px);
+	padding-right: calc(0.75em - 2px);
+	padding-top: calc(0.5em - 2px);
+} 
