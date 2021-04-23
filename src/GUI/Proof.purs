@@ -356,7 +356,7 @@ render st =
       , HE.onKeyDown $ FormulaKeyDown i
       ]
       ( [ HH.slot _symbolInput (2 * i) (symbolInput placeholder) text outputMap ]
-          <> [ HH.p [ HP.classes [ HH.ClassName "help", HH.ClassName "is-danger" ] ] (if isOk then [] else [ HH.text "Cannot parse formula." ]) ]
+          <> [ HH.p [ HP.classes [ HH.ClassName "help", HH.ClassName "is-danger" ] ] (if isOk then [] else [ HH.text "Cannot parse formula. Note that formulas can only include capital letters." ]) ]
       )
     where
     isOk = isRight $ parseFormula text
