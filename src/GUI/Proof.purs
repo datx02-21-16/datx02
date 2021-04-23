@@ -8,17 +8,15 @@ import Data.FoldableWithIndex (foldlWithIndex)
 import Data.FunctorWithIndex (mapWithIndex)
 import Data.Int as Int
 import Data.List (List(Nil), (:))
-import Data.Maybe (Maybe(..), fromJust, isJust, isNothing, fromMaybe, maybe)
-import Data.MediaType (MediaType(MediaType))
+import Data.Maybe (Maybe(..), fromJust, fromMaybe, isJust, maybe)
 import Data.NonEmpty ((:|))
 import Data.String (Pattern(..), split)
 import Data.String as String
 import Data.String.Common (joinWith)
 import Data.Traversable (sequence)
-import Data.Tuple (Tuple(Tuple), fst, snd)
+import Data.Tuple (Tuple(Tuple), fst)
 import Effect.Class (class MonadEffect)
-import Effect.Console (logShow)
-import GUI.Rules (RuleType(..)) -- don't want to prefix rules with R
+import GUI.Rules (RuleType(..))
 import GUI.Rules as R
 import GUI.SymbolInput (symbolInput)
 import GUI.SymbolInput as SI
@@ -183,6 +181,7 @@ type State
   = { conclusion :: String
     , rows :: Array ProofRow
     , draggingOver :: Maybe Int
+    , dragged :: Maybe Int
     }
 
 data Action
@@ -221,6 +220,7 @@ initialState _ =
   { conclusion: ""
   , rows: [ emptyRow ]
   , draggingOver: Nothing
+  , dragged: Nothing
   }
 
 -- | Tree representation of a ND proof,
@@ -282,7 +282,17 @@ render st =
       ]
       [ premiseDisplay
       , turnstile
-      , formulaField { i: (-1), placeholder: "Conclusion", text: st.conclusion, outputMap: UpdateConclusion, classes: [ HH.ClassName "column", HH.ClassName "conclusion-field" ] }
+      , formulaField
+          { i: (-1)
+          , placeholder: "Conclusion"
+          , text: st.conclusion
+          , outputMap: UpdateConclusion
+          , classes:
+              [ HH.ClassName "column"
+              , HH.ClassName "is-half"
+              , HH.ClassName "conclusion-field"
+              ]
+          }
       ]
 
   -- | Displays the premises in the header.
@@ -397,7 +407,13 @@ render st =
       , HE.onDragEnd $ DragEnd i
       ]
       [ rowIndex
-      , formulaField { i, placeholder: "Enter formula", text: formulaText, outputMap: UpdateFormula i, classes: [ HH.ClassName "column" ] }
+      , formulaField
+          { i
+          , placeholder: "Enter formula"
+          , text: formulaText
+          , outputMap: UpdateFormula i
+          , classes: [ HH.ClassName "column" ]
+          }
       , ruleDisplay
       ]
     where
@@ -465,13 +481,20 @@ render st =
           argStrings = ruleArgs <> Array.replicate (Array.length argTypes) ""
         pure $ argField <$> enumerate (Array.zip argTypes argStrings)
 
--- | The media type for the index of a proof row as a string.
-rowMediaType :: MediaType
-rowMediaType = MediaType "application/x.row"
-
-handleAction :: forall output m. MonadEffect m => Action -> H.HalogenM State Action Slots output m Unit
+handleAction ::
+  forall output m.
+  MonadEffect m =>
+  Action ->
+  H.HalogenM State Action Slots output m Unit
 handleAction = case _ of
-  UpdateFormula i s -> H.modify_ \st -> st { rows = unsafePartial $ fromJust $ Array.modifyAt i _ { formulaText = s } st.rows }
+  UpdateFormula i s ->
+    H.modify_ \st ->
+      st
+        { rows =
+          unsafePartial
+            $ fromJust
+            $ Array.modifyAt i _ { formulaText = s } st.rows
+        }
   UpdateRule i s -> do
     H.modify_ \st ->
       st
@@ -489,7 +512,13 @@ handleAction = case _ of
             $ Array.modifyAt i
                 ( \row ->
                     row
-                      { ruleArgs = unsafePartial $ fromJust $ Array.modifyAt j (const s) (row.ruleArgs <> Array.replicate (max 0 (j + 1 - Array.length row.ruleArgs)) "") }
+                      { ruleArgs =
+                        unsafePartial $ fromJust
+                          $ Array.modifyAt j (const s)
+                              ( row.ruleArgs
+                                  <> Array.replicate (max 0 (j + 1 - Array.length row.ruleArgs)) ""
+                              )
+                      }
                 )
                 st.rows
         }
@@ -504,22 +533,24 @@ handleAction = case _ of
     "Backspace"
       | i >= 0 -> do
         let
-          target = unsafePartial $ fromJust $ Event.target (KeyboardEvent.toEvent ev) >>= HTMLInputElement.fromEventTarget
+          target =
+            unsafePartial $ fromJust
+              $ Event.target (KeyboardEvent.toEvent ev)
+              >>= HTMLInputElement.fromEventTarget
         value <- H.liftEffect $ HTMLInputElement.value target
         when (String.null value) do
           deleteRow i
           H.liftEffect $ Event.preventDefault (KeyboardEvent.toEvent ev)
     _ -> pure unit
   DragStart i ev -> do
-    H.liftEffect $ DataTransfer.setData rowMediaType (show i)
-      $ DragEvent.dataTransfer ev
+    H.modify_ (\st -> st { dragged = Just i })
   DragOver i ev -> do
-    validDropZone <- isValidDropZone i ev
+    validDropZone <- isValidDropZone i
     when validDropZone do
       H.modify_ \st -> st { draggingOver = Just i }
       H.liftEffect $ Event.preventDefault $ DragEvent.toEvent ev
   DragEnter i ev -> do
-    validDropZone <- isValidDropZone i ev
+    validDropZone <- isValidDropZone i
     when validDropZone do
       H.liftEffect $ DataTransfer.setDropEffect DataTransfer.Move $ DragEvent.dataTransfer ev
       H.modify_ \st -> st { draggingOver = Just i }
@@ -528,31 +559,42 @@ handleAction = case _ of
     when (draggingOver /= Just i) do
       H.liftEffect $ DataTransfer.setDropEffect DataTransfer.None $ DragEvent.dataTransfer ev
       H.modify_ \st -> st { draggingOver = Nothing }
-  DragEnd i ev -> H.modify_ \st -> st { draggingOver = Nothing }
+  DragEnd i ev -> H.modify_ \st -> st { draggingOver = Nothing, dragged = Nothing }
   Drop i ev -> do
-    H.liftEffect $ Event.preventDefault $ DragEvent.toEvent ev
-    H.modify_ \st -> st { draggingOver = Nothing }
-    { start, end } <- draggedRows ev
-    H.modify_ \st ->
-      let
-        target = i + 1
+    validDropZone <- isValidDropZone i
+    when validDropZone do
+      dragged <- unsafePartial $ fromJust <$> H.gets _.dragged
+      H.liftEffect $ Event.preventDefault $ DragEvent.toEvent ev
+      { start, end } <- draggedRows
+      H.modify_ \st ->
+        let
+          target = i + 1
 
-        newStart = target - if start < target then end - start else 0
+          newStart = target - if start < target then end - start else 0
 
-        updateBoxes =
-          mapWithIndex \j -> case _ of
-            row@{ rule: Assumption { boxEndIdx } }
-              -- Moved box
-              | start <= j, j < end -> row { rule = Assumption { boxEndIdx: boxEndIdx + (newStart - start) } }
-              -- Move before/inside box
-              | i <= boxEndIdx, boxEndIdx < start -> row { rule = Assumption { boxEndIdx: boxEndIdx + (end - start) } }
-              -- Move after box
-              | start <= boxEndIdx, boxEndIdx < i -> row { rule = Assumption { boxEndIdx: boxEndIdx - (end - start) } }
-            x -> x
+          updateBoxes =
+            mapWithIndex \j -> case _ of
+              row@{ rule: Assumption { boxEndIdx } }
+                -- Moved box
+                | start <= j, j < end ->
+                  row
+                    { rule = Assumption { boxEndIdx: boxEndIdx + (newStart - start) }
+                    }
+                -- Move before/inside box
+                | i <= boxEndIdx, boxEndIdx < start ->
+                  row
+                    { rule = Assumption { boxEndIdx: boxEndIdx + (end - start) }
+                    }
+                -- Move after box
+                | start <= boxEndIdx, boxEndIdx < i ->
+                  row
+                    { rule = Assumption { boxEndIdx: boxEndIdx - (end - start) }
+                    }
+              x -> x
 
-        rows' = moveWithin target start end $ updateBoxes st.rows
-      in
-        st { rows = rows' }
+          rows' = moveWithin target start end $ updateBoxes st.rows
+        in
+          st { rows = rows' }
   UpdateConclusion s -> H.modify_ \st -> st { conclusion = s }
   where
   addRowBelow i = do
@@ -569,7 +611,10 @@ handleAction = case _ of
     rowCount <- Array.length <$> H.gets _.rows
     -- Deleting the last row means no new rows can be added
     when (rowCount > 1) do
-      H.modify_ \st -> st { rows = unsafePartial $ fromJust $ Array.deleteAt i $ decrBoxEnds i st.rows }
+      H.modify_ \st ->
+        st
+          { rows = unsafePartial $ fromJust $ Array.deleteAt i $ decrBoxEnds i st.rows
+          }
       H.tell _symbolInput (2 * (i - 1)) SI.Focus
 
   -- | Creates a new row directly below the current index. If the current
@@ -624,11 +669,9 @@ handleAction = case _ of
       (enumerate rs)
 
   -- | Inclusive-exclusive interval of the rows that are currently being dragged.
-  draggedRows :: DragEvent -> H.HalogenM _ _ _ _ _ { start :: Int, end :: Int }
-  draggedRows ev = do
-    start <-
-      (\s -> unsafePartial $ fromJust $ Int.fromString s)
-        <$> (H.liftEffect $ DataTransfer.getData rowMediaType $ DragEvent.dataTransfer ev)
+  draggedRows :: H.HalogenM _ _ _ _ _ { start :: Int, end :: Int }
+  draggedRows = do
+    start <- unsafePartial $ fromJust <$> H.gets _.dragged
     rows <- H.gets _.rows
     let
       startRow = unsafePartial $ fromJust $ rows !! start
@@ -638,7 +681,12 @@ handleAction = case _ of
         _ -> start + 1
     pure { start, end }
 
-  isValidDropZone i ev = (\{ start, end } -> not (start <= i && i < end)) <$> draggedRows ev
+  isValidDropZone i = do
+    maybeDragged <- H.gets _.dragged
+    if isJust maybeDragged then
+      (\{ start, end } -> not (start <= i && i < end)) <$> draggedRows
+    else
+      pure false
 
 -- | Takes an index and a state and returns the starting position of the
 -- | innermost box which contains the index.
