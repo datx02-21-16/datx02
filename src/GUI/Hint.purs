@@ -64,7 +64,9 @@ hintFromBoxes box =
             BCImpliesIntro _ -> unsafeCrashWith "Cannot do →i on anything but Implies"
             BCNotIntro (Not f) -> Left $ prevStr <> "\n PBC by assuming " <> show f
             BCNotIntro _ -> unsafeCrashWith "Cannot do ¬i on anything but Not"
-            <> dfsForNotIntro innerBox
+            >>= \s -> case dfsForNotIntro innerBox of
+                Right x -> Right $ s <> x
+                Left x -> Left $ s <> x
       )
       ""
       innerBoxes
