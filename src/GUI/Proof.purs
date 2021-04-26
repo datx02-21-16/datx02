@@ -1,4 +1,4 @@
-module GUI.Proof (proof) where
+module GUI.Proof (Slot, proof) where
 
 import Prelude
 import Data.Array ((!!), unsafeIndex)
@@ -24,11 +24,13 @@ import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
+import Formula (Formula)
 import Parser (parseFormula)
 import Partial.Unsafe (unsafePartial, unsafeCrashWith)
 import Proof (NdError(..))
 import Proof as P
 import Type.Proxy (Proxy(..))
+import GUI.Hint as Hint
 import Util (enumerate, moveWithin)
 import Web.Event.Event as Event
 import Web.HTML.Event.DataTransfer as DataTransfer
@@ -176,6 +178,9 @@ type ProofRow
 emptyRow :: ProofRow
 emptyRow = { formulaText: "", rule: Rule "", ruleArgs: [] }
 
+type Slot id
+  = forall query output. H.Slot query output id
+
 -- | Only stores endpoints of boxes since assumptions naturally define start points.
 type State
   = { conclusion :: String
@@ -197,13 +202,14 @@ data Action
   | UpdateConclusion String
   | UpdateRuleArg Int Int String
   | FormulaKeyDown Int KeyboardEvent
+  | ShowHint
 
 _symbolInput = Proxy :: Proxy "symbolInput"
 
 type Slots
   = ( symbolInput :: SI.Slot Int )
 
-proof :: forall input output query m. MonadEffect m => H.Component query input output m
+proof :: forall query input output m. MonadEffect m => H.Component query input output m
 proof =
   H.mkComponent
     { initialState
@@ -260,15 +266,34 @@ proofTree { rows } = case result of
           :| rest
     x -> x
 
+premises :: State -> Array String
+premises { rows } =
+  Array.nub $ _.formulaText
+    <$> Array.takeWhile ((_ == Premise) <<< _.rule) rows
+
 render :: forall m. MonadEffect m => State -> H.ComponentHTML Action Slots m
 render st =
   HH.div
-    [ HP.classes
-        ( [ HH.ClassName "proof" ]
-            <> if complete then [ HH.ClassName "complete" ] else []
-        )
+    [ HP.classes [ HH.ClassName "panel", HH.ClassName "is-primary" ] ]
+    [ HH.p
+        [ HP.classes [ HH.ClassName "panel-heading" ] ]
+        [ HH.div [ HP.classes [ H.ClassName "columns", H.ClassName "is-vcentered" ] ]
+            [ HH.text "Proof"
+            , HH.div [ HP.classes [ H.ClassName "column" ] ] []
+            , hintButton
+            ]
+        ]
+    , HH.div
+        [ HP.classes [ HH.ClassName "panel-block" ] ]
+        [ HH.div
+            [ HP.classes
+                ( [ HH.ClassName "proof" ]
+                    <> if complete then [ HH.ClassName "complete" ] else []
+                )
+            ]
+            [ proofHeader, proofRows ]
+        ]
     ]
-    [ proofHeader, proofRows ]
   where
   proofHeader :: HH.HTML _ _
   proofHeader =
@@ -295,35 +320,40 @@ render st =
           }
       ]
 
+  hintButton :: HH.HTML _ _
+  hintButton =
+    HH.button
+      [ HP.classes [ H.ClassName "button", H.ClassName "column", H.ClassName "is-narrow" ]
+      , HE.onClick (const ShowHint)
+      ]
+      [ HH.text "Hint" ]
+
   -- | Displays the premises in the header.
   premiseDisplay :: HH.HTML _ _
   premiseDisplay =
-    HH.span
-      [ HP.classes
-          [ HH.ClassName "column"
-          , HH.ClassName "premises"
-          ]
-      ]
-      [ HH.input
-          [ HP.classes
-              [ HH.ClassName "input"
-              , HH.ClassName "has-text-right"
-              , HH.ClassName "premise-display"
-              , HH.ClassName "is-static"
-              ]
-          , HP.readOnly true
-          , HP.value premises
-          , HP.title "Premises"
-          ]
-      , HH.p [ HP.classes [ HH.ClassName "help", HH.ClassName "is-danger" ] ] []
-      ]
-
-  -- | All premises used in the proof as a string.
-  premises :: String
-  premises =
-    joinWith ", " $ Array.nub
-      $ _.formulaText
-      <$> Array.takeWhile ((_ == Premise) <<< _.rule) st.rows
+    let
+      -- | All premises used in the proof as a string.
+      premisesText = joinWith ", " $ premises st
+    in
+      HH.span
+        [ HP.classes
+            [ HH.ClassName "column"
+            , HH.ClassName "premises"
+            ]
+        ]
+        [ HH.input
+            [ HP.classes
+                [ HH.ClassName "input"
+                , HH.ClassName "has-text-right"
+                , HH.ClassName "premise-display"
+                , HH.ClassName "is-static"
+                ]
+            , HP.readOnly true
+            , HP.value premisesText
+            , HP.title "Premises"
+            ]
+        , HH.p [ HP.classes [ HH.ClassName "help", HH.ClassName "is-danger" ] ] []
+        ]
 
   turnstile =
     HH.span [ HP.classes [ HH.ClassName "column", HH.ClassName "is-1" ] ]
@@ -596,6 +626,9 @@ handleAction = case _ of
         in
           st { rows = rows' }
   UpdateConclusion s -> H.modify_ \st -> st { conclusion = s }
+  ShowHint -> do
+    st <- H.get
+    H.liftEffect $ Hint.showHint { premises: premises st, conclusion: st.conclusion }
   where
   addRowBelow i = do
     H.modify_ \st ->
