@@ -12,7 +12,7 @@ import Data.NonEmpty (NonEmpty(NonEmpty))
 import Data.Array.NonEmpty as NonEmptyArray
 import Data.Set as Set
 import Data.Foldable (fold)
-import Data.Maybe (Maybe(..), fromJust, isJust)
+import Data.Maybe (Maybe(..), fromJust, isJust, isNothing)
 import Data.Either (Either(Right))
 import Data.Tuple (Tuple(..))
 import Data.Traversable (sequence)
@@ -219,3 +219,24 @@ spec =
         let
           formula = And (Predicate "A" []) (Predicate "B" [])
         (isJust $ formulaUnifier formula formula) `shouldEqual` true
+      it "can unify quantified formulas" do
+        let
+          x = Variable "x"
+
+          y = Variable "y"
+
+          a = Forall x $ Predicate "P" [ Var x ]
+
+          b = Forall y $ Predicate "P" [ Var y ]
+        isJust (formulaUnifier a b) `shouldEqual` true
+      it "can unify quantified formulas" do
+        let
+          x = Variable "x"
+
+          y = Variable "y"
+
+          a = Forall x $ Predicate "P" [ Var x ]
+
+          b = Forall y $ Predicate "P" [ Var x ]
+        isNothing (formulaUnifier a b) `shouldEqual` true
+        isNothing (formulaUnifier b a) `shouldEqual` true
