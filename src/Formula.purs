@@ -298,16 +298,14 @@ formulaUnify f1 f2 = subTerms f1 f2 >>= unify
       gWithoutX = substitute (varSub x uniqueVar) g
 
       gWithXInsteadOfY = substitute (varSub y x) gWithoutX
-
-      unification = formulaUnify f gWithXInsteadOfY
     in
-      case unification of
+      case formulaUnify f gWithXInsteadOfY of
         Nothing -> Nothing
         -- Disallow unification of ∃x P(x) and ∃y P(z)
         Just (Tuple (Substitution ss) _)
           | x `Map.member` ss
-              || (isJust $ find (_ == Var x) (Map.values ss)) -> Nothing
-        Just _ -> subTerms f $ gWithXInsteadOfY
+              || (isJust $ find (_ == Var x) $ Map.values ss) -> Nothing
+        Just _ -> subTerms f gWithXInsteadOfY
 
 formulaUnifier :: Formula -> Formula -> Maybe Substitution
 formulaUnifier a b = (\(Tuple σ _) -> σ) <$> formulaUnify a b

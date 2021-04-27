@@ -229,7 +229,7 @@ spec =
 
           b = Forall y $ Predicate "P" [ Var y ]
         isJust (formulaUnifier a b) `shouldEqual` true
-      it "can unify quantified formulas" do
+      it "does not unify bound and unbound variables" do
         let
           x = Variable "x"
 
