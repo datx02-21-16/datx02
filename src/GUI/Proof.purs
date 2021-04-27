@@ -24,6 +24,7 @@ import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
+import Halogen.HTML.Properties.ARIA as HPARIA
 import Formula (Formula)
 import Parser (parseFormula)
 import Partial.Unsafe (unsafePartial, unsafeCrashWith)
@@ -274,24 +275,17 @@ premises { rows } =
 render :: forall m. MonadEffect m => State -> H.ComponentHTML Action Slots m
 render st =
   HH.div
-    [ HP.classes [ HH.ClassName "panel", HH.ClassName "is-primary" ] ]
+    [ HP.classes [ H.ClassName "panel", H.ClassName "is-primary" ] ]
     [ HH.p
-        [ HP.classes [ HH.ClassName "panel-heading" ] ]
-        [ HH.div [ HP.classes [ H.ClassName "columns", H.ClassName "is-vcentered" ] ]
-            [ HH.text "Proof"
-            , HH.div [ HP.classes [ H.ClassName "column" ] ] []
-            , hintButton
-            ]
-        ]
+        [ HP.classes [ H.ClassName "panel-heading" ] ]
+        [ HH.text "Proof" ]
+    , toolbar
     , HH.div
-        [ HP.classes [ HH.ClassName "panel-block" ] ]
-        [ HH.div
-            [ HP.classes
-                ( [ HH.ClassName "proof" ]
-                    <> if complete then [ HH.ClassName "complete" ] else []
-                )
-            ]
-            [ proofHeader, proofRows ]
+        [ HP.classes $ [ H.ClassName "panel-block", H.ClassName "proof" ]
+            <> if complete then [ H.ClassName "complete" ] else []
+        ]
+        [ proofHeader
+        , proofRows
         ]
     ]
   where
@@ -299,10 +293,10 @@ render st =
   proofHeader =
     HH.div
       [ HP.classes
-          [ HH.ClassName "columns"
-          , HH.ClassName "is-mobile"
-          , HH.ClassName "proof-header"
-          , HH.ClassName "is-gapless"
+          [ H.ClassName "columns"
+          , H.ClassName "is-mobile"
+          , H.ClassName "proof-header"
+          , H.ClassName "is-gapless"
           ]
       ]
       [ premiseDisplay
@@ -313,17 +307,25 @@ render st =
           , text: st.conclusion
           , outputMap: UpdateConclusion
           , classes:
-              [ HH.ClassName "column"
-              , HH.ClassName "is-half"
-              , HH.ClassName "conclusion-field"
+              [ H.ClassName "column"
+              , H.ClassName "is-half"
+              , H.ClassName "conclusion-field"
               ]
           }
+      ]
+
+  toolbar :: HH.HTML _ _
+  toolbar =
+    HH.nav [ HPARIA.role "toolbar", HP.classes [ H.ClassName "level", H.ClassName "is-mobile" ] ]
+      [ HH.div [ HP.classes [ H.ClassName "level-left" ] ] []
+      , HH.div [ HP.classes [ H.ClassName "level-right" ] ]
+          [ HH.div [ HP.classes [ H.ClassName "level-item" ] ] [ hintButton ] ]
       ]
 
   hintButton :: HH.HTML _ _
   hintButton =
     HH.button
-      [ HP.classes [ H.ClassName "button", H.ClassName "column", H.ClassName "is-narrow" ]
+      [ HP.classes [ H.ClassName "button", H.ClassName "is-white", H.ClassName "is-small" ]
       , HE.onClick (const ShowHint)
       ]
       [ HH.text "Hint" ]
@@ -337,36 +339,37 @@ render st =
     in
       HH.span
         [ HP.classes
-            [ HH.ClassName "column"
-            , HH.ClassName "premises"
+            [ H.ClassName "column"
+            , H.ClassName "premises"
             ]
         ]
         [ HH.input
             [ HP.classes
-                [ HH.ClassName "input"
-                , HH.ClassName "has-text-right"
-                , HH.ClassName "premise-display"
-                , HH.ClassName "is-static"
+                [ H.ClassName "input"
+                , H.ClassName "has-text-right"
+                , H.ClassName "premise-display"
+                , H.ClassName "is-static"
                 ]
             , HP.readOnly true
             , HP.value premisesText
             , HP.title "Premises"
             ]
-        , HH.p [ HP.classes [ HH.ClassName "help", HH.ClassName "is-danger" ] ] []
+        , HH.p [ HP.classes [ H.ClassName "help", H.ClassName "is-danger" ] ] []
         ]
 
   turnstile =
-    HH.span [ HP.classes [ HH.ClassName "column", HH.ClassName "is-1" ] ]
+    HH.span [ HP.classes [ H.ClassName "column", H.ClassName "is-1" ] ]
       [ HH.input
           [ HP.classes
-              [ HH.ClassName "input"
-              , HH.ClassName "is-static"
-              , HH.ClassName "has-text-centered"
+              [ H.ClassName "input"
+              , H.ClassName "is-static"
+              , H.ClassName "has-text-centered"
               ]
           , HP.readOnly true
+          , HP.tabIndex (-1)
           , HP.value "⊢"
           ]
-      , HH.p [ HP.classes [ HH.ClassName "help", HH.ClassName "is-danger" ] ] []
+      , HH.p [ HP.classes [ H.ClassName "help", H.ClassName "is-danger" ] ] []
       ]
 
   -- | Renders an input field that verifies the parsability of the inputted formula.
@@ -375,18 +378,18 @@ render st =
     , placeholder :: String
     , text :: String
     , outputMap :: String -> Action
-    , classes :: Array HH.ClassName
+    , classes :: Array H.ClassName
     } ->
     HH.HTML _ Action
   formulaField { i, placeholder, text, outputMap, classes } =
     HH.span
-      [ HP.classes $ [ HH.ClassName "formula-field" ]
+      [ HP.classes $ [ H.ClassName "formula-field" ]
           <> classes
-          <> if isOk then [] else [ HH.ClassName "invalid" ]
+          <> if isOk then [] else [ H.ClassName "invalid" ]
       , HE.onKeyDown $ FormulaKeyDown i
       ]
       ( [ HH.slot _symbolInput (2 * i) (symbolInput placeholder) text outputMap ]
-          <> [ HH.p [ HP.classes [ HH.ClassName "help", HH.ClassName "is-danger" ] ] (if isOk then [] else [ HH.text "Cannot parse formula. Note that formulas can only include capital letters." ]) ]
+          <> [ HH.p [ HP.classes [ H.ClassName "help", H.ClassName "is-danger" ] ] (if isOk then [] else [ HH.text "Cannot parse formula. Note that formulas can only include capital letters." ]) ]
       )
     where
     isOk = isRight $ parseFormula text
@@ -411,20 +414,20 @@ render st =
   proofRows =
     let
       renderProofTree = case _ of
-        Subproof xs -> HH.div [ HP.classes [ HH.ClassName "proof-box" ] ] (renderProofTree <$> xs)
+        Subproof xs -> HH.div [ HP.classes [ H.ClassName "proof-box" ] ] (renderProofTree <$> xs)
         RowNode i r -> row i r
     in
       HH.div
-        [ HP.classes [ HH.ClassName "proof-rows" ] ]
+        [ HP.classes [ H.ClassName "proof-rows" ] ]
         (renderProofTree <$> proofTree st)
 
   row :: Int -> ProofRow -> HH.HTML _ _
   row i { formulaText, rule, ruleArgs } =
     HH.div
       [ HP.classes
-          ( [ HH.ClassName "columns", HH.ClassName "is-mobile", HH.ClassName "proof-row" ]
+          ( [ H.ClassName "columns", H.ClassName "is-mobile", H.ClassName "proof-row" ]
               <> maybe []
-                  (\j -> if i == j then [ HH.ClassName "dragged-over" ] else [])
+                  (\j -> if i == j then [ H.ClassName "dragged-over" ] else [])
                   st.draggingOver
           )
       , HP.draggable true
@@ -442,7 +445,7 @@ render st =
           , placeholder: "Enter formula"
           , text: formulaText
           , outputMap: UpdateFormula i
-          , classes: [ HH.ClassName "column" ]
+          , classes: [ H.ClassName "column" ]
           }
       , ruleDisplay
       ]
@@ -453,23 +456,23 @@ render st =
     rowIndex :: HH.HTML _ _
     rowIndex =
       HH.span
-        [ HP.classes [ HH.ClassName "column", HH.ClassName "is-narrow" ] ]
+        [ HP.classes [ H.ClassName "column", H.ClassName "is-narrow" ] ]
         [ HH.h4
-            [ HP.classes [ HH.ClassName "title", HH.ClassName "row-index" ] ]
+            [ HP.classes [ H.ClassName "title", H.ClassName "row-index" ] ]
             [ HH.text (show (1 + i)) ]
         ]
 
     ruleDisplay :: HH.HTML _ _
     ruleDisplay =
-      HH.span [ HP.classes [ HH.ClassName "column is-half" ] ]
-        [ HH.div [ HP.classes [ HH.ClassName "columns is-gapless" ] ] ([ ruleField ] <> argFields) ]
+      HH.span [ HP.classes [ H.ClassName "column is-half" ] ]
+        [ HH.div [ HP.classes [ H.ClassName "columns is-gapless" ] ] ([ ruleField ] <> argFields) ]
 
     ruleField :: HH.HTML _ _
     ruleField =
       HH.span
-        [ HP.classes ([ HH.ClassName "column rule-field" ] <> if isRuleError error then [ HH.ClassName "invalid" ] else []) ]
+        [ HP.classes ([ H.ClassName "column rule-field" ] <> if isRuleError error then [ H.ClassName "invalid" ] else []) ]
         ( [ HH.slot _symbolInput (2 * i + 1) (symbolInput "Rule") (ruleText rule) (UpdateRule i) ]
-            <> [ HH.p [ HP.classes [ HH.ClassName "help", HH.ClassName "is-danger" ] ]
+            <> [ HH.p [ HP.classes [ H.ClassName "help", H.ClassName "is-danger" ] ]
                   (if isRuleError error then [ HH.text $ errorText (unsafePartial $ fromJust error) ] else [])
               ]
         )
@@ -482,11 +485,11 @@ render st =
 
     argField :: Tuple Int (Tuple RuleArgType String) -> HH.HTML _ _
     argField (Tuple j (Tuple ruleArgType s)) =
-      HH.span [ HP.classes [ HH.ClassName "column", HH.ClassName "is-narrow" ] ]
+      HH.span [ HP.classes [ H.ClassName "column", H.ClassName "is-narrow" ] ]
         [ HH.input
             [ HP.classes
-                ( [ HH.ClassName "input", HH.ClassName "arg-field" ]
-                    <> if isOk then [ HH.ClassName "is-primary" ] else [ HH.ClassName "is-danger" ]
+                ( [ H.ClassName "input", H.ClassName "arg-field" ]
+                    <> if isOk then [ H.ClassName "is-primary" ] else [ H.ClassName "is-danger" ]
                 )
             , HP.value s
             , HP.placeholder placeholder
