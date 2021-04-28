@@ -77,6 +77,7 @@ hintFromBoxes box =
       ""
       innerBoxes
 
+-- | Generates a hint for how to go about solving the given sequent.
 genHint :: { premises :: Array String, conclusion :: String } -> String
 genHint { premises, conclusion } =
   either identity identity do
@@ -85,5 +86,6 @@ genHint { premises, conclusion } =
     proof <- note "No solution found!" $ prove premises' conclusion'
     pure $ hintFromBoxes (constructBoxes proof)
 
+-- | Shows a hint for solving the given sequent in a pop-up dialog.
 showHint :: { premises :: Array String, conclusion :: String } -> Effect Unit
 showHint sequent = window >>= Window.alert (genHint sequent)
