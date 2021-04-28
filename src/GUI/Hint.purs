@@ -1,4 +1,7 @@
-module GUI.Hint where
+-- | This module generates hint for user-provided premises and
+-- | conclusions, by first solving the sequent itself and then
+-- | considering the order of →i/¬i in the proof.
+module GUI.Hint (genHint, showHint) where
 
 import Prelude
 import Data.Tuple (Tuple(Tuple))
@@ -24,6 +27,9 @@ data BoxCloser
 data Box
   = Box (Array (Tuple BoxCloser Box))
 
+-- | Reconstructs the boxes from the given ND derivation.
+-- |
+-- | Takes note of whether the box is used as an argument to →i or ¬i.
 constructBoxes ::
   Array { formula :: Formula, rule :: Rule } ->
   Box
@@ -35,10 +41,10 @@ constructBoxes rows =
             Assumption -> Box [] :| currentBox : parentBoxes
             ImpliesIntro _ -> case parentBoxes of
               Box siblingBoxes : grandParentBoxes -> Box (Array.snoc siblingBoxes (Tuple (BCImpliesIntro row.formula) currentBox)) :| grandParentBoxes
-              _ -> unsafeCrashWith "unreachable"
+              _ -> unsafeCrashWith "→i without prior assumption"
             NotIntro _ -> case parentBoxes of
               Box siblingBoxes : grandParentBoxes -> Box (Array.snoc siblingBoxes (Tuple (BCNotIntro row.formula) currentBox)) :| grandParentBoxes
-              _ -> unsafeCrashWith "unreachable"
+              _ -> unsafeCrashWith "¬i without prior assumption"
             _ -> acc
         )
         (Box [] :| Nil)
@@ -46,7 +52,7 @@ constructBoxes rows =
   in
     case result of
       x :| Nil -> x
-      _ -> unsafeCrashWith "unreachable"
+      _ -> unsafeCrashWith "Unclosed box"
 
 hintFromBoxes :: Box -> String
 hintFromBoxes (Box []) = "Use direct reasoning"
@@ -71,14 +77,13 @@ hintFromBoxes box =
       ""
       innerBoxes
 
+genHint :: { premises :: Array String, conclusion :: String } -> String
+genHint { premises, conclusion } =
+  either identity identity do
+    premises' <- note "Cannot read premises" $ hush $ sequence $ parseFormula <$> premises
+    conclusion' <- note "Cannot read conclusion" $ hush $ parseFormula conclusion
+    proof <- note "No solution found!" $ prove premises' conclusion'
+    pure $ hintFromBoxes (constructBoxes proof)
+
 showHint :: { premises :: Array String, conclusion :: String } -> Effect Unit
-showHint { premises, conclusion } = do
-  let
-    hint = do
-      premises' <- note "Cannot read premises" $ hush $ sequence $ parseFormula <$> premises
-      conclusion' <- note "Cannot read conclusion" $ hush $ parseFormula conclusion
-      proof <- note "No solution found!" $ prove premises' conclusion'
-      let
-        boxes = constructBoxes proof
-      pure $ hintFromBoxes boxes
-  window >>= Window.alert (either identity identity hint)
+showHint sequent = window >>= Window.alert (genHint sequent)
