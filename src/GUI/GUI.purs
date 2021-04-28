@@ -5,7 +5,7 @@ import Type.Proxy (Proxy(..))
 import Data.Maybe (Maybe(..))
 import Effect.Class (class MonadEffect)
 import GUI.Config.Text as GCT
-import GUI.ProofPanel as PP
+import GUI.Proof as GP
 import GUI.RulesPanel as RP
 import GUI.SettingsPanel as SP
 import GUI.StaticElements as SE
@@ -16,14 +16,14 @@ import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.HTML.Properties.ARIA as ARIA
 
-_proofPanel = Proxy :: Proxy "proofPanel"
+_proof = Proxy :: Proxy "proof"
 
 _settingsPanel = Proxy :: Proxy "settingsPanel"
 
 _ruleButtonPanel = Proxy :: Proxy "ruleButtonPanel"
 
 type Slots
-  = ( proofPanel :: PP.Slot Unit
+  = ( proof :: GP.Slot Unit
     , ruleButtonPanel :: RP.Slot Unit
     , settingsPanel :: SP.Slot Unit
     , rawHTML :: RawHTML.Slot Int
@@ -59,7 +59,7 @@ siteBody =
                 [ HP.classes [ HH.ClassName "columns" ] ]
                 [ HH.div
                     [ HP.classes [ HH.ClassName "column", HH.ClassName "is-three-quarters" ] ]
-                    [ HH.slot_ _proofPanel unit PP.proofPanel 0 ]
+                    [ HH.slot_ _proof unit GP.proof unit ]
                 , HH.div
                     [ HP.classes [ HH.ClassName "column" ] ]
                     [ HH.slot_ _ruleButtonPanel unit RP.ruleButtonPanel 0

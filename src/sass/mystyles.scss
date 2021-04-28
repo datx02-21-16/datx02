@@ -54,6 +54,7 @@ $modal-card-title-color: findColorInvert($modal-card-head-background-color);
 @import "bulma/sass/layout/hero.sass";
 @import "bulma/sass/layout/section.sass";
 @import "bulma/sass/layout/footer.sass";
+@import "bulma/sass/components/level.sass";
 @import "bulma/sass/components/panel.sass";
 @import "bulma/sass/components/modal.sass";
 @import "bulma/sass/helpers/typography.sass";
@@ -61,14 +62,16 @@ $modal-card-title-color: findColorInvert($modal-card-head-background-color);
 
 .input {
 	// Less distracting text fields
-	border-top: none;
-	border-left: none;
-	border-right: none;
+	border: {
+		top: none;
+		left: none;
+		right: none;
+	}
 }
 
 .proof {
-	width: 100%;
-	height: 100%;
+	flex-direction: column;
+	align-items: stretch;
 }
 
 .proof-header {
@@ -83,7 +86,6 @@ $modal-card-title-color: findColorInvert($modal-card-head-background-color);
 
 .proof-rows {
 	display: flex;
-	flex-grow: 1;
 	flex-direction: column;
 	align-items: stretch;
 
@@ -178,9 +180,12 @@ $modal-card-title-color: findColorInvert($modal-card-head-background-color);
 	width: 4rem;
 }
 
-.premises > .input.is-static{
-	padding-bottom: calc(0.5em - 2px);
-	padding-left: calc(0.75em - 2px);
-	padding-right: calc(0.75em - 2px);
-	padding-top: calc(0.5em - 2px);
-} 
+.premises > .input.is-static {
+	padding: calc(0.5em - 2px) calc(0.75em - 2px);
+}
+
+[role="toolbar"] {
+	padding: 0.5em;
+
+	background-color: lighten($beige-light, 10%);
+}
