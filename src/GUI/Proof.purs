@@ -204,6 +204,7 @@ data Action
   | UpdateConclusion String
   | UpdateRuleArg Int Int String
   | FormulaKeyDown Int KeyboardEvent
+  | ClearProof
   | ShowHint
 
 _symbolInput = Proxy :: Proxy "symbolInput"
@@ -320,8 +321,16 @@ render st =
     HH.nav [ HPARIA.role "toolbar", HP.classes [ H.ClassName "level", H.ClassName "is-mobile" ] ]
       [ HH.div [ HP.classes [ H.ClassName "level-left" ] ] []
       , HH.div [ HP.classes [ H.ClassName "level-right" ] ]
-          [ HH.div [ HP.classes [ H.ClassName "level-item" ] ] [ hintButton ] ]
+          [ HH.div [ HP.classes [ H.ClassName "level-item" ] ] [ clearButton, hintButton ] ]
       ]
+
+  clearButton :: HH.HTML _ _
+  clearButton =
+    HH.button
+      [ HP.classes [ H.ClassName "button", H.ClassName "is-white", H.ClassName "is-small" ]
+      , HE.onClick (const ClearProof)
+      ]
+      [ HH.text "Clear" ]
 
   hintButton :: HH.HTML _ _
   hintButton =
@@ -632,6 +641,7 @@ handleAction = case _ of
         in
           st { rows = rows' }
   UpdateConclusion s -> H.modify_ \st -> st { conclusion = s }
+  ClearProof -> H.put $ initialState unit
   ShowHint -> do
     st <- H.get
     H.liftEffect $ Hint.showHint { premises: premises st, conclusion: st.conclusion }
