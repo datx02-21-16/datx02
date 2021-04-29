@@ -25,7 +25,7 @@ import Data.List as List
 import Data.Maybe (Maybe(..), fromJust, isJust, isNothing)
 import Data.Set as Set
 import Data.Tuple (Tuple(..))
-import Formula (FFC(..), Formula(..), Variable, bottomProp)
+import Formula (FFC(..), Formula(..), Variable, bottomProp, equalityProp)
 import Partial.Unsafe (unsafeCrashWith, unsafePartial)
 
 data Rule
@@ -328,10 +328,9 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
         case a of
           FC _ -> pure a
           _ -> throwError BadRule
-      Fresh -> do
-        case formula of
-          Just vc@(VC v) -> if varInScope v scopes then throwError BadFormula else pure vc
-          _ -> throwError BadRule
+      Fresh -> case formula of
+        Just vc@(VC v) -> if varInScope v scopes then throwError BadFormula else pure vc
+        _ -> throwError BadRule
       ForallElim _ -> throwError BadRule
       ForallIntro _ -> throwError BadRule
       ExistsElim _ _ -> throwError BadRule
