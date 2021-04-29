@@ -11,7 +11,7 @@ import Data.Identity (Identity)
 import Text.Parsing.Parser (Parser, ParserT, ParseError, runParser)
 import Text.Parsing.Parser.Combinators (option, choice, chainl1, lookAhead, (<?>))
 import Text.Parsing.Parser.String (char, oneOf, satisfy, eof)
-import Text.Parsing.Parser.Token (GenLanguageDef(..), TokenParser, makeTokenParser, upper, letter)
+import Text.Parsing.Parser.Token (GenLanguageDef(..), TokenParser, makeTokenParser, upper, letter, alphaNum)
 import Text.Parsing.Parser.Expr (OperatorTable, Assoc(..), Operator(..), buildExprParser)
 import Formula (Variable(..), Term(..), Formula(..))
 
@@ -25,7 +25,7 @@ token = makeTokenParser languageDef
       , commentLine: ""
       , nestedComments: false
       , identStart: letter <|> char '⊥'
-      , identLetter: letter
+      , identLetter: alphaNum
       , opStart: oneOf [ '¬', '∧', '∨', '→', '∀', '∃' ]
       , opLetter: oneOf []
       , reservedNames: []
