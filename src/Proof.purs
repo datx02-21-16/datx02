@@ -25,7 +25,7 @@ import Data.List as List
 import Data.Maybe (Maybe(..), fromJust, isJust, isNothing)
 import Data.Set as Set
 import Data.Tuple (Tuple(..))
-import Formula (Formula(..), Variable, bottomProp)
+import Formula (FFC(..), Formula(..), Variable, bottomProp)
 import Partial.Unsafe (unsafeCrashWith, unsafePartial)
 
 data Rule
@@ -48,6 +48,13 @@ data Rule
   | PBC (Maybe Box)
   | LEM
   | Copy (Maybe Int)
+  | Fresh
+  | ForallElim (Maybe Int)
+  | ForallIntro (Maybe Box)
+  | ExistsElim (Maybe Int) (Maybe Box)
+  | ExistsIntro (Maybe Int)
+  | EqElim (Maybe Int) (Maybe Box)
+  | EqIntro
 
 derive instance eqRule :: Eq Rule
 
@@ -71,6 +78,13 @@ instance showRule :: Show Rule where
   show (PBC _) = "Proof by contradiction"
   show LEM = "Law of excluded middle"
   show (Copy _) = "Copy"
+  show Fresh = "Fresh"
+  show (ForallElim _) = "∀e"
+  show (ForallIntro _) = "∀i"
+  show (ExistsElim _ _) = "∃e"
+  show (ExistsIntro _) = "∃i"
+  show (EqElim _ _) = "=e"
+  show EqIntro = "=i"
 
 data NdError
   = BadRef
@@ -95,7 +109,7 @@ instance showNdError :: Show NdError where
 derive instance eqNdError :: Eq NdError
 
 type ProofRow
-  = { formula :: Maybe Formula
+  = { formula :: Maybe FFC
     , rule :: Maybe Rule
     , error :: Maybe NdError
     }
@@ -153,7 +167,7 @@ derive newtype instance monadStateND :: MonadState Proof ND
 -- |
 -- | Returns the completeness status, together with the proof as given
 -- | annotated with any potential errors.
-runND :: forall a. Maybe Formula -> ND a -> Tuple Boolean Proof
+runND :: forall a. Maybe FFC -> ND a -> Tuple Boolean Proof
 runND conclusion (ND nd) = runState (nd *> checkCompleteness) initialState
   where
   initialState =
@@ -177,7 +191,7 @@ innerBoxStart :: List Scope -> Maybe Int
 innerBoxStart ss = (\s -> s.boxStart) $ unsafePartial $ fromJust $ List.head ss
 
 -- | Get the formula at the given one-based row index, if it is in scope.
-proofRef :: Maybe Int -> ExceptT NdError ND Formula
+proofRef :: Maybe Int -> ExceptT NdError ND FFC
 proofRef ref = do
   i <- except $ note BadRef ref
   { rows, scopes } <- get
@@ -186,7 +200,7 @@ proofRef ref = do
   when (error == Just BadFormula) $ throwError BadRef -- User needs to have input the formula
   except $ note BadRef formula
 
-boxRef :: Maybe Box -> ExceptT NdError ND (Tuple Formula Formula)
+boxRef :: Maybe Box -> ExceptT NdError ND (Tuple FFC FFC)
 boxRef ref = do
   box@(Tuple i j) <- except $ note BadRef ref
   { rows, scopes } <- get
@@ -208,95 +222,122 @@ boxRef ref = do
 -- | The formula inputted by the user is needed to uniformly handle
 -- | rules such as LEM, which violate the subformula property. They
 -- | can then return that formula as the result, provided it is valid.
-applyRule :: Rule -> Maybe Formula -> ExceptT NdError ND Formula
+applyRule :: Rule -> Maybe FFC -> ExceptT NdError ND FFC
 applyRule rule formula = if isJust formula then applyRule' else throwError BadFormula
   where
   applyRule' = do
     { rows, scopes } <- get
     case rule of
       Premise -> do
-        if all isPremise rows then except $ note BadFormula formula else throwError BadRule
+        case formula of
+          Just (FC _) -> if all isPremise rows then except $ note BadFormula formula else throwError BadRule
+          _ -> throwError FormulaMismatch
       -- TODO Check if this assumption is the first formula in the current box
       Assumption -> except $ note BadFormula formula
       AndElim1 i -> do
         a <- proofRef i
         case a of
-          And x _ -> pure x
+          FC (And x _) -> pure $ FC x
           _ -> throwError BadRule
       AndElim2 i -> do
         a <- proofRef i
         case a of
-          And _ x -> pure x
+          FC (And _ x) -> pure $ FC x
           _ -> throwError BadRule
       AndIntro i j -> do
         a <- proofRef i
         b <- proofRef j
-        pure $ And a b
+        case a, b of
+          FC f1, FC f2 -> pure $ FC (And f1 f2)
+          _, _ -> throwError BadRule
       OrElim i box1 box2 -> do
         a <- proofRef i
         (Tuple b1 b2) <- boxRef box1
         (Tuple c1 c2) <- boxRef box2
         case a of
-          Or f1 f2 -> if f1 == b1 && f2 == c1 && b2 == c2 then pure b2 else throwError BadRule
+          FC (Or f1 f2) -> if FC f1 == b1 && FC f2 == c1 && b2 == c2 then pure b2 else throwError BadRule
           _ -> throwError BadRule
       OrIntro1 i -> do
         case formula of
-          Just f@(Or f1 _) -> do
+          Just f@(FC (Or f1 _)) -> do
             a <- proofRef i
-            if a == f1 then pure f else throwError FormulaMismatch
+            if a == FC f1 then pure f else throwError FormulaMismatch
           _ -> throwError BadRule
       OrIntro2 i -> do
         case formula of
-          Just f@(Or _ f2) -> do
+          Just f@(FC (Or _ f2)) -> do
             a <- proofRef i
-            if a == f2 then pure f else throwError FormulaMismatch
+            if a == FC f2 then pure f else throwError FormulaMismatch
           _ -> throwError BadRule
       ImplElim i j -> do
         a <- proofRef i
         b <- proofRef j
         case a, b of
-          Implies x y, z
-            | x == z -> pure y
-          z, Implies x y
-            | x == z -> pure y
+          FC (Implies x y), z
+            | FC x == z -> pure $ FC y
+          z, FC (Implies x y)
+            | FC x == z -> pure $ FC y
           _, _ -> throwError BadRule
       ImplIntro box -> do
         (Tuple a b) <- boxRef box
-        pure $ Implies a b
+        case a, b of
+          FC f1, FC f2 -> pure $ FC $ Implies f1 f2
+          _, _ -> throwError BadRule
       NegElim i j -> do
         a <- proofRef i
         b <- proofRef j
-        if a == Not b || Not a == b then pure bottomProp else throwError BadRule
+        case a, b of
+          FC f1, FC f2 -> if f1 == Not f2 || Not f1 == f2 then pure (FC bottomProp) else throwError BadRule
+          _, _ -> throwError BadRule
       NegIntro box -> do
         (Tuple a b) <- boxRef box
-        if b == bottomProp then pure $ Not a else throwError BadRule
+        case a, b of
+          FC f1, FC f2 -> if f2 == bottomProp then pure $ FC (Not f1) else throwError BadRule
+          _, _ -> throwError BadRule
       BottomElim i -> do
         a <- proofRef i
-        if a == bottomProp then except $ note BadFormula formula else throwError BadRule
+        if a == FC bottomProp then except $ note BadFormula formula else throwError BadRule
       DoubleNegElim i -> do
         a <- proofRef i
         case a of
-          Not (Not x) -> pure x
+          FC (Not (Not x)) -> pure $ FC x
           _ -> throwError BadRule
       ModusTollens i j -> do
         a <- proofRef i
         b <- proofRef j
         case a, b of
-          Implies x y, Not z -> if y == z then pure (Not x) else throwError BadRule
-          Not z, Implies x y -> if y == z then pure (Not x) else throwError BadRule
+          FC (Implies x y), FC (Not z) -> if y == z then pure (FC $ Not x) else throwError BadRule
+          FC (Not z), FC (Implies x y) -> if y == z then pure (FC $ Not x) else throwError BadRule
           _, _ -> throwError BadRule
       DoubleNegIntro i -> do
-        (Not <<< Not) <$> proofRef i
+        a <- proofRef i
+        case a of
+          FC f -> pure $ FC $ Not $ Not f
+          _ -> throwError BadFormula
       PBC box -> do
         (Tuple a b) <- boxRef box
         case a, b of
-          Not f, bottom -> pure f
+          FC (Not f), FC f2 -> if f2 == bottomProp then pure $ FC f else throwError BadRule
           _, _ -> throwError BadRule
       LEM -> case formula of
-        Just f@(Or f1 f2)
+        Just f@(FC (Or f1 f2))
           | f1 == Not f2 || f2 == Not f1 -> pure f
         _ -> throwError BadRule
-      Copy i -> proofRef i
+      Copy i -> do
+        a <- proofRef i
+        case a of
+          FC _ -> pure a
+          _ -> throwError BadRule
+      Fresh -> do
+        case formula of
+          Just v@(VC _) -> pure v
+          _ -> throwError BadRule
+      ForallElim _ -> throwError BadRule
+      ForallIntro _ -> throwError BadRule
+      ExistsElim _ _ -> throwError BadRule
+      ExistsIntro _ -> throwError BadRule
+      EqElim _ _ -> throwError BadRule
+      EqIntro -> throwError BadRule
 
 -- | Add a row to the derivation.
 -- |
@@ -304,7 +345,7 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
 -- | inputted the formula, then the correct formula from the rule
 -- | application will be used in its stead, if possible. This can be
 -- | used to generate a formula from use of some rule.
-addProof :: { formula :: Maybe Formula, rule :: Maybe Rule } -> ND Unit
+addProof :: { formula :: Maybe FFC, rule :: Maybe Rule } -> ND Unit
 addProof { formula: inputFormula, rule } = do
   -- Try to apply the rule (and get the correct formula)
   result <- runExceptT $ (except $ note InvalidRule rule) >>= (flip applyRule) inputFormula

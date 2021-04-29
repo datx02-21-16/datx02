@@ -22,6 +22,13 @@ data RuleType
   | PBC
   | LEM
   | RtCopy
+  | RtFresh
+  | ForallElim
+  | ForallIntro
+  | ExistsElim
+  | ExistsIntro
+  | EqElim
+  | EqIntro
 
 derive instance eqRt :: Eq RuleType
 
@@ -47,6 +54,13 @@ instance showRuleType :: Show RuleType where
     PBC -> "PBC"
     LEM -> "LEM"
     RtCopy -> "Copy"
+    RtFresh -> "Fresh"
+    ForallElim -> "∀e"
+    ForallIntro -> "∀i"
+    ExistsElim -> "∃e"
+    ExistsIntro -> "∃i"
+    EqElim -> "=e"
+    EqIntro -> "=i"
 
 rules :: Array RuleType
 rules =

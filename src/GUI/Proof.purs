@@ -49,6 +49,7 @@ data Rule
   | Assumption
     { boxEndIdx :: Int -- Inclusive end of box
     }
+  | Fresh { boxEndIdx :: Int }
 
 derive instance eqRule :: Eq Rule
 
@@ -83,6 +84,13 @@ ruleArgTypes = case _ of
   PBC -> [ BoxRange ]
   LEM -> []
   RtCopy -> [ RowIdx ]
+  RtFresh -> []
+  ForallElim -> [ RowIdx ]
+  ForallIntro -> [ BoxRange ]
+  ExistsElim -> [ RowIdx, BoxRange ]
+  ExistsIntro -> [ RowIdx ]
+  EqElim -> [ RowIdx, RowIdx ]
+  EqIntro -> []
 
 parseRowIdx :: String -> Maybe Int
 parseRowIdx = Int.fromString
@@ -113,6 +121,12 @@ parseRuleText = case _ of
   "PBC" -> Just PBC
   "LEM" -> Just LEM
   "Copy" -> Just RtCopy
+  "Fresh" -> Just RtFresh
+  "∀i" -> Just ForallIntro
+  "∃e" -> Just ExistsElim
+  "∃i" -> Just ExistsIntro
+  "=e" -> Just EqElim
+  "=i" -> Just EqIntro
   _ -> Nothing
 
 parseRule :: ProofRow -> Maybe P.Rule
@@ -144,6 +158,7 @@ parseRule { rule, ruleArgs } =
             PBC, [ a ] -> Just $ P.PBC (parseBoxRange a)
             LEM, [] -> Just P.LEM
             RtCopy, [ a ] -> Just $ P.Copy (parseRowIdx a)
+            RtFresh, [] -> Just P.Fresh
             _, _ -> Nothing
 
 ruleText :: Rule -> String
@@ -153,6 +168,7 @@ ruleText Premise = "Premise"
 
 ruleText (Assumption _) = "Ass."
 
+ruleText (Fresh _) = "Fresh"
 errorText :: P.NdError -> String
 errorText = case _ of
   P.BadRef -> "Reference to invalid row"
@@ -255,6 +271,10 @@ proofTree { rows } = case result of
       ( \i (currentBox@{ elems } :| parentBoxes) proofRow ->
           closeBoxesIfPossible i case proofRow.rule of
             Assumption { boxEndIdx } ->
+              { elems: [ RowNode i proofRow ], endIdx: boxEndIdx }
+                :| currentBox
+                : parentBoxes
+            Fresh { boxEndIdx } ->
               { elems: [ RowNode i proofRow ], endIdx: boxEndIdx }
                 :| currentBox
                 : parentBoxes
@@ -414,7 +434,7 @@ render st =
           <> [ HH.p [ HP.classes [ H.ClassName "help", H.ClassName "is-danger" ] ] (either (\err -> [ HH.text $ "Cannot parse formula: " <> parseErrorMessage err ]) (const []) parseResult) ]
       )
     where
-    parseResult = parseFormula text
+    parseResult = parseFFC text
 
     isOk = isRight parseResult
 
@@ -426,11 +446,11 @@ render st =
         RowNode i r ->
           pure
             $ P.addProof
-                { formula: hush $ parseFormula r.formulaText
+                { formula: hush $ parseFFC r.formulaText
                 , rule: parseRule r
                 }
 
-      conclusion = hush $ parseFormula st.conclusion
+      conclusion = hush $ parseFFC st.conclusion
     in
       P.runND conclusion (sequence $ proofTree st >>= proofTreeAction)
 
@@ -648,6 +668,22 @@ handleAction = case _ of
                   row
                     { rule = Assumption { boxEndIdx: boxEndIdx - (end - start) }
                     }
+              row@{ rule: Fresh { boxEndIdx } }
+                -- Moved box
+                | start <= j, j < end ->
+                  row
+                    { rule = Fresh { boxEndIdx: boxEndIdx + (newStart - start) }
+                    }
+                -- Move before/inside box
+                | i <= boxEndIdx, boxEndIdx < start ->
+                  row
+                    { rule = Fresh { boxEndIdx: boxEndIdx + (end - start) }
+                    }
+                -- Move after box
+                | start <= boxEndIdx, boxEndIdx < i ->
+                  row
+                    { rule = Fresh { boxEndIdx: boxEndIdx - (end - start) }
+                    }
               x -> x
 
           rows' = moveWithin target start end $ updateBoxes st.rows
@@ -727,6 +763,8 @@ handleAction = case _ of
     map case _ of
       row@{ rule: Assumption { boxEndIdx } }
         | i <= boxEndIdx -> row { rule = Assumption { boxEndIdx: boxEndIdx + off } }
+      row@{ rule: Fresh { boxEndIdx } }
+        | i <= boxEndIdx -> row { rule = Fresh { boxEndIdx: boxEndIdx + off } }
       x -> x
 
   -- | Takes an index and an array of rows. Increases the ending position of
@@ -741,6 +779,8 @@ handleAction = case _ of
           else case r of
             row@{ rule: Assumption { boxEndIdx } }
               | (i <= boxEndIdx) -> row { rule = Assumption { boxEndIdx: boxEndIdx + 1 } }
+            row@{ rule: Fresh { boxEndIdx } }
+              | (i <= boxEndIdx) -> row { rule = Fresh { boxEndIdx: boxEndIdx + 1 } }
             x -> x
       )
       (enumerate rs)
@@ -755,6 +795,7 @@ handleAction = case _ of
     let
       end = case startRow.rule of
         Assumption { boxEndIdx } -> boxEndIdx + 1
+        Fresh { boxEndIdx } -> boxEndIdx + 1
         _ -> start + 1
     pure { start, end }
 
@@ -791,6 +832,7 @@ scopeStart i st = fst $ innermostScope i st
   boxLimits :: Tuple Int ProofRow -> Tuple Int Int
   boxLimits (Tuple i r) = case r.rule of
     (Assumption { boxEndIdx }) -> Tuple i boxEndIdx
+    (Fresh { boxEndIdx }) -> Tuple i boxEndIdx
     _ -> unsafeCrashWith "Not a box."
 
   -- | Get a list of all boxes in a state as tuples.
@@ -803,6 +845,7 @@ getAllEndings st = map rToE $ boxes st
   rToE :: ProofRow -> Int
   rToE r = case r.rule of
     Assumption { boxEndIdx } -> boxEndIdx
+    Fresh { boxEndIdx } -> boxEndIdx
     _ -> unsafeCrashWith "Row is not a box."
 
 boxes :: State -> Array ProofRow
@@ -812,6 +855,7 @@ boxes st = Array.filter isBox st.rows
 isBox :: ProofRow -> Boolean
 isBox r = case r.rule of
   Assumption _ -> true
+  Fresh _ -> true
   _ -> false
 
 ruleFromString :: String -> Int -> Rule
@@ -819,4 +863,5 @@ ruleFromString s rowIdx
   | s == "Ass." || s == "as" = Assumption { boxEndIdx: rowIdx }
   | s == "pr" || s == "Premise" = Premise
   | s == "cp" || s == "co" || s == "Copy" = Rule "Copy"
+  | s == "fr" || s == "Fresy" = Fresh { boxEndIdx: rowIdx }
   | otherwise = Rule s

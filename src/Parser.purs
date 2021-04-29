@@ -20,7 +20,7 @@ import Text.Parsing.Parser.Combinators (option, choice, try, sepBy1, chainl1, lo
 import Text.Parsing.Parser.String (anyChar, char, oneOf, satisfy, eof)
 import Text.Parsing.Parser.Token (GenLanguageDef(..), TokenParser, makeTokenParser, upper, letter, alphaNum)
 import Text.Parsing.Parser.Expr (OperatorTable, Assoc(..), Operator(..), buildExprParser)
-import Formula (Variable(..), Term(..), Formula(..))
+import Formula (Variable(..), Term(..), Formula(..), FFC(..))
 
 token :: TokenParser
 token = makeTokenParser languageDef
@@ -147,3 +147,6 @@ parsePremises s =
     premise = parsedString $ void (try $ formula <* lookAhead (char ',')) <|> void (many anyChar)
   in
     fromRight' (\_ -> unsafeCrashWith "unreachable (parser always succeeds)") result
+
+parseVar :: String -> Either ParseError Variable
+parseVar = flip runParser $ variable <* eof

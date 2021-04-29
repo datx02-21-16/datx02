@@ -1,7 +1,7 @@
 module Test.Proof where
 
 import Prelude
-import Formula (Formula(..))
+import Formula (Formula(..), FFC(..))
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
 import Data.List (List(Nil), (:))
@@ -29,28 +29,28 @@ testInference =
     it "can do implies introduction"
       let
         (Tuple completed proof) =
-          runND (Just (Implies p b))
+          runND (Just $ FC (Implies p b))
             $ do
                 addProof
-                  { formula: Just (Implies p (And a b))
+                  { formula: Just (FC $ Implies p (And a b))
                   , rule: Just Premise
                   }
                 openBox
                 addProof
-                  { formula: Just p
+                  { formula: Just (FC p)
                   , rule: Just Assumption
                   }
                 addProof
-                  { formula: Just (And a b)
+                  { formula: Just (FC $ And a b)
                   , rule: Just (ImplElim (Just 1) (Just 2))
                   }
                 addProof
-                  { formula: Just b
+                  { formula: Just (FC b)
                   , rule: Just (AndElim2 (Just 3))
                   }
                 closeBox
                 addProof
-                  { formula: Just (Implies p b)
+                  { formula: Just (FC $ Implies p b)
                   , rule: Just (ImplIntro (Just $ Tuple 2 4))
                   }
       in
@@ -60,23 +60,23 @@ testInference =
             `shouldEqual`
               { rows:
                   [ { error: Nothing
-                    , formula: (Just (Implies p (And a b)))
+                    , formula: (Just (FC $ Implies p (And a b)))
                     , rule: (Just Premise)
                     }
                   , { error: Nothing
-                    , formula: (Just p)
+                    , formula: (Just $ FC p)
                     , rule: (Just Assumption)
                     }
                   , { error: Nothing
-                    , formula: (Just (And a b))
+                    , formula: (Just $ FC (And a b))
                     , rule: (Just (ImplElim (Just 1) (Just 2)))
                     }
                   , { error: Nothing
-                    , formula: Just b
+                    , formula: Just $ FC b
                     , rule: Just (AndElim2 (Just 3))
                     }
                   , { error: Nothing
-                    , formula: Just (Implies p b)
+                    , formula: Just $ FC (Implies p b)
                     , rule: Just (ImplIntro (Just $ Tuple 2 4))
                     }
                   ]
@@ -92,18 +92,18 @@ testInference =
     it "can do and intro"
       let
         (Tuple completed proof) =
-          runND (Just (And a b))
+          runND (Just $ FC (And a b))
             $ do
                 addProof
-                  { formula: Just a
+                  { formula: Just $ FC a
                   , rule: Just Premise
                   }
                 addProof
-                  { formula: Just b
+                  { formula: Just $ FC b
                   , rule: Just Premise
                   }
                 addProof
-                  { formula: Just (And a b)
+                  { formula: Just $ FC (And a b)
                   , rule: Just (AndIntro (Just 1) (Just 2))
                   }
       in
@@ -113,15 +113,15 @@ testInference =
             `shouldEqual`
               { rows:
                   [ { error: Nothing
-                    , formula: (Just a)
+                    , formula: (Just $ FC a)
                     , rule: (Just Premise)
                     }
                   , { error: Nothing
-                    , formula: (Just b)
+                    , formula: (Just $ FC b)
                     , rule: (Just Premise)
                     }
                   , { error: Nothing
-                    , formula: (Just (And a b))
+                    , formula: (Just $ FC (And a b))
                     , rule: (Just (AndIntro (Just 1) (Just 2)))
                     }
                   ]
@@ -137,14 +137,14 @@ testInference =
     it "can do and elim 1"
       let
         (Tuple completed proof) =
-          runND (Just a)
+          runND (Just $ FC a)
             $ do
                 addProof
-                  { formula: Just (And a b)
+                  { formula: Just $ FC (And a b)
                   , rule: Just Premise
                   }
                 addProof
-                  { formula: Just a
+                  { formula: Just $ FC a
                   , rule: Just (AndElim1 (Just 1))
                   }
       in
@@ -154,11 +154,11 @@ testInference =
             `shouldEqual`
               { rows:
                   [ { error: Nothing
-                    , formula: (Just (And a b))
+                    , formula: (Just $ FC (And a b))
                     , rule: (Just Premise)
                     }
                   , { error: Nothing
-                    , formula: (Just a)
+                    , formula: (Just $ FC a)
                     , rule: (Just (AndElim1 (Just 1)))
                     }
                   ]
