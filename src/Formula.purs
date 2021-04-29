@@ -17,15 +17,15 @@ import Prelude
 import Data.List as List
 import Data.List (List(Nil), null, transpose)
 import Data.Array as Array
-import Data.Maybe (Maybe(..), fromMaybe, maybe)
+import Data.Maybe (Maybe(..), fromMaybe, maybe, isJust)
 import Data.String.Common (joinWith)
+import Data.Foldable (foldl, any, or, find)
 import Data.Traversable (sequence)
 import Data.Tuple (Tuple(..))
 import Data.Map as Map
 import Data.Map (Map)
 import Data.Set as Set
 import Data.Set (Set)
-import Data.Foldable (any, or)
 import Data.Unfoldable as Unfoldable
 
 -- | A variable symbol.
@@ -159,6 +159,10 @@ singleSub v t =
     Var v2 -> v1 == v2
     App _ args -> any (v1 `occursIn` _) args
 
+-- | Returns a singleton substition {y/x}.
+varSub :: Variable -> Variable -> Substitution
+varSub x y = Substitution $ Map.singleton x (Var y)
+
 -- | Expressions on which substitutions can be done.
 class Substitutable a where
   -- | Performs the specified substitution on the given expression (eθ).
@@ -238,15 +242,31 @@ unify = go mempty
 
 containsTerm :: Formula -> Term -> Boolean
 containsTerm f t = case f of
-  Predicate n args -> or $ map (\t' -> t == t') args
+  Predicate _ args -> or $ map (\t' -> t == t') args
   Not f' -> containsTerm f' t
   And f1 f2 -> containsTerm f1 t || containsTerm f2 t
   Or f1 f2 -> containsTerm f1 t || containsTerm f2 t
   Implies f1 f2 -> containsTerm f1 t || containsTerm f2 t
-  Forall x f' -> containsTerm f' t
-  Exists x f' -> containsTerm f' t
+  Forall x f' -> t /= Var x && containsTerm f' t
+  Exists x f' -> t /= Var x && containsTerm f' t
 
--- | TODO At the moment only works on propositional logic
+varUniqueIn :: Formula -> Variable
+varUniqueIn = Variable <<< foldl (<>) "" <<< allVarsInFormula
+  where
+  allVarsInTerm = case _ of
+    Var (Variable s) -> [ s ]
+    App _ args -> args >>= allVarsInTerm
+
+  allVarsInFormula = case _ of
+    Predicate _ args -> args >>= allVarsInTerm
+    Not f -> allVarsInFormula f
+    And f1 f2 -> allVarsInFormula f1 <> allVarsInFormula f2
+    Or f1 f2 -> allVarsInFormula f1 <> allVarsInFormula f2
+    Implies f1 f2 -> allVarsInFormula f1 <> allVarsInFormula f2
+    Forall (Variable x) f -> [ x ] <> allVarsInFormula f
+    Exists (Variable x) f -> [ x ] <> allVarsInFormula f
+
+-- | Unify the terms in the two formulas.
 formulaUnify :: Formula -> Formula -> Maybe (Tuple Substitution (List Term))
 formulaUnify f1 f2 = subTerms f1 f2 >>= unify
   where
@@ -262,7 +282,30 @@ formulaUnify f1 f2 = subTerms f1 f2 >>= unify
     And a b, And c d -> (<>) <$> subTerms a c <*> subTerms b d
     Or a b, Or c d -> (<>) <$> subTerms a c <*> subTerms b d
     Implies a b, Implies c d -> (<>) <$> subTerms a c <*> subTerms b d
+    Forall x f, Forall y g -> subTermsQuantified x f y g
+    Exists x f, Exists y g -> subTermsQuantified x f y g
     _, _ -> Nothing
+
+  subTermsQuantified :: Variable -> Formula -> Variable -> Formula -> Maybe (Set (List Term))
+  subTermsQuantified x f y g =
+    let
+      Variable yStr = y
+
+      Variable uniqueVarStr = varUniqueIn g
+
+      uniqueVar = Variable $ yStr <> uniqueVarStr
+
+      gWithoutX = substitute (varSub x uniqueVar) g
+
+      gWithXInsteadOfY = substitute (varSub y x) gWithoutX
+    in
+      case formulaUnify f gWithXInsteadOfY of
+        Nothing -> Nothing
+        -- Disallow unification of ∃x P(x) and ∃y P(z)
+        Just (Tuple (Substitution ss) _)
+          | x `Map.member` ss
+              || (isJust $ find (_ == Var x) $ Map.values ss) -> Nothing
+        Just _ -> subTerms f gWithXInsteadOfY
 
 formulaUnifier :: Formula -> Formula -> Maybe Substitution
 formulaUnifier a b = (\(Tuple σ _) -> σ) <$> formulaUnify a b
