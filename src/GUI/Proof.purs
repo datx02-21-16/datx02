@@ -443,7 +443,7 @@ render st =
       proofTreeAction :: ProofTree -> Array (P.ND Unit)
       proofTreeAction = case _ of
         Subproof xs -> [ P.openBox ] <> (xs >>= proofTreeAction) <> [ P.closeBox ]
-        RowNode i r ->
+        RowNode _ r ->
           pure
             $ P.addProof
                 { formula: hush $ parseFFC r.formulaText
@@ -620,7 +620,7 @@ handleAction = case _ of
           deleteRow i
           H.liftEffect $ Event.preventDefault (KeyboardEvent.toEvent ev)
     _ -> pure unit
-  DragStart i ev -> do
+  DragStart i _ -> do
     H.modify_ (\st -> st { dragged = Just i })
   DragOver i ev -> do
     validDropZone <- isValidDropZone i
@@ -637,11 +637,10 @@ handleAction = case _ of
     when (draggingOver /= Just i) do
       H.liftEffect $ DataTransfer.setDropEffect DataTransfer.None $ DragEvent.dataTransfer ev
       H.modify_ \st -> st { draggingOver = Nothing }
-  DragEnd i ev -> H.modify_ \st -> st { draggingOver = Nothing, dragged = Nothing }
+  DragEnd _ _ -> H.modify_ \st -> st { draggingOver = Nothing, dragged = Nothing }
   Drop i ev -> do
     validDropZone <- isValidDropZone i
     when validDropZone do
-      dragged <- unsafePartial $ fromJust <$> H.gets _.dragged
       H.liftEffect $ Event.preventDefault $ DragEvent.toEvent ev
       { start, end } <- draggedRows
       H.modify_ \st ->
@@ -825,7 +824,7 @@ scopeStart i st = fst $ innermostScope i st
 
   -- | Extracts all boxes along with their index from a list of indexed rows.
   indexedBoxes :: State -> Array (Tuple Int ProofRow)
-  indexedBoxes st = Array.filter (\(Tuple i r) -> isBox r) (enumerate st.rows)
+  indexedBoxes st = Array.filter (\(Tuple _ r) -> isBox r) (enumerate st.rows)
 
   -- | Takes a row, assumed to be the start of a box, along with it's
   --   position in the proof. Returns a tuple with the limits of the box.

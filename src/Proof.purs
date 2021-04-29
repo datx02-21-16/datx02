@@ -16,7 +16,7 @@ import Prelude
 import Control.Alt ((<|>))
 import Control.Monad.Except.Trans (ExceptT, except, runExceptT, throwError)
 import Control.Monad.Maybe.Trans (MaybeT(MaybeT), runMaybeT)
-import Control.Monad.State (State, class MonadState, runState, modify_, get)
+import Control.Monad.State (State, class MonadState, runState, modify_, get, gets)
 import Data.Array as Array
 import Data.Either (Either(..), note, hush)
 import Data.Foldable (all, any)
@@ -226,7 +226,7 @@ applyRule :: Rule -> Maybe FFC -> ExceptT NdError ND FFC
 applyRule rule formula = if isJust formula then applyRule' else throwError BadFormula
   where
   applyRule' = do
-    { rows, scopes } <- get
+    rows <- gets _.rows
     case rule of
       Premise -> do
         case formula of
