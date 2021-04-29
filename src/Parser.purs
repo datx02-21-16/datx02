@@ -47,10 +47,12 @@ argumentList :: forall a. Parser String a -> Parser String (Array a)
 argumentList p = Array.fromFoldable <$> token.parens (token.commaSep p)
 
 term :: Parser String Term
-term = do
-  symbol <- variableSymbol
-  -- Constants require empty argument list ("c()") to disambiguate from variables
-  option (Var $ Variable symbol) (App symbol <$> argumentList term)
+term =
+  do
+    symbol <- variableSymbol
+    -- Constants require empty argument list ("c()") to disambiguate from variables
+    option (Var $ Variable symbol) (App symbol <$> argumentList term)
+    <?> "term"
 
 -- | Parse a single predicate variable such as P(x).
 predicate :: Parser String Formula
