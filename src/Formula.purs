@@ -12,6 +12,7 @@ module Formula
   , unify
   , containsTerm
   , formulaUnifier
+  , equalityProp
   , isPropFormula
   ) where
 
@@ -123,6 +124,9 @@ instance showFFC :: Show FFC where
 -- | Dedicated symbol for a proposition that is assigned a false truth value.
 bottomProp :: Formula
 bottomProp = Predicate "⊥" []
+
+equalityProp :: Term -> Term -> Formula
+equalityProp t1 t2 = Predicate "=" [ t1, t2 ]
 
 -- | A substitution {t₁/v₁, ..., tₙ/vₙ}.
 -- |

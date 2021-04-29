@@ -337,7 +337,13 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
       ExistsElim _ _ -> throwError BadRule
       ExistsIntro _ -> throwError BadRule
       EqElim _ _ -> throwError BadRule
-      EqIntro -> throwError BadRule
+      EqIntro -> case formula of
+        Just formula'@(FC p@(Predicate _ [ t1, t2 ])) ->
+          if p == equalityProp t1 t2 && t1 == t2 then
+            pure formula'
+          else
+            throwError FormulaMismatch
+        _ -> throwError FormulaMismatch
 
 -- | Add a row to the derivation.
 -- |

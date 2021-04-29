@@ -159,6 +159,7 @@ parseRule { rule, ruleArgs } =
             LEM, [] -> Just P.LEM
             RtCopy, [ a ] -> Just $ P.Copy (parseRowIdx a)
             RtFresh, [] -> Just P.Fresh
+            EqIntro, [] -> Just P.EqIntro
             _, _ -> Nothing
 
 ruleText :: Rule -> String
