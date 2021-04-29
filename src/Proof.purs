@@ -226,7 +226,7 @@ applyRule :: Rule -> Maybe FFC -> ExceptT NdError ND FFC
 applyRule rule formula = if isJust formula then applyRule' else throwError BadFormula
   where
   applyRule' = do
-    rows <- gets _.rows
+    { rows, scopes } <- get
     case rule of
       Premise -> do
         case formula of
@@ -330,7 +330,7 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
           _ -> throwError BadRule
       Fresh -> do
         case formula of
-          Just v@(VC _) -> pure v
+          Just vc@(VC v) -> if varInScope v scopes then throwError BadFormula else pure vc
           _ -> throwError BadRule
       ForallElim _ -> throwError BadRule
       ForallIntro _ -> throwError BadRule
