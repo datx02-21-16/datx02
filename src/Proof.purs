@@ -22,10 +22,10 @@ import Data.Either (Either(..), note, hush)
 import Data.Foldable (all, any)
 import Data.List (List)
 import Data.List as List
-import Data.Maybe (Maybe(..), fromJust, isJust, isNothing)
+import Data.Maybe (Maybe(..), fromJust, isJust, isNothing, maybe)
 import Data.Set as Set
 import Data.Tuple (Tuple(..))
-import Formula (FFC(..), Formula(..), Variable, bottomProp, equalityProp)
+import Formula (FFC(..), Formula(..), Variable, Term(..), bottomProp, equalityProp, substitute, singleSub)
 import Partial.Unsafe (unsafeCrashWith, unsafePartial)
 
 data Rule
@@ -332,7 +332,16 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
         Just vc@(VC v) -> if varInScope v scopes then throwError BadFormula else pure vc
         _ -> throwError BadRule
       ForallElim _ -> throwError BadRule
-      ForallIntro _ -> throwError BadRule
+      ForallIntro box -> case formula of
+        Just formula'@(FC (Forall v f)) -> do
+          (Tuple a b) <- boxRef box
+          case a, b of
+            VC vLocal, FC fLocal -> do
+              let
+                sub = singleSub v (Var vLocal)
+              maybe (throwError BadRule) (\s -> if substitute s f == fLocal then pure formula' else throwError FormulaMismatch) sub
+            _, _ -> throwError BadRule
+        _ -> throwError FormulaMismatch
       ExistsElim _ _ -> throwError BadRule
       ExistsIntro _ -> throwError BadRule
       EqElim _ _ -> throwError BadRule
