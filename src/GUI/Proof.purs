@@ -3,7 +3,7 @@ module GUI.Proof (Slot, proof) where
 import Prelude
 import Data.Array ((!!), unsafeIndex)
 import Data.Array as Array
-import Data.Either (isRight, hush)
+import Data.Either (isRight, either, hush)
 import Data.FoldableWithIndex (foldlWithIndex)
 import Data.FunctorWithIndex (mapWithIndex)
 import Data.Int as Int
@@ -40,6 +40,7 @@ import Web.HTML.Event.DragEvent as DragEvent
 import Web.HTML.HTMLInputElement as HTMLInputElement
 import Web.UIEvent.KeyboardEvent (KeyboardEvent)
 import Web.UIEvent.KeyboardEvent as KeyboardEvent
+import Text.Parsing.Parser (parseErrorMessage)
 
 -- For GUI proof state we use a representation that is easy to modify,
 -- i.e. has a single contiguous array of all rows. When rendering or
@@ -389,10 +390,12 @@ render st =
       , HE.onKeyDown $ FormulaKeyDown i
       ]
       ( [ HH.slot _symbolInput (2 * i) (symbolInput placeholder) text outputMap ]
-          <> [ HH.p [ HP.classes [ H.ClassName "help", H.ClassName "is-danger" ] ] (if isOk then [] else [ HH.text "Cannot parse formula. Note that formulas can only include capital letters." ]) ]
+          <> [ HH.p [ HP.classes [ H.ClassName "help", H.ClassName "is-danger" ] ] (either (\err -> [ HH.text $ "Cannot parse formula: " <> parseErrorMessage err ]) (const []) parseResult) ]
       )
     where
-    isOk = isRight $ parseFormula text
+    parseResult = parseFormula text
+
+    isOk = isRight parseResult
 
   Tuple complete verification =
     let

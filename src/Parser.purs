@@ -41,7 +41,7 @@ variableSymbol :: Parser String String
 variableSymbol = lookAhead lower *> token.identifier
 
 variable :: Parser String Variable
-variable = Variable <$> variableSymbol
+variable = Variable <$> variableSymbol <?> "variable"
 
 argumentList :: forall a. Parser String a -> Parser String (Array a)
 argumentList p = Array.fromFoldable <$> token.parens (token.commaSep p)
@@ -59,20 +59,23 @@ predicate =
     predicateSymbol =
       token.symbol "=" <|> lookAhead upper *> token.identifier
         <|> token.symbol "⊥"
+        <?> "uppercase proposition/predicate symbol"
 
     -- The equality predicate is usually written using infix notation
-    equality = do
-      x <- term
-      _ <- token.symbol "="
-      y <- term
-      pure $ Predicate "=" [ x, y ]
+    equality =
+      do
+        x <- term
+        _ <- token.symbol "="
+        y <- term
+        pure $ Predicate "=" [ x, y ]
+        <?> "equality"
   in
-    do
-      symbol <- predicateSymbol
-      -- For nullary predicates the argument list is optional
-      args <- option [] (argumentList term)
-      pure $ Predicate symbol args
-      <|> equality
+    equality
+      <|> do
+          symbol <- predicateSymbol
+          -- For nullary predicates the argument list is optional
+          args <- option [] (argumentList term)
+          pure $ Predicate symbol args
 
 -- | Parse a single formula.
 formula :: Parser String Formula
@@ -104,8 +107,11 @@ formula = fix allFormulas
     let
       singleFormula = token.parens p <|> predicate
     in
-      token.whiteSpace *> buildExprParser opTable singleFormula
+      buildExprParser opTable singleFormula
 
 -- | Returns the result of parsing a formula from the specified string.
 parseFormula :: String -> Either ParseError Formula
-parseFormula = flip runParser $ formula <* eof
+-- The reservedOp parsers are a little stingy in that they appear to
+-- not treat EOF as a symbol boundary, so append a single whitespace
+-- to improve error messages.
+parseFormula = flip runParser (token.whiteSpace *> formula <* eof) <<< (_ <> " ")
