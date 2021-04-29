@@ -1,9 +1,9 @@
 module Test.Parser where
 
 import Prelude
-import Data.Either (Either(..))
+import Data.Either (Either(..), isLeft)
 import Test.Spec (Spec, describe, it)
-import Test.Spec.Assertions (shouldEqual)
+import Test.Spec.Assertions (shouldEqual, shouldSatisfy)
 import Formula (Variable(..), Term(..), Formula(..), bottomProp)
 import Parser (parseFormula)
 
@@ -47,32 +47,54 @@ spec =
     it "can parse the bottom symbol" do
       parseFormula "⊥" `shouldEqual` Right bottomProp
     it "does not care about redundant parentheses" do
-        (parseFormula "(A ∧ B) ∧ C") `shouldEqual`
-          Right (And 
-                  (And 
+      (parseFormula "(A ∧ B) ∧ C")
+        `shouldEqual`
+          Right
+            ( And
+                ( And
                     (Predicate "A" [])
-                    (Predicate "B" []))
-                  (Predicate "C" []))
+                    (Predicate "B" [])
+                )
+                (Predicate "C" [])
+            )
     it "can decide correct operator precedence from parentheses" do
-      (parseFormula "A ∧ (B ∧ C)") `shouldEqual`
-        Right (And
+      (parseFormula "A ∧ (B ∧ C)")
+        `shouldEqual`
+          Right
+            ( And
                 (Predicate "A" [])
-                (And
-                  (Predicate "B" [])
-                  (Predicate "C" [])))
+                ( And
+                    (Predicate "B" [])
+                    (Predicate "C" [])
+                )
+            )
     it "properly parses implication" do
-      (parseFormula "(A ∧ B) → (B ∧ A)") `shouldEqual`
-        Right (Implies
-                (And
-                  (Predicate "A" [])
-                  (Predicate "B" []))
-                (And
-                  (Predicate "B" [])
-                  (Predicate "A" [])))
-    it "parses left associative formula correctly" do
-        (parseFormula "A ∧ B ∧ C") `shouldEqual`
-          Right (And 
-                  (And 
+      (parseFormula "(A ∧ B) → (B ∧ A)")
+        `shouldEqual`
+          Right
+            ( Implies
+                ( And
                     (Predicate "A" [])
-                    (Predicate "B" []))
-                  (Predicate "C" []))
+                    (Predicate "B" [])
+                )
+                ( And
+                    (Predicate "B" [])
+                    (Predicate "A" [])
+                )
+            )
+    it "parses left associative formula correctly" do
+      (parseFormula "A ∧ B ∧ C")
+        `shouldEqual`
+          Right
+            ( And
+                ( And
+                    (Predicate "A" [])
+                    (Predicate "B" [])
+                )
+                (Predicate "C" [])
+            )
+    it "allows digits in variable names" do
+      (parseFormula "P(x0)") `shouldEqual` Right (Predicate "P" [ Var $ Variable "x0" ])
+    it "does not allow variables/predicates to start with a digit" do
+      parseFormula "P(0x)" `shouldSatisfy` isLeft
+      parseFormula "0A" `shouldSatisfy` isLeft
