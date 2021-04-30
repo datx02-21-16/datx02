@@ -353,7 +353,13 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
             _, _ -> throwError BadRule
         _ -> throwError FormulaMismatch
       ExistsElim _ _ -> throwError BadRule
-      ExistsIntro _ -> throwError BadRule
+      ExistsIntro i -> case formula of
+        Just formula'@(FC (Exists v fTarget)) -> do
+          a <- proofRef i
+          case a of
+            FC fLocal -> if isUnifierVar v fTarget fLocal then pure formula' else throwError BadRule
+            _ -> throwError BadRule
+        _ -> throwError FormulaMismatch
       EqElim _ _ -> throwError BadRule
       EqIntro -> case formula of
         Just formula'@(FC p@(Predicate _ [ t1, t2 ])) ->
