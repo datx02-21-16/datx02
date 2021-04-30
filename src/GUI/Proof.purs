@@ -122,6 +122,7 @@ parseRuleText = case _ of
   "LEM" -> Just LEM
   "Copy" -> Just RtCopy
   "Fresh" -> Just RtFresh
+  "∀e" -> Just ForallElim
   "∀i" -> Just ForallIntro
   "∃e" -> Just ExistsElim
   "∃i" -> Just ExistsIntro
@@ -159,6 +160,7 @@ parseRule { rule, ruleArgs } =
             LEM, [] -> Just P.LEM
             RtCopy, [ a ] -> Just $ P.Copy (parseRowIdx a)
             RtFresh, [] -> Just P.Fresh
+            ForallElim, [ a ] -> Just $ P.ForallElim (parseRowIdx a)
             ForallIntro, [ a ] -> Just $ P.ForallIntro (parseBoxRange a)
             EqIntro, [] -> Just P.EqIntro
             _, _ -> Nothing

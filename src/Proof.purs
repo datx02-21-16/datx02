@@ -25,7 +25,7 @@ import Data.List as List
 import Data.Maybe (Maybe(..), fromJust, isJust, isNothing, maybe)
 import Data.Set as Set
 import Data.Tuple (Tuple(..))
-import Formula (FFC(..), Formula(..), Variable, Term(..), bottomProp, equalityProp, substitute, singleSub)
+import Formula (FFC(..), Formula(..), Variable, Term(..), bottomProp, equalityProp, substitute, singleSub, isUnifierVar)
 import Partial.Unsafe (unsafeCrashWith, unsafePartial)
 
 data Rule
@@ -331,7 +331,17 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
       Fresh -> case formula of
         Just vc@(VC v) -> if varInScope v scopes then throwError BadFormula else pure vc
         _ -> throwError BadRule
-      ForallElim _ -> throwError BadRule
+      ForallElim i -> case formula of
+        Just formula'@(FC fTarget) -> do
+          f <- proofRef i
+          case f of
+            FC (Forall v f') ->
+              if isUnifierVar v f' fTarget then
+                pure formula'
+              else
+                throwError FormulaMismatch
+            _ -> throwError BadRule
+        _ -> throwError FormulaMismatch
       ForallIntro box -> case formula of
         Just formula'@(FC (Forall v f)) -> do
           (Tuple a b) <- boxRef box

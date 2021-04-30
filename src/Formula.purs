@@ -14,6 +14,7 @@ module Formula
   , formulaUnifier
   , equalityProp
   , isPropFormula
+  , isUnifierVar
   ) where
 
 import Prelude
@@ -325,6 +326,9 @@ formulaUnify f1 f2 = subTerms f1 f2 >>= unify
 
 formulaUnifier :: Formula -> Formula -> Maybe Substitution
 formulaUnifier a b = (\(Tuple σ _) -> σ) <$> formulaUnify a b
+
+isUnifierVar :: Variable -> Formula -> Formula -> Boolean
+isUnifierVar v f1 f2 = maybe false (\(Substitution s) -> Map.keys s == Set.singleton v) (formulaUnifier f1 f2)
 
 isPropFormula :: Formula -> Boolean
 isPropFormula formula = case formula of
