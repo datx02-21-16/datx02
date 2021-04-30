@@ -329,7 +329,7 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
           FC _ -> pure a
           _ -> throwError BadRule
       Fresh -> case formula of
-        Just vc@(VC v) -> if varInScope v scopes then throwError BadFormula else pure vc
+        Just vc@(VC v) -> if (varInScope v scopes) then (throwError BadRule) else (pure vc)
         _ -> throwError BadRule
       ForallElim i -> case formula of
         Just formula'@(FC fTarget) -> do
@@ -402,11 +402,20 @@ addProof { formula: inputFormula, rule } = do
       Just f, Right g
         | f == g -> Nothing
         | otherwise -> Just FormulaMismatch
-  modify_ \proof ->
-    proof
-      { rows = Array.snoc proof.rows { formula, rule, error }
-      , scopes = addLineToInnermost (Array.length proof.rows + 1) proof.scopes
-      }
+  case inputFormula of
+    Just (VC v) -> do
+      modify_ \proof ->
+        proof
+          { rows = Array.snoc proof.rows { formula, rule, error }
+          , scopes = addLineToInnermost (Array.length proof.rows + 1) proof.scopes
+          }
+      modify_ \proof -> proof { scopes = addVarToInnermost v proof.scopes }
+    _ ->
+      modify_ \proof ->
+        proof
+          { rows = Array.snoc proof.rows { formula, rule, error }
+          , scopes = addLineToInnermost (Array.length proof.rows + 1) proof.scopes
+          }
 
 -- | Open a new box.
 openBox :: ND Unit
