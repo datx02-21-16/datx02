@@ -352,7 +352,21 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
               maybe (throwError BadRule) (\s -> if substitute s f == fLocal then pure formula' else throwError FormulaMismatch) sub
             _, _ -> throwError BadRule
         _ -> throwError FormulaMismatch
-      ExistsElim _ _ -> throwError BadRule
+      ExistsElim i box -> case formula of
+        Just formula'@(FC _) -> do
+          a <- proofRef i
+          (Tuple b1 b2) <- boxRef box
+          case a, b1 of
+            FC (Exists v f), FC f' ->
+              if isUnifierVar v f' f then
+                if b2 == formula' then
+                  pure formula'
+                else
+                  throwError FormulaMismatch
+              else
+                throwError BadRule
+            _, _ -> throwError FormulaMismatch
+        _ -> throwError FormulaMismatch
       ExistsIntro i -> case formula of
         Just formula'@(FC (Exists v fTarget)) -> do
           a <- proofRef i

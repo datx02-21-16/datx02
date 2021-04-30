@@ -162,6 +162,7 @@ parseRule { rule, ruleArgs } =
             RtFresh, [] -> Just P.Fresh
             ForallElim, [ a ] -> Just $ P.ForallElim (parseRowIdx a)
             ForallIntro, [ a ] -> Just $ P.ForallIntro (parseBoxRange a)
+            ExistsElim, [ a, b ] -> Just $ P.ExistsElim (parseRowIdx a) (parseBoxRange b)
             ExistsIntro, [ a ] -> Just $ P.ExistsIntro (parseRowIdx a)
             EqIntro, [] -> Just P.EqIntro
             _, _ -> Nothing
