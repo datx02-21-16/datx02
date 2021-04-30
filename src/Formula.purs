@@ -328,7 +328,9 @@ formulaUnifier :: Formula -> Formula -> Maybe Substitution
 formulaUnifier a b = (\(Tuple σ _) -> σ) <$> formulaUnify a b
 
 isUnifierVar :: Variable -> Formula -> Formula -> Boolean
-isUnifierVar v f1 f2 = maybe false (\(Substitution s) -> Map.keys s == Set.singleton v) (formulaUnifier f1 f2)
+isUnifierVar v f1 f2 = v `isIn` f1 && not (v `isIn` f2) && maybe false (\(Substitution s) -> Map.size s == 1) (formulaUnifier f1 f2)
+  where
+  isIn (Variable v) f = v `Array.elem` allVarsInFormula f
 
 isPropFormula :: Formula -> Boolean
 isPropFormula formula = case formula of
