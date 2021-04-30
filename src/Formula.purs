@@ -275,19 +275,20 @@ containsTerm f t = case f of
 -- | Guaranteed to be the concatenation of all vars in the formula.
 varUniqueIn :: Formula -> Variable
 varUniqueIn = Variable <<< foldl (<>) "" <<< allVarsInFormula
+
+allVarsInFormula :: Formula -> Array String
+allVarsInFormula = case _ of
+  Predicate _ args -> args >>= allVarsInTerm
+  Not f -> allVarsInFormula f
+  And f1 f2 -> allVarsInFormula f1 <> allVarsInFormula f2
+  Or f1 f2 -> allVarsInFormula f1 <> allVarsInFormula f2
+  Implies f1 f2 -> allVarsInFormula f1 <> allVarsInFormula f2
+  Forall (Variable x) f -> [ x ] <> allVarsInFormula f
+  Exists (Variable x) f -> [ x ] <> allVarsInFormula f
   where
   allVarsInTerm = case _ of
     Var (Variable s) -> [ s ]
     App _ args -> args >>= allVarsInTerm
-
-  allVarsInFormula = case _ of
-    Predicate _ args -> args >>= allVarsInTerm
-    Not f -> allVarsInFormula f
-    And f1 f2 -> allVarsInFormula f1 <> allVarsInFormula f2
-    Or f1 f2 -> allVarsInFormula f1 <> allVarsInFormula f2
-    Implies f1 f2 -> allVarsInFormula f1 <> allVarsInFormula f2
-    Forall (Variable x) f -> [ x ] <> allVarsInFormula f
-    Exists (Variable x) f -> [ x ] <> allVarsInFormula f
 
 -- | Unify the terms in the two formulas.
 formulaUnify :: Formula -> Formula -> Maybe (Tuple Substitution (List Term))
