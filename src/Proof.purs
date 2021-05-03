@@ -19,7 +19,7 @@ import Control.Monad.Maybe.Trans (MaybeT(MaybeT), runMaybeT)
 import Control.Monad.State (State, class MonadState, runState, modify_, get)
 import Data.Array as Array
 import Data.Either (Either(..), note, hush)
-import Data.Foldable (all, any)
+import Data.Foldable (all, any, foldr)
 import Data.List (List)
 import Data.List as List
 import Data.Maybe (Maybe(..), fromJust, isJust, isNothing, maybe)
@@ -28,7 +28,7 @@ import Data.Tuple (Tuple(..))
 import Formula
   ( FFC(..)
   , Formula(..)
-  , Variable
+  , Variable(..)
   , Term(..)
   , bottomProp
   , equalityProp
@@ -36,6 +36,7 @@ import Formula
   , singleSub
   , isUnifierVar
   , almostEqual
+  , allVarsInFormula
   )
 import Partial.Unsafe (unsafeCrashWith, unsafePartial)
 
@@ -248,7 +249,15 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
               throwError BadRule
           _ -> throwError FormulaMismatch
       -- TODO Check if this assumption is the first formula in the current box
-      Assumption -> except $ note BadFormula formula
+      Assumption -> do
+        let
+          vars = case formula of
+            Just (FC f) -> allVarsInFormula f
+            _ -> []
+        if any (\v -> varInScope (Variable v) scopes) vars then
+          throwError BadRule
+        else
+          except $ note BadFormula formula
       AndElim1 i -> do
         a <- proofRef i
         case a of
@@ -443,20 +452,17 @@ addProof { formula: inputFormula, rule } = do
       Just f, Right g
         | f == g -> Nothing
         | otherwise -> Just FormulaMismatch
+  modify_ \proof ->
+    proof
+      { rows = Array.snoc proof.rows { formula, rule, error }
+      , scopes = addLineToInnermost (Array.length proof.rows + 1) proof.scopes
+      }
   case inputFormula of
-    Just (VC v) -> do
-      modify_ \proof ->
-        proof
-          { rows = Array.snoc proof.rows { formula, rule, error }
-          , scopes = addLineToInnermost (Array.length proof.rows + 1) proof.scopes
-          }
-      modify_ \proof -> proof { scopes = addVarToInnermost v proof.scopes }
-    _ ->
-      modify_ \proof ->
-        proof
-          { rows = Array.snoc proof.rows { formula, rule, error }
-          , scopes = addLineToInnermost (Array.length proof.rows + 1) proof.scopes
-          }
+    Just (VC v) -> modify_ \proof -> proof { scopes = addVarToInnermost v proof.scopes }
+    Just (FC f) -> case rule of
+      Just Assumption -> modify_ \proof -> proof { scopes = foldr addVarToInnermost proof.scopes (map Variable $ allVarsInFormula f) }
+      _ -> pure unit
+    Nothing -> pure unit
 
 -- | Open a new box.
 openBox :: ND Unit

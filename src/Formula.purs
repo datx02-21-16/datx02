@@ -16,6 +16,7 @@ module Formula
   , isPropFormula
   , isUnifierVar
   , almostEqual
+  , allVarsInFormula
   ) where
 
 import Prelude
