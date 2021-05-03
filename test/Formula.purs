@@ -2,7 +2,7 @@ module Test.Formula where
 
 import Prelude
 import Test.Spec (Spec, describe, it)
-import Test.Spec.Assertions (shouldEqual)
+import Test.Spec.Assertions (shouldEqual, shouldSatisfy)
 import Test.Spec.QuickCheck (quickCheck)
 import Test.QuickCheck (class Arbitrary, arbitrary, assertEquals)
 import Test.QuickCheck.Gen (Gen, oneOf, vectorOf, sized, chooseInt, resize)
@@ -195,6 +195,28 @@ spec =
           )
           `shouldEqual`
             Nothing
+      it "can unify predicate logic formula" do
+        let
+          f = And (Predicate "A" []) (Predicate "B" [])
+        formulaUnifier f f `shouldSatisfy` isJust
+      it "can unify quantified formulas" do
+        formulaUnifier
+          (Forall x $ Predicate "P" [ Var x ])
+          (Forall y $ Predicate "P" [ Var y ])
+          `shouldSatisfy`
+            isJust
+        formulaUnifier
+          (Forall x $ Predicate "P" [ Var x, Var y ])
+          (Forall x $ Predicate "P" [ Var x, Var z ])
+          `shouldSatisfy`
+            isJust
+      it "does not unify bound and unbound variables" do
+        let
+          a = Forall x $ Predicate "P" [ Var x ]
+
+          b = Forall y $ Predicate "P" [ Var x ]
+        formulaUnifier a b `shouldSatisfy` isNothing
+        formulaUnifier b a `shouldSatisfy` isNothing
 
   showTests =
     describe "show" do
@@ -215,28 +237,9 @@ spec =
       it "should survive show/parseFormula roundtrip" do
         quickCheck \(TFormula formula) ->
           parseFormula (show formula) `assertEquals` Right formula
-      it "can unify and formula" do
-        let
-          formula = And (Predicate "A" []) (Predicate "B" [])
-        (isJust $ formulaUnifier formula formula) `shouldEqual` true
-      it "can unify quantified formulas" do
-        let
-          x = Variable "x"
 
-          y = Variable "y"
+  x = Variable "x"
 
-          a = Forall x $ Predicate "P" [ Var x ]
+  y = Variable "y"
 
-          b = Forall y $ Predicate "P" [ Var y ]
-        isJust (formulaUnifier a b) `shouldEqual` true
-      it "does not unify bound and unbound variables" do
-        let
-          x = Variable "x"
-
-          y = Variable "y"
-
-          a = Forall x $ Predicate "P" [ Var x ]
-
-          b = Forall y $ Predicate "P" [ Var x ]
-        isNothing (formulaUnifier a b) `shouldEqual` true
-        isNothing (formulaUnifier b a) `shouldEqual` true
+  z = Variable "z"
