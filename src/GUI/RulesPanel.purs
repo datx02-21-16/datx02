@@ -12,6 +12,8 @@ import Halogen.HTML.Properties as HP
 type Slot id
   = forall query output. H.Slot query output id
 
+foreign import pictureURL :: String -> String
+
 type State
   = Maybe RuleType
 
@@ -53,46 +55,36 @@ ruleButtonPanel =
 
   hintBox st =
     HH.div
-      [ HP.classes [ HH.ClassName "box" ] ]
-      [ HH.div
-          [ HP.classes [ HH.ClassName "has-text-centered" ] ]
-          [ maybe (HH.text hintString) sequent st ]
-      --            HH.text $ maybe hintString sequent st ]
-      , HH.br_
-      , HH.div
-          [ HP.classes [ HH.ClassName "has-text-centered" ] ]
-          [ HH.text $ maybe "" textualHint st ]
-      ]
-    where
-    hintString :: String
-    hintString =
-      "Please click one of the rules above to "
-        <> "get a description of the rule."
+      [ HP.classes [ H.ClassName "box", H.ClassName "has-text-centered" ] ]
+      $ maybe [ HH.text "Please click one of the rules above to get a description of the rule." ]
+          ( \rule ->
+              [ HH.img [ HP.src $ pictureURL (ruleImageName rule) ]
+              , HH.p [] [ HH.text $ textualHint rule ]
+              ]
+          )
+          st
 
-  --  sequent :: RuleType -> String
-  sequent r = case r of
-    RtPremise -> HH.img [ HP.src $ image "premise.png" ]
-    RtAssumption -> HH.img [ HP.src $ image "assumption.png" ]
-    AndElim1 -> HH.img [ HP.src $ image "and-elim1.png" ]
-    AndElim2 -> HH.img [ HP.src $ image "and-elim2.png" ]
-    AndIntro -> HH.img [ HP.src $ image "and-intro.png" ]
-    OrElim -> HH.img [ HP.src $ image "or-elim.png" ]
-    OrIntro1 -> HH.img [ HP.src $ image "or-intro1.png" ]
-    OrIntro2 -> HH.img [ HP.src $ image "or-intro2.png" ]
-    ImplElim -> HH.img [ HP.src $ image "implication-elim.png" ]
-    ImplIntro -> HH.img [ HP.src $ image "implication-intro.png" ]
-    NegElim -> HH.img [ HP.src $ image "negation-elim.png" ]
-    NegIntro -> HH.img [ HP.src $ image "negation-intro.png" ]
-    BottomElim -> HH.img [ HP.src $ image "bottom-elim.png" ]
-    DoubleNegElim -> HH.img [ HP.src $ image "double-negation-elim.png" ]
-    ModusTollens -> HH.img [ HP.src $ image "MT.png" ]
-    DoubleNegIntro -> HH.img [ HP.src $ image "double-negation-intro.png" ]
-    PBC -> HH.img [ HP.src $ image "PBC.png" ]
-    LEM -> HH.img [ HP.src $ image "LEM.png" ]
-    RtCopy -> HH.img [ HP.src $ image "copy.png" ]
-    where
-    image :: String -> String
-    image str = "src/GUI/Pictures/" <> str
+  ruleImageName :: RuleType -> String
+  ruleImageName = case _ of
+    RtPremise -> "premise"
+    RtAssumption -> "assumption"
+    AndElim1 -> "and-elim1"
+    AndElim2 -> "and-elim2"
+    AndIntro -> "and-intro"
+    OrElim -> "or-elim"
+    OrIntro1 -> "or-intro1"
+    OrIntro2 -> "or-intro2"
+    ImplElim -> "implication-elim"
+    ImplIntro -> "implication-intro"
+    NegElim -> "negation-elim"
+    NegIntro -> "negation-intro"
+    BottomElim -> "bottom-elim"
+    DoubleNegElim -> "double-negation-elim"
+    ModusTollens -> "MT"
+    DoubleNegIntro -> "double-negation-intro"
+    PBC -> "PBC"
+    LEM -> "LEM"
+    RtCopy -> "copy"
 
   textualHint :: RuleType -> String
   textualHint r = case r of
