@@ -16,7 +16,7 @@ import Prelude
 import Control.Alt ((<|>))
 import Control.Monad.Except.Trans (ExceptT, except, runExceptT, throwError)
 import Control.Monad.Maybe.Trans (MaybeT(MaybeT), runMaybeT)
-import Control.Monad.State (State, class MonadState, runState, modify_, get, gets)
+import Control.Monad.State (State, class MonadState, runState, modify_, get)
 import Data.Array as Array
 import Data.Either (Either(..), note, hush)
 import Data.Foldable (all, any)
@@ -25,7 +25,18 @@ import Data.List as List
 import Data.Maybe (Maybe(..), fromJust, isJust, isNothing, maybe)
 import Data.Set as Set
 import Data.Tuple (Tuple(..))
-import Formula (FFC(..), Formula(..), Variable, Term(..), bottomProp, equalityProp, substitute, singleSub, isUnifierVar, almostEqual)
+import Formula
+  ( FFC(..)
+  , Formula(..)
+  , Variable
+  , Term(..)
+  , bottomProp
+  , equalityProp
+  , substitute
+  , singleSub
+  , isUnifierVar
+  , almostEqual
+  )
 import Partial.Unsafe (unsafeCrashWith, unsafePartial)
 
 data Rule
@@ -230,7 +241,11 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
     case rule of
       Premise -> do
         case formula of
-          Just (FC _) -> if all isPremise rows then except $ note BadFormula formula else throwError BadRule
+          Just (FC _) ->
+            if all isPremise rows then
+              except $ note BadFormula formula
+            else
+              throwError BadRule
           _ -> throwError FormulaMismatch
       -- TODO Check if this assumption is the first formula in the current box
       Assumption -> except $ note BadFormula formula
@@ -255,7 +270,11 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
         (Tuple b1 b2) <- boxRef box1
         (Tuple c1 c2) <- boxRef box2
         case a of
-          FC (Or f1 f2) -> if FC f1 == b1 && FC f2 == c1 && b2 == c2 then pure b2 else throwError BadRule
+          FC (Or f1 f2) ->
+            if FC f1 == b1 && FC f2 == c1 && b2 == c2 then
+              pure b2
+            else
+              throwError BadRule
           _ -> throwError BadRule
       OrIntro1 i -> do
         case formula of
@@ -287,7 +306,11 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
         a <- proofRef i
         b <- proofRef j
         case a, b of
-          FC f1, FC f2 -> if f1 == Not f2 || Not f1 == f2 then pure (FC bottomProp) else throwError BadRule
+          FC f1, FC f2 ->
+            if f1 == Not f2 || Not f1 == f2 then
+              pure (FC bottomProp)
+            else
+              throwError BadRule
           _, _ -> throwError BadRule
       NegIntro box -> do
         (Tuple a b) <- boxRef box
@@ -349,7 +372,14 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
             VC vLocal, FC fLocal -> do
               let
                 sub = singleSub v (Var vLocal)
-              maybe (throwError BadRule) (\s -> if substitute s f == fLocal then pure formula' else throwError FormulaMismatch) sub
+              maybe (throwError BadRule)
+                ( \s ->
+                    if substitute s f == fLocal then
+                      pure formula'
+                    else
+                      throwError FormulaMismatch
+                )
+                sub
             _, _ -> throwError BadRule
         _ -> throwError FormulaMismatch
       ExistsElim i box -> case formula of
@@ -380,7 +410,7 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
           subFormula <- proofRef j
           case eqFormula, subFormula of
             FC eqF@(Predicate _ [ t1, t2 ]), FC sF ->
-              if (eqF == equalityProp t1 t2 && almostEqual t1 t2 sF verifyF ) then
+              if (eqF == equalityProp t1 t2 && almostEqual t1 t2 sF verifyF) then
                 pure formula'
               else
                 throwError FormulaMismatch
