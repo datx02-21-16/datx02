@@ -36,6 +36,8 @@ derive newtype instance eqVariable :: Eq Variable
 
 derive newtype instance ordVariable :: Ord Variable
 
+derive newtype instance semigroupVariable :: Semigroup Variable
+
 instance showVariable :: Show Variable where
   show (Variable s) = s
 
@@ -250,6 +252,10 @@ containsTerm f t = case f of
   Forall x f' -> t /= Var x && containsTerm f' t
   Exists x f' -> t /= Var x && containsTerm f' t
 
+-- | Returns a new variable that does not conflict with any
+-- | pre-existent variable in the specified formula.
+-- |
+-- | Guaranteed to be the concatenation of all vars in the formula.
 varUniqueIn :: Formula -> Variable
 varUniqueIn = Variable <<< foldl (<>) "" <<< allVarsInFormula
   where
@@ -289,22 +295,16 @@ formulaUnify f1 f2 = subTerms f1 f2 >>= unify
   subTermsQuantified :: Variable -> Formula -> Variable -> Formula -> Maybe (Set (List Term))
   subTermsQuantified x f y g =
     let
-      Variable yStr = y
-
-      Variable uniqueVarStr = varUniqueIn g
-
-      uniqueVar = Variable $ yStr <> uniqueVarStr
-
-      gWithoutX = substitute (varSub x uniqueVar) g
+      gWithoutX = substitute (varSub x (y <> varUniqueIn f <> varUniqueIn g)) g
 
       gWithXInsteadOfY = substitute (varSub y x) gWithoutX
     in
-      case formulaUnify f gWithXInsteadOfY of
+      case formulaUnify f (if x == y then g else gWithXInsteadOfY) of
         Nothing -> Nothing
         -- Disallow unification of ∃x P(x) and ∃y P(z)
-        Just (Tuple (Substitution ss) _)
-          | x `Map.member` ss
-              || (isJust $ find (_ == Var x) $ Map.values ss) -> Nothing
+        Just (Tuple (Substitution s) _)
+          | x `Map.member` s
+              || (isJust $ find (_ == Var x) $ Map.values s) -> Nothing
         Just _ -> subTerms f gWithXInsteadOfY
 
 formulaUnifier :: Formula -> Formula -> Maybe Substitution
