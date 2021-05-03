@@ -15,6 +15,7 @@ module Formula
   , equalityProp
   , isPropFormula
   , isUnifierVar
+  , almostEqual
   ) where
 
 import Prelude
@@ -23,7 +24,7 @@ import Data.List (List(Nil), null, transpose)
 import Data.Array as Array
 import Data.Maybe (Maybe(..), fromMaybe, maybe, isJust)
 import Data.String.Common (joinWith)
-import Data.Foldable (foldl, any, or, find)
+import Data.Foldable (foldl, any, or, find, and)
 import Data.Traversable (sequence)
 import Data.Tuple (Tuple(..))
 import Data.Map as Map
@@ -332,6 +333,22 @@ isUnifierVar :: Variable -> Formula -> Formula -> Boolean
 isUnifierVar v f1 f2 = v `isIn` f1 && not (v `isIn` f2) && maybe false (\(Substitution s) -> Map.size s == 1) (formulaUnifier f1 f2)
   where
   isIn (Variable v) f = v `Array.elem` allVarsInFormula f
+
+almostEqual :: Term -> Term -> Formula -> Formula -> Boolean
+almostEqual t1 t2 = go Set.empty
+  where
+  go boundVars f1 f2 = case f1, f2 of
+    Predicate f args1, Predicate g args2
+      | f == g && Array.length args1 == Array.length args2 -> and $ Array.zipWith equalsOrSub args1 args2
+    Not a, Not b -> go boundVars a b
+    And a b, And c d -> go boundVars a c && go boundVars b d
+    Or a b, Or c d -> go boundVars a c && go boundVars b d
+    Implies a b, Implies c d -> go boundVars a c && go boundVars b d
+    Forall x f, Forall y g -> go (Set.insert (Var y) $ Set.insert (Var x) boundVars) f g
+    Exists x f, Exists y g -> go (Set.insert (Var y) $ Set.insert (Var x) boundVars) f g
+    _, _ -> false
+    where
+    equalsOrSub a1 a2 = a1 == a2 || (not (a1 `Set.member` boundVars || a2 `Set.member` boundVars) && a1 == t1 && a2 == t2)
 
 isPropFormula :: Formula -> Boolean
 isPropFormula formula = case formula of

@@ -25,7 +25,7 @@ import Data.List as List
 import Data.Maybe (Maybe(..), fromJust, isJust, isNothing, maybe)
 import Data.Set as Set
 import Data.Tuple (Tuple(..))
-import Formula (FFC(..), Formula(..), Variable, Term(..), bottomProp, equalityProp, substitute, singleSub, isUnifierVar)
+import Formula (FFC(..), Formula(..), Variable, Term(..), bottomProp, equalityProp, substitute, singleSub, isUnifierVar, almostEqual)
 import Partial.Unsafe (unsafeCrashWith, unsafePartial)
 
 data Rule
@@ -53,7 +53,7 @@ data Rule
   | ForallIntro (Maybe Box)
   | ExistsElim (Maybe Int) (Maybe Box)
   | ExistsIntro (Maybe Int)
-  | EqElim (Maybe Int) (Maybe Box)
+  | EqElim (Maybe Int) (Maybe Int)
   | EqIntro
 
 derive instance eqRule :: Eq Rule
@@ -374,7 +374,18 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
             FC fLocal -> if isUnifierVar v fTarget fLocal then pure formula' else throwError BadRule
             _ -> throwError BadRule
         _ -> throwError FormulaMismatch
-      EqElim _ _ -> throwError BadRule
+      EqElim i j -> case formula of
+        Just formula'@(FC verifyF) -> do
+          eqFormula <- proofRef i
+          subFormula <- proofRef j
+          case eqFormula, subFormula of
+            FC eqF@(Predicate _ [ t1, t2 ]), FC sF ->
+              if (eqF == equalityProp t1 t2 && almostEqual t1 t2 sF verifyF ) then
+                pure formula'
+              else
+                throwError FormulaMismatch
+            _, _ -> throwError BadFormula
+        _ -> throwError FormulaMismatch
       EqIntro -> case formula of
         Just formula'@(FC p@(Predicate _ [ t1, t2 ])) ->
           if p == equalityProp t1 t2 && t1 == t2 then
