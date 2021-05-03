@@ -358,7 +358,7 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
           (Tuple b1 b2) <- boxRef box
           case a, b1 of
             FC (Exists v f), FC f' ->
-              if isUnifierVar v f' f then
+              if isUnifierVar v f f' then
                 if b2 == formula' then
                   pure formula'
                 else
