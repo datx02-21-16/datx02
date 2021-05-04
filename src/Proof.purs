@@ -388,7 +388,7 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
         _ -> throwError FormulaMismatch
       ForallIntro box -> case formula of
         Just formula'@(FC fTarget@(Forall v f)) -> do
-          when (not $ all (\v -> varInScope (Variable v) scopes) (allVarsInFormula fTarget)) (throwError VarNotInScope)
+          when (not $ all (\var -> varInScope (Variable var) (addVarToInnermost v scopes)) (allVarsInFormula fTarget)) (throwError VarNotInScope)
           (Tuple a b) <- boxRef box
           case a, b of
             VC vLocal, FC fLocal -> do
