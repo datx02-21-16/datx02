@@ -293,7 +293,7 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
       OrIntro1 i -> do
         case formula of
           Just f@(FC f'@(Or f1 _)) -> do
-            when (not $ all (\v -> varInScope (Variable v) scopes) (allVarsInFormula f')) (throwError VarNotInScope)
+            when (not $ allInScope f' scopes) (throwError VarNotInScope)
             a <- proofRef i
             case a of
               FC a' -> if a' `equivalent` f1 then pure f else throwError FormulaMismatch
@@ -302,7 +302,7 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
       OrIntro2 i -> do
         case formula of
           Just f@(FC f'@(Or _ f2)) -> do
-            when (not $ all (\v -> varInScope (Variable v) scopes) (allVarsInFormula f')) (throwError VarNotInScope)
+            when (not $ allInScope f' scopes) (throwError VarNotInScope)
             a <- proofRef i
             case a of
               FC a' -> if a' `equivalent` f2 then pure f else throwError FormulaMismatch
@@ -376,7 +376,7 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
         _ -> throwError FormulaMismatch
       ForallElim i -> case formula of
         Just formula'@(FC fTarget) -> do
-          when (not $ all (\v -> varInScope (Variable v) scopes) (allVarsInFormula fTarget)) (throwError VarNotInScope)
+          when (not $ allInScope fTarget scopes) (throwError VarNotInScope)
           f <- proofRef i
           case f of
             FC (Forall v f') ->
@@ -388,7 +388,7 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
         _ -> throwError FormulaMismatch
       ForallIntro box -> case formula of
         Just formula'@(FC fTarget@(Forall v f)) -> do
-          when (not $ all (\var -> varInScope (Variable var) (addVarToInnermost v scopes)) (allVarsInFormula fTarget)) (throwError VarNotInScope)
+          when (not $ allInScope fTarget scopes) (throwError VarNotInScope)
           (Tuple a b) <- boxRef box
           case a, b of
             VC vLocal, FC fLocal -> do
@@ -406,7 +406,7 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
         _ -> throwError FormulaMismatch
       ExistsElim i box -> case formula of
         Just formula'@(FC fTarget) -> do
-          when (not $ all (\v -> varInScope (Variable v) scopes) (allVarsInFormula fTarget)) (throwError VarNotInScope)
+          when (not $ allInScope fTarget scopes) (throwError VarNotInScope)
           a <- proofRef i
           (Tuple b1 b2) <- boxRef box
           case a, b1, b2 of
@@ -443,6 +443,12 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
           else
             throwError FormulaMismatch
         _ -> throwError FormulaMismatch
+    where
+    allInScope f scopes = do
+      case f of
+        Forall v f' -> allInScope f' (addVarToInnermost v scopes)
+        Exists v f' -> allInScope f' (addVarToInnermost v scopes)
+        _ -> all (\var -> varInScope (Variable var) scopes) (allVarsInFormula f)
 
 -- | Add a row to the derivation.
 -- |
@@ -470,10 +476,13 @@ addProof { formula: inputFormula, rule } = do
       }
   case inputFormula of
     Just (VC v) -> modify_ \proof -> proof { scopes = addVarToInnermost v proof.scopes }
-    Just (FC f) -> case rule of
-      Just Assumption -> modify_ \proof -> proof { scopes = foldr addVarToInnermost proof.scopes (map Variable $ allVarsInFormula f) }
-      _ -> pure unit
+    Just (FC f) -> modify_ \proof -> proof { scopes = foldr addVarToInnermost proof.scopes (scopedVars f) }
     Nothing -> pure unit
+  where
+  scopedVars f = case f of
+    Forall v f' -> Array.delete v $ scopedVars f'
+    Exists v f' -> Array.delete v $ scopedVars f'
+    _ -> map Variable $ Array.nub $ allVarsInFormula f
 
 -- | Open a new box.
 openBox :: ND Unit
