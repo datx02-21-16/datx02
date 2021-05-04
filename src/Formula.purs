@@ -17,6 +17,7 @@ module Formula
   , isUnifierVar
   , almostEqual
   , allVarsInFormula
+  , equivalent
   ) where
 
 import Prelude
@@ -356,6 +357,9 @@ almostEqual t1 t2 = go Set.empty
     equalsOrSub a1 a2 =
       a1 == a2
         || (not (a1 `Set.member` boundVars || a2 `Set.member` boundVars) && a1 == t1 && a2 == t2)
+
+equivalent :: Formula -> Formula -> Boolean
+equivalent f1 f2 = f1 == f2 || formulaUnifier f1 f2 == (Just $ Substitution Map.empty)
 
 isPropFormula :: Formula -> Boolean
 isPropFormula formula = case formula of

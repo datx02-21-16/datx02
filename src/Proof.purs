@@ -28,15 +28,16 @@ import Data.Tuple (Tuple(..))
 import Formula
   ( FFC(..)
   , Formula(..)
-  , Variable(..)
   , Term(..)
+  , Variable(..)
+  , allVarsInFormula
+  , almostEqual
   , bottomProp
   , equalityProp
-  , substitute
-  , singleSub
+  , equivalent
   , isUnifierVar
-  , almostEqual
-  , allVarsInFormula
+  , singleSub
+  , substitute
   )
 import Partial.Unsafe (unsafeCrashWith, unsafePartial)
 
@@ -282,35 +283,39 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
         a <- proofRef i
         (Tuple b1 b2) <- boxRef box1
         (Tuple c1 c2) <- boxRef box2
-        case a of
-          FC (Or f1 f2) ->
-            if FC f1 == b1 && FC f2 == c1 && b2 == c2 then
+        case a, b1, c1, b2, c2 of
+          FC (Or f1 f2), FC b1', FC c1', FC b2', FC c2' ->
+            if f1 `equivalent` b1' && f2 `equivalent` c1' && b2' `equivalent` c2' then
               pure b2
             else
               throwError BadRule
-          _ -> throwError BadRule
+          _, _, _, _, _ -> throwError BadRule
       OrIntro1 i -> do
         case formula of
           Just f@(FC f'@(Or f1 _)) -> do
             when (not $ all (\v -> varInScope (Variable v) scopes) (allVarsInFormula f')) (throwError VarNotInScope)
             a <- proofRef i
-            if a == FC f1 then pure f else throwError FormulaMismatch
+            case a of
+              FC a' -> if a' `equivalent` f1 then pure f else throwError FormulaMismatch
+              _ -> throwError BadFormula
           _ -> throwError BadRule
       OrIntro2 i -> do
         case formula of
           Just f@(FC f'@(Or _ f2)) -> do
             when (not $ all (\v -> varInScope (Variable v) scopes) (allVarsInFormula f')) (throwError VarNotInScope)
             a <- proofRef i
-            if a == FC f2 then pure f else throwError FormulaMismatch
+            case a of
+              FC a' -> if a' `equivalent` f2 then pure f else throwError FormulaMismatch
+              _ -> throwError BadRef
           _ -> throwError BadRule
       ImplElim i j -> do
         a <- proofRef i
         b <- proofRef j
         case a, b of
-          FC (Implies x y), z
-            | FC x == z -> pure $ FC y
-          z, FC (Implies x y)
-            | FC x == z -> pure $ FC y
+          FC (Implies x y), FC z
+            | x `equivalent` z -> pure $ FC y
+          FC z, FC (Implies x y)
+            | x `equivalent` z -> pure $ FC y
           _, _ -> throwError BadRule
       ImplIntro box -> do
         (Tuple a b) <- boxRef box
@@ -322,7 +327,7 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
         b <- proofRef j
         case a, b of
           FC f1, FC f2 ->
-            if f1 == Not f2 || Not f1 == f2 then
+            if f1 `equivalent` Not f2 || Not f1 `equivalent` f2 then
               pure (FC bottomProp)
             else
               throwError BadRule
@@ -344,8 +349,8 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
         a <- proofRef i
         b <- proofRef j
         case a, b of
-          FC (Implies x y), FC (Not z) -> if y == z then pure (FC $ Not x) else throwError BadRule
-          FC (Not z), FC (Implies x y) -> if y == z then pure (FC $ Not x) else throwError BadRule
+          FC (Implies x y), FC (Not z) -> if y `equivalent` z then pure (FC $ Not x) else throwError BadRule
+          FC (Not z), FC (Implies x y) -> if y `equivalent` z then pure (FC $ Not x) else throwError BadRule
           _, _ -> throwError BadRule
       DoubleNegIntro i -> do
         a <- proofRef i
@@ -359,7 +364,7 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
           _, _ -> throwError BadRule
       LEM -> case formula of
         Just f@(FC (Or f1 f2))
-          | f1 == Not f2 || f2 == Not f1 -> pure f
+          | f1 `equivalent` Not f2 || f2 `equivalent` Not f1 -> pure f
         _ -> throwError BadRule
       Copy i -> do
         a <- proofRef i
@@ -391,7 +396,7 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
                 sub = singleSub v (Var vLocal)
               maybe (throwError BadRule)
                 ( \s ->
-                    if substitute s f == fLocal then
+                    if substitute s f `equivalent` fLocal then
                       pure formula'
                     else
                       throwError FormulaMismatch
@@ -404,16 +409,13 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
           when (not $ all (\v -> varInScope (Variable v) scopes) (allVarsInFormula fTarget)) (throwError VarNotInScope)
           a <- proofRef i
           (Tuple b1 b2) <- boxRef box
-          case a, b1 of
-            FC (Exists v f), FC f' ->
+          case a, b1, b2 of
+            FC (Exists v f), FC f', FC b2' ->
               if isUnifierVar v f f' then
-                if b2 == formula' then
-                  pure formula'
-                else
-                  throwError FormulaMismatch
+                if b2' `equivalent` fTarget then pure formula' else throwError FormulaMismatch
               else
                 throwError BadRule
-            _, _ -> throwError FormulaMismatch
+            _, _, _ -> throwError FormulaMismatch
         _ -> throwError FormulaMismatch
       ExistsIntro i -> case formula of
         Just formula'@(FC (Exists v fTarget)) -> do
