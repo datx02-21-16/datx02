@@ -20,7 +20,7 @@ import Data.NonEmpty ((:|))
 import Data.String (Pattern(Pattern), split, joinWith)
 import Data.String as String
 import Data.Traversable (sequence)
-import Data.Tuple (Tuple(Tuple))
+import Data.Tuple (Tuple(Tuple), snd)
 import Effect.Class (class MonadEffect)
 import FormulaOrVar (parseFFC)
 import GUI.Hint as Hint
@@ -698,27 +698,23 @@ handleAction = case _ of
 
           newStart = target - if start < target then end - start else 0
 
+          rowMap inc j
+            | start <= j && j < end = j + (newStart - start) -- Got moved
+            | target - (if inc then 1 else 0) <= j && j < start = j + (end - start) -- Rows added before
+            | end <= j && j < target - (if inc then 1 else 0) = j - (end - start) -- Rows removed before
+            | otherwise = j
+
+          boxMap box@(Tuple boxStart boxEnd) = Tuple (rowMap false boxStart) (rowMap true boxEnd)
+
           updateBoxes =
             mapWithIndex \j -> case _ of
-              row@{ rule: BoxOpener ty { boxEndIdx } }
-                -- Moved box
-                | start <= j, j < end ->
-                  row
-                    { rule = BoxOpener ty { boxEndIdx: boxEndIdx + (newStart - start) }
-                    }
-                -- Move before/inside box
-                | i <= boxEndIdx, boxEndIdx < start ->
-                  row
-                    { rule = BoxOpener ty { boxEndIdx: boxEndIdx + (end - start) }
-                    }
-                -- Move after box
-                | start <= boxEndIdx, boxEndIdx < i ->
-                  row
-                    { rule = BoxOpener ty { boxEndIdx: boxEndIdx - (end - start) }
-                    }
+              row@{ rule: BoxOpener ty { boxEndIdx } } -> row { rule = BoxOpener ty { boxEndIdx: snd $ boxMap (Tuple j boxEndIdx) } }
               x -> x
 
-          rows' = moveWithin target start end $ updateBoxes st.rows
+          rows' =
+            moveWithin target start end
+              $ fixRefs (rowMap false) boxMap
+              $ updateBoxes st.rows
         in
           st { rows = rows', draggingOver = Nothing, dragged = Nothing }
   UpdatePremises s ->
@@ -742,23 +738,58 @@ handleAction = case _ of
     exitBox inFocus
   SetFocus i -> H.modify_ \st -> st { inFocus = i }
   where
+  fixRefs :: (Int -> Int) -> (Tuple Int Int -> Tuple Int Int) -> Array ProofRow -> Array ProofRow
+  fixRefs refMap boxMap = map \row -> row { ruleArgs = fixArgs row }
+    where
+    fixArg ruleArgType ruleArg = case ruleArgType of
+      RowIdx -> maybe ruleArg (\i -> show $ 1 + refMap (i - 1)) $ parseRowIdx ruleArg
+      BoxRange ->
+        maybe
+          ruleArg
+          ( \(Tuple i j) ->
+              let
+                Tuple i' j' = boxMap $ Tuple (i - 1) (j - 1)
+              in
+                show (1 + i') <> "-" <> show (1 + j')
+          )
+          $ parseBoxRange ruleArg
+
+    fixArgs { rule, ruleArgs } = case parseRuleText (ruleText rule) of
+      Just ruleType -> Array.zipWith fixArg (ruleArgTypes ruleType) ruleArgs
+      Nothing -> ruleArgs
+
   addRowBelow i = do
+    rowCount <- H.gets $ Array.length <<< _.rows
+    let
+      refMap j = if j > i then j + 1 else j
+
+      boxMap (Tuple j k) = Tuple (refMap j) k'
+        where
+        k' = if k == i then k + 1 else refMap k
     H.modify_ \st ->
       st
         { rows =
           unsafePartial $ fromJust $ Array.insertAt (i + 1) emptyRow
-            $ incrBoxEnds i st.rows
+            $ incrBoxEnds i
+            $ fixRefs refMap boxMap st.rows
         }
     H.tell _symbolInput (2 * (i + 1)) SI.Focus -- Focus the newly added row
 
   -- | Deletes a row. If the row is the start of a box, delete the box.
   deleteRow i = do
-    rowCount <- Array.length <$> H.gets _.rows
+    rowCount <- H.gets $ Array.length <<< _.rows
     -- Deleting the last row means no new rows can be added
     when (rowCount > 1) do
+      let
+        refMap j = if i <= j then j - 1 else j
+
+        boxMap (Tuple j k) = Tuple (refMap j) (refMap k)
       H.modify_ \st ->
         st
-          { rows = unsafePartial $ fromJust $ Array.deleteAt i $ decrBoxEnds i st.rows
+          { rows =
+            unsafePartial $ fromJust $ Array.deleteAt i
+              $ decrBoxEnds i
+              $ fixRefs refMap boxMap st.rows
           }
       H.tell _symbolInput (2 * (i - 1)) SI.Focus
 
@@ -773,16 +804,21 @@ handleAction = case _ of
           case innermostBoxStart i st.rows of
             Nothing -> st.rows
             Just boxStart ->
-              unsafePartial $ fromJust
-                $ Array.modifyAt boxStart
-                    ( \row ->
-                        row
-                          { rule =
-                            case row.rule of
-                              BoxOpener ty _ -> BoxOpener ty { boxEndIdx: i }
-                          }
-                    )
-                    st.rows
+              let
+                boxMap box@(Tuple j k)
+                  | j == boxStart = Tuple j i
+                  | otherwise = box
+              in
+                unsafePartial $ fromJust
+                  $ Array.modifyAt boxStart
+                      ( \row ->
+                          row
+                            { rule =
+                              case row.rule of
+                                BoxOpener ty _ -> BoxOpener ty { boxEndIdx: i }
+                            }
+                      )
+                  $ fixRefs identity boxMap st.rows
         }
     H.tell _symbolInput (2 * (i + 1)) SI.Focus -- Focus the newly added row
 
@@ -799,10 +835,10 @@ handleAction = case _ of
   -- | Takes an index, an offset and an array of rows. Shifts the end
   -- | of all boxes which end after the given index by the given offset.
   modifyBoxEnds :: Int -> Int -> Array ProofRow -> Array ProofRow
-  modifyBoxEnds off i =
+  modifyBoxEnds offset i =
     map case _ of
       row@{ rule: BoxOpener ty { boxEndIdx } }
-        | i <= boxEndIdx -> row { rule = BoxOpener ty { boxEndIdx: boxEndIdx + off } }
+        | i <= boxEndIdx -> row { rule = BoxOpener ty { boxEndIdx: boxEndIdx + offset } }
       x -> x
 
   -- | Inclusive-exclusive interval of the rows that are currently being dragged.
