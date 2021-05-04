@@ -426,7 +426,6 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
         _ -> throwError FormulaMismatch
       EqElim i j -> case formula of
         Just formula'@(FC verifyF) -> do
-          when (not $ all (\v -> varInScope (Variable v) scopes) (allVarsInFormula verifyF)) (throwError VarNotInScope)
           eqFormula <- proofRef i
           subFormula <- proofRef j
           case eqFormula, subFormula of
