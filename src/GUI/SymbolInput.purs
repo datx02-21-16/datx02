@@ -28,12 +28,13 @@ substitute =
   ss =
     [ Tuple "an" "∧"
     , Tuple "or|v" "∨"
-    , Tuple "->|imp" "→"
-    , Tuple "not|neg|!" "¬"
+    , Tuple "->|im" "→"
+    , Tuple "no|ne|!" "¬"
+    , Tuple "eq" "="
     -- Quantifiers
     , Tuple "f[ao]" "∀"
     , Tuple "ex|te" "∃"
-    , Tuple "bo|con" "⊥"
+    , Tuple "bo|co" "⊥"
     -- Derived rules
     , Tuple "mt" "MT"
     , Tuple "pbc" "PBC"
