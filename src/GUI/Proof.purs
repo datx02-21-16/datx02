@@ -10,9 +10,8 @@ import Data.Int as Int
 import Data.List (List(Nil), (:))
 import Data.Maybe (Maybe(..), fromJust, fromMaybe, isJust, maybe)
 import Data.NonEmpty ((:|))
-import Data.String (Pattern(..), split)
+import Data.String (Pattern(Pattern), split, trim, joinWith)
 import Data.String as String
-import Data.String.Common (joinWith)
 import Data.Traversable (sequence)
 import Data.Tuple (Tuple(Tuple), fst)
 import Effect.Class (class MonadEffect)
@@ -25,7 +24,6 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.HTML.Properties.ARIA as HPARIA
-import Formula (Formula)
 import Parser (parseFormula)
 import Partial.Unsafe (unsafePartial, unsafeCrashWith)
 import Proof (NdError(..))
@@ -51,7 +49,6 @@ data Rule
   | Assumption
     { boxEndIdx :: Int -- Inclusive end of box
     }
-  | Copy Int
 
 derive instance eqRule :: Eq Rule
 
@@ -59,7 +56,6 @@ instance showRule :: Show Rule where
   show (Rule s) = s
   show Premise = "Premise"
   show (Assumption { boxEndIdx }) = "Assumption (box ends at " <> show boxEndIdx <> ")"
-  show (Copy n) = "Copy " <> show n
 
 data RuleArgType
   = RowIdx
@@ -157,8 +153,6 @@ ruleText Premise = "Premise"
 
 ruleText (Assumption _) = "Ass."
 
-ruleText (Copy _) = "Copy"
-
 errorText :: P.NdError -> String
 errorText = case _ of
   P.BadRef -> "Reference to invalid row"
@@ -206,6 +200,7 @@ data Action
   | FormulaKeyDown Int KeyboardEvent
   | ClearProof
   | ShowHint
+  | UpdatePremises String
 
 _symbolInput = Proxy :: Proxy "symbolInput"
 
@@ -358,11 +353,11 @@ render st =
                 [ H.ClassName "input"
                 , H.ClassName "has-text-right"
                 , H.ClassName "premise-display"
-                , H.ClassName "is-static"
                 ]
-            , HP.readOnly true
             , HP.value premisesText
             , HP.title "Premises"
+            , HP.placeholder "Premises"
+            , HE.onValueInput UpdatePremises
             ]
         , HH.p [ HP.classes [ H.ClassName "help", H.ClassName "is-danger" ] ] []
         ]
@@ -640,6 +635,18 @@ handleAction = case _ of
           rows' = moveWithin target start end $ updateBoxes st.rows
         in
           st { rows = rows' }
+  UpdatePremises s ->
+    let
+      removeEmptyString [ "" ] = []
+
+      removeEmptyString x = x
+
+      newPremises =
+        { formulaText: _, rule: Premise, ruleArgs: [] }
+          <$> trim
+          <$> removeEmptyString (split (Pattern ",") s)
+    in
+      H.modify_ \st -> st { rows = newPremises <> Array.dropWhile ((_ == Premise) <<< _.rule) st.rows }
   UpdateConclusion s -> H.modify_ \st -> st { conclusion = s }
   ClearProof -> H.put $ initialState unit
   ShowHint -> do
@@ -790,5 +797,5 @@ ruleFromString :: String -> Int -> Rule
 ruleFromString s rowIdx
   | s == "Ass." || s == "as" = Assumption { boxEndIdx: rowIdx }
   | s == "pr" || s == "Premise" = Premise
-  | s == "cp" || s == "Copy" = Copy rowIdx
+  | s == "cp" || s == "co" || s == "Copy" = Rule "Copy"
   | otherwise = Rule s
