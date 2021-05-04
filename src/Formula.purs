@@ -318,9 +318,9 @@ formulaUnify f1 f2 = subTerms f1 f2 >>= unify
     let
       gWithoutX = substitute (varSub x (y <> varUniqueIn f <> varUniqueIn g)) g
 
-      gWithXInsteadOfY = substitute (varSub y x) gWithoutX
+      gWithXInsteadOfY = if x == y then g else substitute (varSub y x) gWithoutX
     in
-      case formulaUnify f (if x == y then g else gWithXInsteadOfY) of
+      case formulaUnify f gWithXInsteadOfY of
         Nothing -> Nothing
         -- Disallow unification of ∃x P(x) and ∃y P(z)
         Just (Tuple (Substitution s) _)
