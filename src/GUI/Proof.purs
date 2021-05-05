@@ -265,9 +265,7 @@ proofTree { rows } = case result of
     x -> x
 
 premises :: State -> Array String
-premises { rows } =
-  Array.nub $ _.formulaText
-    <$> Array.takeWhile ((_ == Premise) <<< _.rule) rows
+premises { rows } = _.formulaText <$> Array.takeWhile ((_ == Premise) <<< _.rule) rows
 
 render :: forall m. MonadEffect m => State -> H.ComponentHTML Action Slots m
 render st =
