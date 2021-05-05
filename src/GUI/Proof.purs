@@ -183,6 +183,10 @@ type State
     , rows :: Array ProofRow
     , draggingOver :: Maybe Int
     , dragged :: Maybe Int
+    -- Store user premises field input in order to not overwrite it
+    -- after updating "rows", unless it is invalidated (if user edits
+    -- a premise proof row instead).
+    , premisesInput :: String
     }
 
 data Action
@@ -225,6 +229,7 @@ initialState _ =
   , rows: [ emptyRow ]
   , draggingOver: Nothing
   , dragged: Nothing
+  , premisesInput: ""
   }
 
 -- | Tree representation of a ND proof,
@@ -264,8 +269,19 @@ proofTree { rows } = case result of
           :| rest
     x -> x
 
-premises :: State -> Array String
-premises { rows } = _.formulaText <$> Array.takeWhile ((_ == Premise) <<< _.rule) rows
+premises :: Array ProofRow -> Array String
+premises = map _.formulaText <<< Array.takeWhile ((_ == Premise) <<< _.rule)
+
+strToPremiseRows :: String -> Array ProofRow
+strToPremiseRows =
+  map { formulaText: _, rule: Premise, ruleArgs: [] }
+    <<< map trim
+    <<< removeEmptyString
+    <<< split (Pattern ",")
+  where
+  removeEmptyString [ "" ] = []
+
+  removeEmptyString x = x
 
 render :: forall m. MonadEffect m => State -> H.ComponentHTML Action Slots m
 render st =
@@ -338,7 +354,9 @@ render st =
   premiseDisplay =
     let
       -- | All premises used in the proof as a string.
-      premisesText = joinWith ", " $ premises st
+      premisesText
+        | premises (strToPremiseRows st.premisesInput) == premises st.rows = st.premisesInput
+        | otherwise = joinWith ", " $ premises st.rows
     in
       HH.span
         [ HP.classes
@@ -346,17 +364,7 @@ render st =
             , H.ClassName "premises"
             ]
         ]
-        [ HH.input
-            [ HP.classes
-                [ H.ClassName "input"
-                , H.ClassName "has-text-right"
-                , H.ClassName "premise-display"
-                ]
-            , HP.value premisesText
-            , HP.title "Premises"
-            , HP.placeholder "Premises"
-            , HE.onValueInput UpdatePremises
-            ]
+        [ HH.slot _symbolInput (-1) (symbolInput "Premises") premisesText UpdatePremises
         , HH.p [ HP.classes [ H.ClassName "help", H.ClassName "is-danger" ] ] []
         ]
 
@@ -634,22 +642,16 @@ handleAction = case _ of
         in
           st { rows = rows' }
   UpdatePremises s ->
-    let
-      removeEmptyString [ "" ] = []
-
-      removeEmptyString x = x
-
-      newPremises =
-        { formulaText: _, rule: Premise, ruleArgs: [] }
-          <$> trim
-          <$> removeEmptyString (split (Pattern ",") s)
-    in
-      H.modify_ \st -> st { rows = newPremises <> Array.dropWhile ((_ == Premise) <<< _.rule) st.rows }
+    H.modify_ \st ->
+      st
+        { premisesInput = s
+        , rows = strToPremiseRows s <> Array.dropWhile ((_ == Premise) <<< _.rule) st.rows
+        }
   UpdateConclusion s -> H.modify_ \st -> st { conclusion = s }
   ClearProof -> H.put $ initialState unit
   ShowHint -> do
     st <- H.get
-    H.liftEffect $ Hint.showHint { premises: premises st, conclusion: st.conclusion }
+    H.liftEffect $ Hint.showHint { premises: premises st.rows, conclusion: st.conclusion }
   where
   addRowBelow i = do
     H.modify_ \st ->
