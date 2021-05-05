@@ -2,7 +2,7 @@ module Test.Formula where
 
 import Prelude
 import Test.Spec (Spec, describe, it)
-import Test.Spec.Assertions (shouldEqual, shouldSatisfy)
+import Test.Spec.Assertions (shouldEqual)
 import Test.Spec.QuickCheck (quickCheck)
 import Test.QuickCheck (class Arbitrary, arbitrary, assertEquals)
 import Test.QuickCheck.Gen (Gen, oneOf, vectorOf, sized, chooseInt, resize)
@@ -12,7 +12,7 @@ import Data.NonEmpty (NonEmpty(NonEmpty))
 import Data.Array.NonEmpty as NonEmptyArray
 import Data.Set as Set
 import Data.Foldable (fold)
-import Data.Maybe (Maybe(..), fromJust, isJust, isNothing)
+import Data.Maybe (Maybe(..), fromJust)
 import Data.Either (Either(Right))
 import Data.Tuple (Tuple(..))
 import Data.Traversable (sequence)
@@ -27,6 +27,7 @@ import Formula
   , Variable(..)
   , Formula(..)
   , singleSub
+  , varSub
   , substitute
   , disagreementSet
   , unify
@@ -164,6 +165,7 @@ spec =
 
   unificationTests =
     describe "unification" do
+      it "does not unify empty set" $ unify Set.empty `shouldEqual` Nothing
       it "can find unifier" do
         unify
           ( Set.fromFoldable
@@ -195,28 +197,39 @@ spec =
           )
           `shouldEqual`
             Nothing
-      it "can unify predicate logic formula" do
+      it "can unify propositional logic formula" do
         let
           f = And (Predicate "A" []) (Predicate "B" [])
-        formulaUnifier f f `shouldSatisfy` isJust
+        formulaUnifier f f `shouldEqual` Just mempty
+      it "can unify simple predicate"
+        $ formulaUnifier (Predicate "P" [ Var x ]) (Predicate "P" [ Var y ])
+            `shouldEqual`
+              Just (varSub x y)
       it "can unify quantified formulas" do
         formulaUnifier
           (Forall x $ Predicate "P" [ Var x ])
           (Forall y $ Predicate "P" [ Var y ])
-          `shouldSatisfy`
-            isJust
+          `shouldEqual`
+            Just mempty
         formulaUnifier
           (Forall x $ Predicate "P" [ Var x, Var y ])
           (Forall x $ Predicate "P" [ Var x, Var z ])
-          `shouldSatisfy`
-            isJust
+          `shouldEqual`
+            Just (varSub y z)
       it "does not unify bound and unbound variables" do
         let
           a = Forall x $ Predicate "P" [ Var x ]
 
           b = Forall y $ Predicate "P" [ Var x ]
-        formulaUnifier a b `shouldSatisfy` isNothing
-        formulaUnifier b a `shouldSatisfy` isNothing
+        formulaUnifier a b `shouldEqual` Nothing
+        formulaUnifier b a `shouldEqual` Nothing
+      it "unifies complex formula"
+        let
+          a = Forall y $ Implies (Predicate "P" [ Var x ]) (Predicate "Q" [ Var y ])
+
+          b = Forall y $ Implies (Predicate "P" [ Var $ Variable "x0" ]) (Predicate "Q" [ Var y ])
+        in
+          formulaUnifier a b `shouldEqual` Just (varSub x (Variable "x0"))
 
   showTests =
     describe "show" do
