@@ -314,6 +314,7 @@ render st =
           , H.ClassName "proof-header"
           , H.ClassName "is-gapless"
           ]
+      , HE.onFocusIn $ const $ SetFocus (-1)
       ]
       [ premiseDisplay
       , turnstile
@@ -321,7 +322,7 @@ render st =
           { i: (-1)
           , placeholder: "Conclusion"
           , text: st.conclusion
-          , outputMap: outputMap
+          , outputMap: UpdateConclusion
           , classes:
               [ H.ClassName "column"
               , H.ClassName "is-half"
@@ -329,10 +330,6 @@ render st =
               ]
           }
       ]
-    where
-    outputMap = case _ of
-      SI.Str s -> UpdateConclusion s
-      SI.WasFocused -> SetFocus 0
 
   toolbar :: HH.HTML _ _
   toolbar =
@@ -378,13 +375,9 @@ render st =
             , H.ClassName "premises"
             ]
         ]
-        [ HH.slot _symbolInput (-1) (symbolInput "Premises") premisesText outputMap
+        [ HH.slot _symbolInput (-1) (symbolInput "Premises") premisesText UpdatePremises
         , HH.p [ HP.classes [ H.ClassName "help", H.ClassName "is-danger" ] ] []
         ]
-    where
-    outputMap = case _ of
-      SI.Str s -> UpdatePremises s
-      SI.WasFocused -> SetFocus 0
 
   turnstile =
     HH.span [ HP.classes [ H.ClassName "column", H.ClassName "is-1" ] ]
@@ -416,7 +409,6 @@ render st =
           <> classes
           <> if isOk then [] else [ H.ClassName "invalid" ]
       , HE.onKeyDown $ FormulaKeyDown i
-      , HE.onFocusIn $ const $ SetFocus i
       ]
       ( [ HH.slot _symbolInput (2 * i) (symbolInput placeholder) text outputMap ]
           <> [ HH.p [ HP.classes [ H.ClassName "help", H.ClassName "is-danger" ] ] (either (\err -> [ HH.text $ "Cannot parse formula: " <> parseErrorMessage err ]) (const []) parseResult) ]
@@ -470,23 +462,20 @@ render st =
       , HE.onDragLeave $ DragLeave i
       , HE.onDrop $ Drop i
       , HE.onDragEnd $ DragEnd i
+      , HE.onFocusIn $ const $ SetFocus i
       ]
       [ rowIndex
       , formulaField
           { i
           , placeholder: "Enter formula"
           , text: formulaText
-          , outputMap: outputMap
+          , outputMap: UpdateFormula i
           , classes: [ H.ClassName "column" ]
           }
       , ruleDisplay
       ]
     where
     error = (unsafePartial $ verification.rows `unsafeIndex` i).error
-
-    outputMap = case _ of
-      SI.Str s -> UpdateFormula i s
-      SI.WasFocused -> SetFocus 0
 
     -- | Displays the row index.
     rowIndex :: HH.HTML _ _
@@ -507,7 +496,7 @@ render st =
     ruleField =
       HH.span
         [ HP.classes ([ H.ClassName "column rule-field" ] <> if isRuleError error then [ H.ClassName "invalid" ] else []) ]
-        ( [ HH.slot _symbolInput (2 * i + 1) (symbolInput "Rule") (ruleText rule) outputMap ]
+        ( [ HH.slot _symbolInput (2 * i + 1) (symbolInput "Rule") (ruleText rule) (UpdateRule i) ]
             <> [ HH.p [ HP.classes [ H.ClassName "help", H.ClassName "is-danger" ] ]
                   (if isRuleError error then [ HH.text $ errorText (unsafePartial $ fromJust error) ] else [])
               ]
@@ -518,10 +507,6 @@ render st =
         Just e -> case e of
           BadFormula -> false
           _ -> true
-
-      outputMap = case _ of
-        SI.Str s -> UpdateRule i s
-        SI.WasFocused -> SetFocus i
 
     argField :: Tuple Int (Tuple RuleArgType String) -> HH.HTML _ _
     argField (Tuple j (Tuple ruleArgType s)) =
@@ -534,7 +519,6 @@ render st =
             , HP.value s
             , HP.placeholder placeholder
             , HE.onValueInput $ UpdateRuleArg i j
-            , HE.onFocusIn $ const $ SetFocus i
             ]
         ]
       where
