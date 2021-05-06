@@ -11,6 +11,7 @@ module Formula
   , unify
   , containsTerm
   , formulaUnifier
+  , isPropFormula
   ) where
 
 import Prelude
@@ -309,3 +310,12 @@ formulaUnify f1 f2 = subTerms f1 f2 >>= unify
 
 formulaUnifier :: Formula -> Formula -> Maybe Substitution
 formulaUnifier a b = (\(Tuple σ _) -> σ) <$> formulaUnify a b
+
+isPropFormula :: Formula -> Boolean
+isPropFormula formula = case formula of
+  Predicate _ [] -> true
+  Not f' -> isPropFormula f'
+  And f' f'' -> isPropFormula f' && isPropFormula f''
+  Or f' f'' -> isPropFormula f' && isPropFormula f''
+  Implies f' f'' -> isPropFormula f' && isPropFormula f''
+  _ -> false
