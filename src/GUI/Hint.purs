@@ -82,11 +82,10 @@ genHint { premises, conclusion } =
   either identity identity do
     premises' <- note "Cannot read premises" $ hush $ sequence $ parseFormula <$> premises
     conclusion' <- note "Cannot read conclusion" $ hush $ parseFormula conclusion
-    if areProps (Array.cons conclusion' premises') then do
-      proof <- note "No solution found!" $ prove premises' conclusion'
-      pure $ hintFromBoxes (constructBoxes proof)
-    else
-      pure "Hints are not available for predicate logic."
+    unless (all isPropFormula (premises' `Array.snoc` conclusion'))
+      $ Left "Hints are not available for predicate logic."
+    proof <- note "No solution found!" $ prove premises' conclusion'
+    pure $ hintFromBoxes (constructBoxes proof)
 
 -- | Shows a hint for solving the given sequent in a pop-up dialog.
 showHint :: { premises :: Array String, conclusion :: String } -> Effect Unit
