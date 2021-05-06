@@ -314,7 +314,7 @@ render st =
           , H.ClassName "proof-header"
           , H.ClassName "is-gapless"
           ]
-      , HE.onFocusIn $ const $ SetFocus (-1)
+      , HE.onFocusOut $ const $ SetFocus (Array.length st.rows - 1)
       ]
       [ premiseDisplay
       , turnstile
