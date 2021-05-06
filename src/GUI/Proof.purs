@@ -57,6 +57,7 @@ instance showRule :: Show Rule where
   show (Rule s) = s
   show Premise = "Premise"
   show (Assumption { boxEndIdx }) = "Assumption (box ends at " <> show boxEndIdx <> ")"
+  show (Fresh { boxEndIdx }) = "Fresh variable (box ends at " <> show boxEndIdx <> ")"
 
 data RuleArgType
   = RowIdx
@@ -176,6 +177,7 @@ ruleText Premise = "Premise"
 ruleText (Assumption _) = "Ass."
 
 ruleText (Fresh _) = "Fresh"
+
 errorText :: P.NdError -> String
 errorText = case _ of
   P.BadRef -> "Reference to invalid row"
