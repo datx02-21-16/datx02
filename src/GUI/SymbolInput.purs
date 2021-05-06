@@ -46,12 +46,14 @@ data Query a
 type Input
   = String
 
-type Output
-  = String
+data Output
+  = Str String
+  | WasFocused
 
 data Action
   = OnInput String
   | Receive Input
+  | OnFocus
 
 ref :: H.RefLabel
 ref = H.RefLabel "inputRef"
@@ -81,6 +83,7 @@ symbolInput placeholder =
       , HP.type_ HP.InputText
       , HP.ref ref
       , HE.onValueInput OnInput
+      , HE.onFocusIn $ const OnFocus
       ]
 
   setStr s' = do
@@ -109,7 +112,8 @@ symbolInput placeholder =
         _ -> unsafeCrashWith "not yet rendered"
       let
         s' = substitute s
-      H.raise s' -- Output the new value
+      H.raise $ Str s' -- Output the new value
+    OnFocus -> H.raise $ WasFocused
     Receive s' -> setStr s'
 
   handleQuery :: forall action a. Query a -> H.HalogenM _ action () _ m (Maybe a)

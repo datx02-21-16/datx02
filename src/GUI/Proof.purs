@@ -183,6 +183,7 @@ type State
     , rows :: Array ProofRow
     , draggingOver :: Maybe Int
     , dragged :: Maybe Int
+    , inFocus :: Int
     -- Store user premises field input in order to not overwrite it
     -- after updating "rows", unless it is invalidated (if user edits
     -- a premise proof row instead).
@@ -205,6 +206,9 @@ data Action
   | ClearProof
   | ShowHint
   | UpdatePremises String
+  | AddBelow
+  | AddOutsideBox
+  | SetFocus Int
 
 _symbolInput = Proxy :: Proxy "symbolInput"
 
@@ -229,6 +233,7 @@ initialState _ =
   , rows: [ emptyRow ]
   , draggingOver: Nothing
   , dragged: Nothing
+  , inFocus: 0
   , premisesInput: ""
   }
 
@@ -316,7 +321,7 @@ render st =
           { i: (-1)
           , placeholder: "Conclusion"
           , text: st.conclusion
-          , outputMap: UpdateConclusion
+          , outputMap: outputMap
           , classes:
               [ H.ClassName "column"
               , H.ClassName "is-half"
@@ -324,30 +329,39 @@ render st =
               ]
           }
       ]
+    where
+    outputMap = case _ of
+      SI.Str s -> UpdateConclusion s
+      SI.WasFocused -> SetFocus 0
 
   toolbar :: HH.HTML _ _
   toolbar =
     HH.nav [ HPARIA.role "toolbar", HP.classes [ H.ClassName "level", H.ClassName "is-mobile" ] ]
-      [ HH.div [ HP.classes [ H.ClassName "level-left" ] ] []
+      [ HH.div [ HP.classes [ H.ClassName "level-left" ] ] [ addRowButton, addRowOutsideButton ]
       , HH.div [ HP.classes [ H.ClassName "level-right" ] ]
           [ HH.div [ HP.classes [ H.ClassName "level-item" ] ] [ clearButton, hintButton ] ]
       ]
 
+  addRowButton :: HH.HTML _ _
+  addRowButton = toolbarButton "Add row" "Add a new row below the row currently in focus, stay in the current box." AddBelow
+
+  addRowOutsideButton :: HH.HTML _ _
+  addRowOutsideButton = toolbarButton "Add row (with box exit)" "Add a new row below the row currently in focus, exit the current box if the current line is at the end of the box." AddOutsideBox
+
   clearButton :: HH.HTML _ _
-  clearButton =
-    HH.button
-      [ HP.classes [ H.ClassName "button", H.ClassName "is-white", H.ClassName "is-small" ]
-      , HE.onClick (const ClearProof)
-      ]
-      [ HH.text "Clear" ]
+  clearButton = toolbarButton "Clear" "Erase all rows from the current proof." ClearProof
 
   hintButton :: HH.HTML _ _
-  hintButton =
+  hintButton = toolbarButton "Hint" "Get a hint on how to get started." ShowHint
+
+  toolbarButton :: String -> String -> Action -> HH.HTML _ _
+  toolbarButton buttonText buttonTitle buttonAction =
     HH.button
       [ HP.classes [ H.ClassName "button", H.ClassName "is-white", H.ClassName "is-small" ]
-      , HE.onClick (const ShowHint)
+      , HE.onClick $ const buttonAction
+      , HP.title buttonTitle
       ]
-      [ HH.text "Hint" ]
+      [ HH.text buttonText ]
 
   -- | Displays the premises in the header.
   premiseDisplay :: HH.HTML _ _
@@ -364,9 +378,13 @@ render st =
             , H.ClassName "premises"
             ]
         ]
-        [ HH.slot _symbolInput (-1) (symbolInput "Premises") premisesText UpdatePremises
+        [ HH.slot _symbolInput (-1) (symbolInput "Premises") premisesText outputMap
         , HH.p [ HP.classes [ H.ClassName "help", H.ClassName "is-danger" ] ] []
         ]
+    where
+    outputMap = case _ of
+      SI.Str s -> UpdatePremises s
+      SI.WasFocused -> SetFocus 0
 
   turnstile =
     HH.span [ HP.classes [ H.ClassName "column", H.ClassName "is-1" ] ]
@@ -388,7 +406,7 @@ render st =
     { i :: Int
     , placeholder :: String
     , text :: String
-    , outputMap :: String -> Action
+    , outputMap :: SI.Output -> Action
     , classes :: Array H.ClassName
     } ->
     HH.HTML _ Action
@@ -398,6 +416,7 @@ render st =
           <> classes
           <> if isOk then [] else [ H.ClassName "invalid" ]
       , HE.onKeyDown $ FormulaKeyDown i
+      , HE.onFocusIn $ const $ SetFocus i
       ]
       ( [ HH.slot _symbolInput (2 * i) (symbolInput placeholder) text outputMap ]
           <> [ HH.p [ HP.classes [ H.ClassName "help", H.ClassName "is-danger" ] ] (either (\err -> [ HH.text $ "Cannot parse formula: " <> parseErrorMessage err ]) (const []) parseResult) ]
@@ -457,13 +476,17 @@ render st =
           { i
           , placeholder: "Enter formula"
           , text: formulaText
-          , outputMap: UpdateFormula i
+          , outputMap: outputMap
           , classes: [ H.ClassName "column" ]
           }
       , ruleDisplay
       ]
     where
     error = (unsafePartial $ verification.rows `unsafeIndex` i).error
+
+    outputMap = case _ of
+      SI.Str s -> UpdateFormula i s
+      SI.WasFocused -> SetFocus 0
 
     -- | Displays the row index.
     rowIndex :: HH.HTML _ _
@@ -484,7 +507,7 @@ render st =
     ruleField =
       HH.span
         [ HP.classes ([ H.ClassName "column rule-field" ] <> if isRuleError error then [ H.ClassName "invalid" ] else []) ]
-        ( [ HH.slot _symbolInput (2 * i + 1) (symbolInput "Rule") (ruleText rule) (UpdateRule i) ]
+        ( [ HH.slot _symbolInput (2 * i + 1) (symbolInput "Rule") (ruleText rule) outputMap ]
             <> [ HH.p [ HP.classes [ H.ClassName "help", H.ClassName "is-danger" ] ]
                   (if isRuleError error then [ HH.text $ errorText (unsafePartial $ fromJust error) ] else [])
               ]
@@ -495,6 +518,10 @@ render st =
         Just e -> case e of
           BadFormula -> false
           _ -> true
+
+      outputMap = case _ of
+        SI.Str s -> UpdateRule i s
+        SI.WasFocused -> SetFocus i
 
     argField :: Tuple Int (Tuple RuleArgType String) -> HH.HTML _ _
     argField (Tuple j (Tuple ruleArgType s)) =
@@ -507,6 +534,7 @@ render st =
             , HP.value s
             , HP.placeholder placeholder
             , HE.onValueInput $ UpdateRuleArg i j
+            , HE.onFocusIn $ const $ SetFocus i
             ]
         ]
       where
@@ -652,6 +680,13 @@ handleAction = case _ of
   ShowHint -> do
     st <- H.get
     H.liftEffect $ Hint.showHint { premises: premises st.rows, conclusion: st.conclusion }
+  AddBelow -> do
+    { inFocus } <- H.get
+    addRowBelow inFocus
+  AddOutsideBox -> do
+    { inFocus } <- H.get
+    exitBox inFocus
+  SetFocus i -> H.modify_ \st -> st { inFocus = i }
   where
   addRowBelow i = do
     H.modify_ \st ->
