@@ -399,7 +399,7 @@ render st =
     { i :: Int
     , placeholder :: String
     , text :: String
-    , outputMap :: SI.Output -> Action
+    , outputMap :: String -> Action
     , classes :: Array H.ClassName
     } ->
     HH.HTML _ Action
