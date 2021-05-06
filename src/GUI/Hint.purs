@@ -8,14 +8,14 @@ import Data.Tuple (Tuple(Tuple))
 import Data.Array as Array
 import Data.List (List(Nil), (:))
 import Data.NonEmpty ((:|))
-import Data.Foldable (foldl, foldM)
+import Data.Foldable (foldl, foldM, all)
 import Data.Traversable (sequence)
 import Data.Either (Either(Left, Right), either, note, hush)
 import Partial.Unsafe (unsafeCrashWith)
 import Effect (Effect)
 import Web.HTML (window)
 import Web.HTML.Window as Window
-import Formula (Formula(Implies, Not))
+import Formula (Formula(Implies, Not), isPropFormula)
 import NdAlg (Rule(..), prove)
 import Parser (parseFormula)
 
@@ -82,9 +82,15 @@ genHint { premises, conclusion } =
   either identity identity do
     premises' <- note "Cannot read premises" $ hush $ sequence $ parseFormula <$> premises
     conclusion' <- note "Cannot read conclusion" $ hush $ parseFormula conclusion
-    proof <- note "No solution found!" $ prove premises' conclusion'
-    pure $ hintFromBoxes (constructBoxes proof)
+    if areProps (Array.cons conclusion' premises') then do
+      proof <- note "No solution found!" $ prove premises' conclusion'
+      pure $ hintFromBoxes (constructBoxes proof)
+    else
+      pure "Hints are not available for predicate logic."
 
 -- | Shows a hint for solving the given sequent in a pop-up dialog.
 showHint :: { premises :: Array String, conclusion :: String } -> Effect Unit
 showHint sequent = window >>= Window.alert (genHint sequent)
+
+areProps :: Array Formula -> Boolean
+areProps prems = all isPropFormula prems
