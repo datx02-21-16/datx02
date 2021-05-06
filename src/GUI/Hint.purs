@@ -90,6 +90,3 @@ genHint { premises, conclusion } =
 -- | Shows a hint for solving the given sequent in a pop-up dialog.
 showHint :: { premises :: Array String, conclusion :: String } -> Effect Unit
 showHint sequent = window >>= Window.alert (genHint sequent)
-
-areProps :: Array Formula -> Boolean
-areProps prems = all isPropFormula prems
