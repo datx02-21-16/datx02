@@ -183,6 +183,7 @@ type State
     , rows :: Array ProofRow
     , draggingOver :: Maybe Int
     , dragged :: Maybe Int
+    , inFocus :: Int
     -- Store user premises field input in order to not overwrite it
     -- after updating "rows", unless it is invalidated (if user edits
     -- a premise proof row instead).
@@ -205,6 +206,9 @@ data Action
   | ClearProof
   | ShowHint
   | UpdatePremises String
+  | AddBelow
+  | AddOutsideBox
+  | SetFocus Int
 
 _symbolInput = Proxy :: Proxy "symbolInput"
 
@@ -229,6 +233,7 @@ initialState _ =
   , rows: [ emptyRow ]
   , draggingOver: Nothing
   , dragged: Nothing
+  , inFocus: 0
   , premisesInput: ""
   }
 
@@ -309,6 +314,7 @@ render st =
           , H.ClassName "proof-header"
           , H.ClassName "is-gapless"
           ]
+      , HE.onFocusOut $ const $ SetFocus (Array.length st.rows - 1)
       ]
       [ premiseDisplay
       , turnstile
@@ -328,26 +334,31 @@ render st =
   toolbar :: HH.HTML _ _
   toolbar =
     HH.nav [ HPARIA.role "toolbar", HP.classes [ H.ClassName "level", H.ClassName "is-mobile" ] ]
-      [ HH.div [ HP.classes [ H.ClassName "level-left" ] ] []
+      [ HH.div [ HP.classes [ H.ClassName "level-left" ] ] [ addRowButton, addRowOutsideButton ]
       , HH.div [ HP.classes [ H.ClassName "level-right" ] ]
           [ HH.div [ HP.classes [ H.ClassName "level-item" ] ] [ clearButton, hintButton ] ]
       ]
 
+  addRowButton :: HH.HTML _ _
+  addRowButton = toolbarButton "Add row" "Add a new row below the row currently in focus, stay in the current box." AddBelow
+
+  addRowOutsideButton :: HH.HTML _ _
+  addRowOutsideButton = toolbarButton "Add row (with box exit)" "Add a new row below the row currently in focus, exit the current box if the current line is at the end of the box." AddOutsideBox
+
   clearButton :: HH.HTML _ _
-  clearButton =
-    HH.button
-      [ HP.classes [ H.ClassName "button", H.ClassName "is-white", H.ClassName "is-small" ]
-      , HE.onClick (const ClearProof)
-      ]
-      [ HH.text "Clear" ]
+  clearButton = toolbarButton "Clear" "Erase all rows from the current proof." ClearProof
 
   hintButton :: HH.HTML _ _
-  hintButton =
+  hintButton = toolbarButton "Hint" "Get a hint on how to get started." ShowHint
+
+  toolbarButton :: String -> String -> Action -> HH.HTML _ _
+  toolbarButton buttonText buttonTitle buttonAction =
     HH.button
       [ HP.classes [ H.ClassName "button", H.ClassName "is-white", H.ClassName "is-small" ]
-      , HE.onClick (const ShowHint)
+      , HE.onClick $ const buttonAction
+      , HP.title buttonTitle
       ]
-      [ HH.text "Hint" ]
+      [ HH.text buttonText ]
 
   -- | Displays the premises in the header.
   premiseDisplay :: HH.HTML _ _
@@ -451,6 +462,7 @@ render st =
       , HE.onDragLeave $ DragLeave i
       , HE.onDrop $ Drop i
       , HE.onDragEnd $ DragEnd i
+      , HE.onFocusIn $ const $ SetFocus i
       ]
       [ rowIndex
       , formulaField
@@ -652,6 +664,13 @@ handleAction = case _ of
   ShowHint -> do
     st <- H.get
     H.liftEffect $ Hint.showHint { premises: premises st.rows, conclusion: st.conclusion }
+  AddBelow -> do
+    { inFocus } <- H.get
+    addRowBelow inFocus
+  AddOutsideBox -> do
+    { inFocus } <- H.get
+    exitBox inFocus
+  SetFocus i -> H.modify_ \st -> st { inFocus = i }
   where
   addRowBelow i = do
     H.modify_ \st ->
