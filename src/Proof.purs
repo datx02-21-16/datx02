@@ -480,6 +480,10 @@ addProof { formula: inputFormula, rule } = do
     Nothing -> pure unit
   where
   scopedVars f = case f of
+    Not f' -> scopedVars f'
+    And f' f'' -> Array.nub $ scopedVars f' <> scopedVars f''
+    Or f' f'' -> Array.nub $ scopedVars f' <> scopedVars f''
+    Implies f' f'' -> Array.nub $ scopedVars f' <> scopedVars f''
     Forall v f' -> Array.delete v $ scopedVars f'
     Exists v f' -> Array.delete v $ scopedVars f'
     _ -> map Variable $ Array.nub $ allVarsInFormula f
