@@ -163,12 +163,15 @@ $modal-card-title-color: findColorInvert($modal-card-head-background-color);
 	border-color: $danger;
 }
 
-// Make the premises always take up at least one line to avoid having
-// stuff move around when the first premise is added. Same thing for error messages.
-.proof-header .premises:empty::before,
+// Make the error messages always take up at least one line to avoid
+// having stuff move around when they appear.
 .help.is-danger:empty::before {
 	// In absense of premises: Insert a single ZeroWidthSpace
 	content: "\200B";
+}
+
+.premises > input {
+	text-align: right;
 }
 
 // No border under conclusion text field
@@ -178,10 +181,6 @@ $modal-card-title-color: findColorInvert($modal-card-head-background-color);
 
 .arg-field {
 	width: 4rem;
-}
-
-.premises > .input.is-static {
-	padding: calc(0.5em - 2px) calc(0.75em - 2px);
 }
 
 [role="toolbar"] {
