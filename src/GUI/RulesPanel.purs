@@ -59,7 +59,7 @@ ruleButtonPanel =
       $ maybe [ HH.text "Please click one of the rules above to get a description of the rule." ]
           ( \rule ->
               [ HH.img [ HP.src $ pictureURL (ruleImageName rule) ]
-              , HH.p_ [ HH.strong_ [ HH.text $ shortcut rule ] ]
+              , HH.p_ [ HH.strong_ [ HH.text $ "Shortcut: " <> shortcut rule ] ]
               , HH.p [ HP.classes [ HH.ClassName "has-text-left" ] ] [ HH.text $ textualHint rule ]
               ]
           )
