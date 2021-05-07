@@ -22,7 +22,7 @@ import Data.Either (Either(..), note, hush)
 import Data.Foldable (all, any, foldr)
 import Data.List (List(Nil), (:))
 import Data.List as List
-import Data.Maybe (Maybe(..), fromJust, isJust, isNothing, maybe)
+import Data.Maybe (Maybe(..), fromJust, isJust, isNothing)
 import Data.Set (Set)
 import Data.Set as Set
 import Data.Tuple (Tuple(..), fst)
