@@ -393,9 +393,17 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
           (Tuple a b) <- boxRef box
           case a, b of
             VC vLocal, FC fLocal -> do
-              sub <- except $ note BadRule $ singleSub v (Var vLocal)
-              unless (substitute sub f `equivalent` fLocal) $ throwError FormulaMismatch
-              pure formula'
+              let
+                sub = singleSub v (Var vLocal)
+              if (isNothing sub) then
+                if (vLocal == v && fLocal == f) then
+                  pure formula'
+                else
+                  throwError BadRule
+              else if (substitute (unsafePartial $ fromJust sub) f == fLocal) then
+                pure formula'
+              else
+                throwError FormulaMismatch
             _, _ -> throwError BadRule
         _ -> throwError FormulaMismatch
       ExistsElim i box -> case formula of
