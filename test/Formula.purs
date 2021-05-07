@@ -13,10 +13,10 @@ import Data.Array.NonEmpty as NonEmptyArray
 import Data.Set as Set
 import Data.Foldable (fold)
 import Data.Maybe (Maybe(..), fromJust)
-import Data.Either (Either(Right))
+import Data.Either (Either(Right), fromRight')
 import Data.Tuple (Tuple(..))
 import Data.Traversable (sequence)
-import Partial.Unsafe (unsafePartial)
+import Partial.Unsafe (unsafePartial, unsafeCrashWith)
 import Control.Apply (lift2)
 import Data.Newtype (class Newtype, unwrap, un)
 import Control.Lazy (fix)
@@ -103,6 +103,11 @@ instance arbitraryTFormula :: Arbitrary TFormula where
                       , lift2 Forall variable arbFormula
                       , lift2 Exists variable arbFormula
                       ]
+
+readFormula :: String -> Formula
+readFormula s =
+  fromRight' (\_ -> unsafeCrashWith "Bad formula")
+    $ parseFormula s
 
 spec :: Spec Unit
 spec =

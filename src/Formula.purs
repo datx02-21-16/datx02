@@ -10,11 +10,10 @@ module Formula
   , substitute
   , disagreementSet
   , unify
-  , containsTerm
   , formulaUnifier
   , equalityProp
+  , hasSingleSubOf
   , isPropFormula
-  , isUnifierVar
   , almostEqual
   , allVarsInFormula
   , equivalent
@@ -236,36 +235,27 @@ unify = go mempty
     in
       sub >>= (\λ -> go (σ <> λ) (Set.map (map (substitute λ)) w))
 
-containsTerm :: Formula -> Term -> Boolean
-containsTerm f t = case f of
-  Predicate _ args -> or $ map (\t' -> t == t') args
-  Not f' -> containsTerm f' t
-  And f1 f2 -> containsTerm f1 t || containsTerm f2 t
-  Or f1 f2 -> containsTerm f1 t || containsTerm f2 t
-  Implies f1 f2 -> containsTerm f1 t || containsTerm f2 t
-  Forall x f' -> t /= Var x && containsTerm f' t
-  Exists x f' -> t /= Var x && containsTerm f' t
-
 -- | Returns a new variable that does not conflict with any
 -- | pre-existent variable in the specified formula.
 -- |
 -- | Guaranteed to be the concatenation of all vars in the formula.
 varUniqueIn :: Formula -> Variable
-varUniqueIn = Variable <<< foldl (<>) "" <<< allVarsInFormula
+varUniqueIn = Variable <<< foldl (<>) "" <<< (map \(Variable s) -> s) <<< allVarsInFormula
 
-allVarsInFormula :: Formula -> Array String
+allVarsInTerm :: Term -> Array Variable
+allVarsInTerm = case _ of
+  Var v -> [ v ]
+  App _ args -> args >>= allVarsInTerm
+
+allVarsInFormula :: Formula -> Array Variable
 allVarsInFormula = case _ of
   Predicate _ args -> args >>= allVarsInTerm
   Not f -> allVarsInFormula f
   And f1 f2 -> allVarsInFormula f1 <> allVarsInFormula f2
   Or f1 f2 -> allVarsInFormula f1 <> allVarsInFormula f2
   Implies f1 f2 -> allVarsInFormula f1 <> allVarsInFormula f2
-  Forall (Variable x) f -> [ x ] <> allVarsInFormula f
-  Exists (Variable x) f -> [ x ] <> allVarsInFormula f
-  where
-  allVarsInTerm = case _ of
-    Var (Variable s) -> [ s ]
-    App _ args -> args >>= allVarsInTerm
+  Forall x f -> [ x ] <> allVarsInFormula f
+  Exists x f -> [ x ] <> allVarsInFormula f
 
 -- | Unify the terms in the two formulas.
 formulaUnify :: Formula -> Formula -> Maybe (Tuple Substitution (List Term))
@@ -302,15 +292,22 @@ formulaUnify f1 f2 = (Set.fromFoldable <$> subTerms f1 f2) >>= unify
 formulaUnifier :: Formula -> Formula -> Maybe Substitution
 formulaUnifier a b = (\(Tuple σ _) -> σ) <$> formulaUnify a b
 
-isUnifierVar :: Variable -> Formula -> Formula -> Boolean
-isUnifierVar (Variable v) f1 f2 =
-  isIn f1
-    && not (isIn f2)
-    && maybe false isSingletonSub (formulaUnifier f1 f2)
-  where
-  isIn f = v `Array.elem` allVarsInFormula f
+-- | Given x, returns the t in the the substitution {t/v}
+-- | such that g equals f{t/v}, if it exists.
+hasSingleSubOf :: Variable -> Formula -> Formula -> Maybe Term
+hasSingleSubOf x f g = do
+  let
+    uniqueVar = x <> varUniqueIn f <> varUniqueIn g
 
-  isSingletonSub (Substitution s) = Map.size s == 1
+    fWithoutX = substitute (varSub x uniqueVar) f
+  Substitution s <- formulaUnifier fWithoutX g
+  unless (Map.size s == 1) Nothing
+  case Map.findMin s of
+    Just { key: x', value: t }
+      | x' == uniqueVar -> Just t
+    Just { key: t, value: Var x' }
+      | x' == uniqueVar -> Just $ Var t
+    _ -> Nothing
 
 almostEqual :: Term -> Term -> Formula -> Formula -> Boolean
 almostEqual t1 t2 = go Set.empty

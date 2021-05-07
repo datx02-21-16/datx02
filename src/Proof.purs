@@ -29,13 +29,13 @@ import Data.Tuple (Tuple(..))
 import Formula
   ( Formula(..)
   , Term(..)
-  , Variable(..)
+  , Variable
   , allVarsInFormula
   , almostEqual
   , bottomProp
   , equalityProp
   , equivalent
-  , isUnifierVar
+  , hasSingleSubOf
   , singleSub
   , substitute
   )
@@ -260,7 +260,7 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
           vars = case formula of
             Just (FC f) -> allVarsInFormula f
             _ -> []
-        if any (\v -> varInScope (Variable v) scopes) vars then
+        if any (\v -> varInScope v scopes) vars then
           throwError VarExists
         else
           except $ note BadFormula formula
@@ -377,11 +377,10 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
         _ -> throwError FormulaMismatch
       ForallElim i -> case formula of
         Just formula'@(FC fTarget) -> do
-          when (not $ allInScope fTarget scopes) (throwError VarNotInScope)
           f <- proofRef i
           case f of
             FC (Forall v f') ->
-              if isUnifierVar v f' fTarget then
+              if isJust $ hasSingleSubOf v f' fTarget then
                 pure formula'
               else
                 throwError FormulaMismatch
@@ -393,16 +392,9 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
           (Tuple a b) <- boxRef box
           case a, b of
             VC vLocal, FC fLocal -> do
-              let
-                sub = singleSub v (Var vLocal)
-              maybe (throwError BadRule)
-                ( \s ->
-                    if substitute s f `equivalent` fLocal then
-                      pure formula'
-                    else
-                      throwError FormulaMismatch
-                )
-                sub
+              sub <- except $ note BadRule $ singleSub v (Var vLocal)
+              unless (substitute sub f `equivalent` fLocal) $ throwError FormulaMismatch
+              pure formula'
             _, _ -> throwError BadRule
         _ -> throwError FormulaMismatch
       ExistsElim i box -> case formula of
@@ -412,7 +404,7 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
           (Tuple b1 b2) <- boxRef box
           case a, b1, b2 of
             FC (Exists v f), FC f', FC b2' ->
-              if isUnifierVar v f f' then
+              if isJust $ hasSingleSubOf v f f' then
                 if b2' `equivalent` fTarget then pure formula' else throwError FormulaMismatch
               else
                 throwError BadRule
@@ -422,7 +414,11 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
         Just formula'@(FC (Exists v fTarget)) -> do
           a <- proofRef i
           case a of
-            FC fLocal -> if isUnifierVar v fTarget fLocal then pure formula' else throwError BadRule
+            FC fLocal ->
+              if isJust $ hasSingleSubOf v fTarget fLocal then
+                pure formula'
+              else
+                throwError BadRule
             _ -> throwError BadRule
         _ -> throwError FormulaMismatch
       EqElim i j -> case formula of
@@ -449,7 +445,7 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
       case f of
         Forall v f' -> allInScope f' (addVarToInnermost v scopes)
         Exists v f' -> allInScope f' (addVarToInnermost v scopes)
-        _ -> all (\var -> varInScope (Variable var) scopes) (allVarsInFormula f)
+        _ -> all (\var -> varInScope var scopes) (allVarsInFormula f)
 
 -- | Add a row to the derivation.
 -- |
@@ -487,7 +483,7 @@ addProof { formula: inputFormula, rule } = do
     Implies f' f'' -> Array.nub $ scopedVars f' <> scopedVars f''
     Forall v f' -> Array.delete v $ scopedVars f'
     Exists v f' -> Array.delete v $ scopedVars f'
-    _ -> map Variable $ Array.nub $ allVarsInFormula f
+    _ -> Array.nub $ allVarsInFormula f
 
 -- | Open a new box.
 openBox :: ND Unit
