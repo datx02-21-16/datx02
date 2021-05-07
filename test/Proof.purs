@@ -84,7 +84,7 @@ testInference =
               , scopes:
                   ( { boxes: [ Tuple 2 4 ]
                     , lines: Set.insert 5 (Set.singleton 1) --[ 5, 1 ]
-                    , vars: []
+                    , vars: Set.empty
                     , boxStart: Nothing
                     }
                       : Nil
@@ -129,7 +129,7 @@ testInference =
               , scopes:
                   ( { boxes: []
                     , lines: Set.insert 3 (Set.insert 2 (Set.singleton 1)) --[ 3, 2, 1 ]
-                    , vars: []
+                    , vars: Set.empty
                     , boxStart: Nothing
                     }
                       : Nil
@@ -166,7 +166,7 @@ testInference =
               , scopes:
                   ( { boxes: []
                     , lines: Set.insert 2 (Set.singleton 1) --[ 2, 1 ]
-                    , vars: []
+                    , vars: Set.empty
                     , boxStart: Nothing
                     }
                       : Nil

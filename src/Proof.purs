@@ -20,9 +20,10 @@ import Control.Monad.State (State, class MonadState, runState, modify_, get)
 import Data.Array as Array
 import Data.Either (Either(..), note, hush)
 import Data.Foldable (all, any, foldr)
-import Data.List (List)
+import Data.List (List(Nil), (:))
 import Data.List as List
 import Data.Maybe (Maybe(..), fromJust, isJust, isNothing, maybe)
+import Data.Set (Set)
 import Data.Set as Set
 import Data.Tuple (Tuple(..))
 import Formula
@@ -136,9 +137,9 @@ type Box
 
 -- | A scope which contains the lines, boxes and vars available.
 type Scope
-  = { lines :: Set.Set Int
+  = { lines :: Set Int
     , boxes :: Array Box
-    , vars :: Array Variable
+    , vars :: Set Variable
     , boxStart :: Maybe Int
     }
 
@@ -147,7 +148,7 @@ fullScope :: Scope
 fullScope =
   { lines: Set.empty
   , boxes: []
-  , vars: []
+  , vars: Set.empty
   , boxStart: Nothing
   }
 
@@ -155,7 +156,7 @@ newScope :: Int -> Scope
 newScope n =
   { lines: Set.empty
   , boxes: []
-  , vars: []
+  , vars: Set.empty
   , boxStart: Just n
   }
 
@@ -189,7 +190,7 @@ runND conclusion (ND nd) = runState (nd *> checkCompleteness) initialState
   where
   initialState =
     { rows: []
-    , scopes: List.Cons fullScope List.Nil
+    , scopes: fullScope : Nil
     }
 
   checkCompleteness =
@@ -492,7 +493,7 @@ addProof { formula: inputFormula, rule } = do
 openBox :: ND Unit
 openBox =
   modify_ \proof ->
-    proof { scopes = List.Cons (newScope $ Array.length proof.rows + 1) proof.scopes }
+    proof { scopes = (newScope $ Array.length proof.rows + 1) : proof.scopes }
 
 -- | Close the innermost currently open box.
 -- |
@@ -529,7 +530,7 @@ lineInScope l ss = any (\s -> l `Set.member` s.lines) ss
 
 -- | Check if a variable is in scope in a stack of scopes.
 varInScope :: Variable -> List Scope -> Boolean
-varInScope v ss = any (\s -> v `Array.elem` s.vars) ss
+varInScope v ss = any (\s -> v `Set.member` s.vars) ss
 
 -- | Add a box to a scope.
 addBox :: Box -> Scope -> Scope
@@ -541,22 +542,22 @@ addLine l s = s { lines = l `Set.insert` s.lines }
 
 -- | Add a variable to a scope.
 addVar :: Variable -> Scope -> Scope
-addVar v s = s { vars = v `Array.cons` s.vars }
+addVar v s = s { vars = v `Set.insert` s.vars }
 
 -- | Add a box to the innermost scope in a stack of scopes.
 addBoxToInnermost :: Box -> List Scope -> List Scope
-addBoxToInnermost b (List.Cons innermost outerScopes) = List.Cons (addBox b innermost) outerScopes
+addBoxToInnermost b (innermost : outerScopes) = addBox b innermost : outerScopes
 
 addBoxToInnermost _ _ = unsafeCrashWith "Cannot add to an empty list of scopes."
 
 -- | Add a line to the innermost scope in a stack of scopes.
 addLineToInnermost :: Int -> List Scope -> List Scope
-addLineToInnermost l (List.Cons innermost outerScopes) = List.Cons (addLine l innermost) outerScopes
+addLineToInnermost l (innermost : outerScopes) = addLine l innermost : outerScopes
 
 addLineToInnermost _ _ = unsafeCrashWith "Cannot add to an empty list of scopes."
 
 -- | Add a variable to the innermost scope in a stack of scopes.
 addVarToInnermost :: Variable -> List Scope -> List Scope
-addVarToInnermost v (List.Cons innermost outerScopes) = List.Cons (addVar v innermost) outerScopes
+addVarToInnermost v (innermost : outerScopes) = addVar v innermost : outerScopes
 
 addVarToInnermost _ _ = unsafeCrashWith "Cannot add to an empty list of scopes."
