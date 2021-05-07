@@ -247,6 +247,8 @@ spec =
         show (And (Predicate "A" []) (And (Predicate "B" []) (Predicate "C" [])))
           `shouldEqual`
             "A ∧ (B ∧ C)"
+      it "should format equality nicely" do
+        show (Predicate "=" [ Var x, Var y ]) `shouldEqual` "x = y"
       it "should survive show/parseFormula roundtrip" do
         quickCheck \(TFormula formula) ->
           parseFormula (show formula) `assertEquals` Right formula

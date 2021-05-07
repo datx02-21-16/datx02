@@ -90,6 +90,7 @@ instance showFormula :: Show Formula where
 
     showPrec n = case _ of
       Predicate p [] -> p
+      Predicate "=" [ x, y ] -> show x <> " = " <> show y
       Predicate p args -> p <> parens (joinWith ", " (show <$> args))
       Not f -> "¬" <> showPrec 4 f
       Forall x f -> "∀" <> show x <> " " <> showPrec 4 f
