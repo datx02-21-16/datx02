@@ -63,22 +63,27 @@ testInference =
                   [ { error: Nothing
                     , formula: (Just (FC $ Implies p (And a b)))
                     , rule: (Just Premise)
+                    , fresh: Nothing
                     }
                   , { error: Nothing
                     , formula: (Just $ FC p)
                     , rule: (Just Assumption)
+                    , fresh: Nothing
                     }
                   , { error: Nothing
                     , formula: (Just $ FC (And a b))
                     , rule: (Just (ImplElim (Just 1) (Just 2)))
+                    , fresh: Nothing
                     }
                   , { error: Nothing
                     , formula: Just $ FC b
                     , rule: Just (AndElim2 (Just 3))
+                    , fresh: Nothing
                     }
                   , { error: Nothing
                     , formula: Just $ FC (Implies p b)
                     , rule: Just (ImplIntro (Just $ Tuple 2 4))
+                    , fresh: Nothing
                     }
                   ]
               , scopes:
@@ -116,14 +121,17 @@ testInference =
                   [ { error: Nothing
                     , formula: (Just $ FC a)
                     , rule: (Just Premise)
+                    , fresh: Nothing
                     }
                   , { error: Nothing
                     , formula: (Just $ FC b)
                     , rule: (Just Premise)
+                    , fresh: Nothing
                     }
                   , { error: Nothing
                     , formula: (Just $ FC (And a b))
                     , rule: (Just (AndIntro (Just 1) (Just 2)))
+                    , fresh: Nothing
                     }
                   ]
               , scopes:
@@ -157,10 +165,12 @@ testInference =
                   [ { error: Nothing
                     , formula: (Just $ FC (And a b))
                     , rule: (Just Premise)
+                    , fresh: Nothing
                     }
                   , { error: Nothing
                     , formula: (Just $ FC a)
                     , rule: (Just (AndElim1 (Just 1)))
+                    , fresh: Nothing
                     }
                   ]
               , scopes:

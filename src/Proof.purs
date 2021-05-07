@@ -25,7 +25,7 @@ import Data.List as List
 import Data.Maybe (Maybe(..), fromJust, isJust, isNothing, maybe)
 import Data.Set (Set)
 import Data.Set as Set
-import Data.Tuple (Tuple(..))
+import Data.Tuple (Tuple(..), fst)
 import Formula
   ( Formula(..)
   , Term(..)
@@ -130,6 +130,7 @@ type ProofRow
   = { formula :: Maybe FFC
     , rule :: Maybe Rule
     , error :: Maybe NdError
+    , fresh :: Maybe Variable
     }
 
 type Box
@@ -233,6 +234,14 @@ boxRef ref = do
       _, _ -> Nothing
   except $ note BadRef maybeBox
 
+introRef :: Maybe Int -> ExceptT NdError ND Variable
+introRef ref = do
+  i <- except $ note BadRef ref
+  { rows, scopes } <- get
+  { fresh, error } <- except $ note RefOutOfBounds $ rows Array.!! (i - 1)
+  when (error == Just BadFormula) $ throwError BadRef -- User needs to have input the formula
+  except $ note BadRef fresh
+
 -- | Attempt to apply the specified rule given the user-provided formula.
 -- |
 -- | Does not modify state.
@@ -255,15 +264,7 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
               throwError BadRule
           _ -> throwError FormulaMismatch
       -- TODO Check if this assumption is the first formula in the current box
-      Assumption -> do
-        let
-          vars = case formula of
-            Just (FC f) -> allVarsInFormula f
-            _ -> []
-        if any (\v -> varInScope v scopes) vars then
-          throwError VarExists
-        else
-          except $ note BadFormula formula
+      Assumption -> do except $ note BadFormula formula
       AndElim1 i -> do
         a <- proofRef i
         case a of
@@ -402,6 +403,10 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
           when (not $ allInScope fTarget scopes) (throwError VarNotInScope)
           a <- proofRef i
           (Tuple b1 b2) <- boxRef box
+          let
+            j = fst $ unsafePartial $ fromJust $ box
+          introduced <- introRef $ Just j
+          when (introduced `Array.elem` allVarsInFormula fTarget) (throwError BadRule)
           case a, b1, b2 of
             FC (Exists v f), FC f', FC b2' ->
               if isJust $ hasSingleSubOf v f f' then
@@ -457,6 +462,7 @@ addProof :: { formula :: Maybe FFC, rule :: Maybe Rule } -> ND Unit
 addProof { formula: inputFormula, rule } = do
   -- Try to apply the rule (and get the correct formula)
   result <- runExceptT $ (except $ note InvalidRule rule) >>= (flip applyRule) inputFormula
+  { scopes } <- get
   let
     formula = inputFormula <|> hush result
 
@@ -466,12 +472,14 @@ addProof { formula: inputFormula, rule } = do
       Just f, Right g
         | f == g -> Nothing
         | otherwise -> Just FormulaMismatch
+
+    fresh = introduces formula scopes
   modify_ \proof ->
     proof
-      { rows = Array.snoc proof.rows { formula, rule, error }
+      { rows = Array.snoc proof.rows { formula, rule, error, fresh }
       , scopes = addLineToInnermost (Array.length proof.rows + 1) proof.scopes
       }
-  case inputFormula of
+  case formula of
     Just (VC v) -> modify_ \proof -> proof { scopes = addVarToInnermost v proof.scopes }
     Just (FC f) -> modify_ \proof -> proof { scopes = foldr addVarToInnermost proof.scopes (scopedVars f) }
     Nothing -> pure unit
@@ -484,6 +492,17 @@ addProof { formula: inputFormula, rule } = do
     Forall v f' -> Array.delete v $ scopedVars f'
     Exists v f' -> Array.delete v $ scopedVars f'
     _ -> Array.nub $ allVarsInFormula f
+
+introduces :: Maybe FFC -> List Scope -> Maybe Variable
+introduces ffc scopes = case ffc of
+  Just (FC f) -> do
+    let
+      allVars = allVarsInFormula f
+    case (Array.filter (\v -> not $ varInScope v scopes) allVars) of
+      [ introduced ] -> Just introduced
+      _ -> Nothing
+  Just (VC v) -> Just v
+  Nothing -> Nothing
 
 -- | Open a new box.
 openBox :: ND Unit
