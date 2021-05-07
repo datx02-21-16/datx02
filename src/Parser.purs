@@ -1,4 +1,4 @@
-module Parser (formula, parseFormula, parsePremises) where
+module Parser (formula, parseFormula, parsePremises, parseVar) where
 
 import Prelude
 import Control.Alternative ((<|>))
@@ -20,7 +20,7 @@ import Text.Parsing.Parser.Combinators (option, choice, try, sepBy1, chainl1, lo
 import Text.Parsing.Parser.String (anyChar, char, oneOf, satisfy, eof)
 import Text.Parsing.Parser.Token (GenLanguageDef(..), TokenParser, makeTokenParser, upper, letter, alphaNum)
 import Text.Parsing.Parser.Expr (OperatorTable, Assoc(..), Operator(..), buildExprParser)
-import Formula (Variable(..), Term(..), Formula(..), FFC(..))
+import Formula (Variable(..), Term(..), Formula(..))
 
 token :: TokenParser
 token = makeTokenParser languageDef
@@ -149,4 +149,4 @@ parsePremises s =
     fromRight' (\_ -> unsafeCrashWith "unreachable (parser always succeeds)") result
 
 parseVar :: String -> Either ParseError Variable
-parseVar = flip runParser $ variable <* eof
+parseVar = flip runParser $ token.whiteSpace *> variable <* eof

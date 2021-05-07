@@ -2,7 +2,6 @@ module Formula
   ( Variable(..)
   , Term(..)
   , Formula(..)
-  , FFC(..)
   , bottomProp
   , Substitution
   , singleSub
@@ -98,16 +97,6 @@ instance showFormula :: Show Formula where
       And a b -> optParens (n > 3) $ showPrec 3 a <> " ∧ " <> showPrec 4 b
       Or a b -> optParens (n > 2) $ showPrec 2 a <> " ∨ " <> showPrec 3 b
       Implies a b -> optParens (n > 1) $ showPrec 2 a <> " → " <> showPrec 1 b
-
-data FFC
-  = FC Formula
-  | VC Variable
-
-derive instance eqFFC :: Eq FFC
-
-instance showFFC :: Show FFC where
-  show (FC f) = "FC: " <> show f
-  show (VC v) = "VC: " <> show v
 
 -- | Dedicated symbol for a proposition that is assigned a false truth value.
 bottomProp :: Formula

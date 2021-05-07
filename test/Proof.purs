@@ -1,7 +1,8 @@
 module Test.Proof where
 
 import Prelude
-import Formula (Formula(..), FFC(..))
+import Formula (Formula(..))
+import FormulaOrVar (FFC(FC))
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
 import Data.List (List(Nil), (:))

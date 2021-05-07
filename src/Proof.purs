@@ -26,8 +26,7 @@ import Data.Maybe (Maybe(..), fromJust, isJust, isNothing, maybe)
 import Data.Set as Set
 import Data.Tuple (Tuple(..))
 import Formula
-  ( FFC(..)
-  , Formula(..)
+  ( Formula(..)
   , Term(..)
   , Variable(..)
   , allVarsInFormula
@@ -39,6 +38,7 @@ import Formula
   , singleSub
   , substitute
   )
+import FormulaOrVar (FFC(FC, VC))
 import Partial.Unsafe (unsafeCrashWith, unsafePartial)
 
 data Rule
