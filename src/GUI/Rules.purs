@@ -83,4 +83,11 @@ rules =
   , PBC
   , LEM
   , RtCopy
+  , RtFresh
+  , ForallElim
+  , ForallIntro
+  , ExistsElim
+  , ExistsIntro
+  , EqElim
+  , EqIntro
   ]

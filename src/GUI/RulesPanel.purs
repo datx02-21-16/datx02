@@ -86,15 +86,14 @@ ruleButtonPanel =
     PBC -> "pbc"
     LEM -> "lem"
     RtCopy -> "cp"
-
-  {-RtFresh -> "fr"
+    RtFresh -> "fr"
     ForallElim -> "foe/fae"
     ForallIntro -> "foi/fai"
     ExistsElim -> "exe/tee"
     ExistsIntro -> "exi/tei"
     EqElim -> "eqe"
     EqIntro -> "eqi"
-    -}
+
   ruleImageName :: RuleType -> String
   ruleImageName = case _ of
     RtPremise -> "premise"
@@ -116,15 +115,14 @@ ruleButtonPanel =
     PBC -> "PBC"
     LEM -> "LEM"
     RtCopy -> "copy"
-
-  {-RtFresh -> "fresh"
+    RtFresh -> "fresh"
     ForallElim -> "forall-elim"
     ForallIntro -> "forall-intro"
     ExistsElim -> "exist-elim"
     ExistsIntro -> "exist-intro"
     EqElim -> "eq-elim"
     EqIntro -> "eq-intro"
-    -}
+
   textualHint :: RuleType -> String
   textualHint r = case r of
     RtPremise ->
@@ -183,28 +181,31 @@ ruleButtonPanel =
       "The Law of Excluded Middle concludes that either φ must hold or "
         <> "¬φ must hold."
     RtCopy -> "A proven formula can always be copied if it is in scope."
-    _ -> "No explanation"
-
-  {-RtFresh ->
+    RtFresh ->
       "A fresh variable is a new variable which does not occur anywhere "
         <> "outside its box. It can be thought of as an arbitrary term."
-    ForallElim -> "You can replace the x in φ with any term t as long as " 
+    ForallElim ->
+      "You can replace the x in φ with any term t as long as "
         <> "t is free for x in φ."
-    ForallIntro -> "If you start with a fresh variable and are able to prove "
+    ForallIntro ->
+      "If you start with a fresh variable and are able to prove "
         <> "some formula φ[x0/x] with x0 in it then you can derive ∀xφ."
-    ExistsElim -> "You use x0 as a generic value representing all possible "
+    ExistsElim ->
+      "You use x0 as a generic value representing all possible "
         <> "values. If [x0/x] allows you to prove something which does not "
-        <> "mention x0 then this must be true no matter which specific value of "  
+        <> "mention x0 then this must be true no matter which specific value of "
         <> "x0 makes φ[x0/x]. Note that x0 cannot occur outside the scope of "
         <> "the assumption."
-    ExistsIntro -> "If you have φ[t/x] for some term t that is free for x in " 
+    ExistsIntro ->
+      "If you have φ[t/x] for some term t that is free for x in "
         <> "φ, then you may deduce ∃xφ."
     EqElim ->
       "This rule allows us to substitute equals with equals repeatedly. It "
         <> "comes with the side condition that t1 and t2 has to be free for x in φ"
-    EqIntro -> "Equality in terms of computation results. It can only be "
+    EqIntro ->
+      "Equality in terms of computation results. It can only be "
         <> "applied to terms."
-    -}
+
   handleAction :: Action -> H.HalogenM State Action () output m Unit
   handleAction action = case action of
     SetRule rule -> H.put $ Just rule
