@@ -22,7 +22,7 @@ module Formula
 import Prelude
 import Data.Array (zipWith)
 import Data.Array as Array
-import Data.Foldable (and, or, any, find, foldl)
+import Data.Foldable (and, any, find, foldl)
 import Data.List (List(Nil), (:), null, transpose)
 import Data.List as List
 import Data.Map (Map)

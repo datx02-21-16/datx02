@@ -29,7 +29,6 @@ import Data.Tuple (Tuple(..))
 import Formula
   ( Formula(..)
   , Term(..)
-  , Variable
   , allVarsInFormula
   , almostEqual
   , bottomProp
