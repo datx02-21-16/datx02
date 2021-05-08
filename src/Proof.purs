@@ -395,15 +395,17 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
             VC vLocal, FC fLocal -> do
               let
                 sub = singleSub v (Var vLocal)
-              if (isNothing sub) then
-                if (vLocal == v && fLocal == f) then
-                  pure formula'
-                else
-                  throwError BadRule
-              else if (substitute (unsafePartial $ fromJust sub) f == fLocal) then
-                pure formula'
-              else
-                throwError FormulaMismatch
+              case sub of
+                Just s ->
+                  if (substitute s f == fLocal) then
+                    pure formula'
+                  else
+                    throwError FormulaMismatch
+                Nothing ->
+                  if (vLocal == v && fLocal == f) then
+                    pure formula'
+                  else
+                    throwError BadRule
             _, _ -> throwError BadRule
         _ -> throwError FormulaMismatch
       ExistsElim i box -> case formula of
