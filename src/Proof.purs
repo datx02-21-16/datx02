@@ -106,7 +106,6 @@ data NdError
   | FormulaMismatch
   | InvalidRule
   | NotABox
-  | VarExists
 
 instance showNdError :: Show NdError where
   show BadRef = "bad reference"
@@ -117,7 +116,6 @@ instance showNdError :: Show NdError where
   show FormulaMismatch = "formula mismatch"
   show InvalidRule = "invalid rule"
   show NotABox = "not a box"
-  show VarExists = "variable already exists"
 
 derive instance eqNdError :: Eq NdError
 
