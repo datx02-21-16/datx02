@@ -144,6 +144,6 @@ parsePremises s =
   let
     result = runParser s $ token.whiteSpace *> sepBy1 premise (char ',' <* token.whiteSpace)
 
-    premise = parsedString $ void (try formula) <|> void (many anyChar)
+    premise = parsedString $ void (try $ formula <* lookAhead (char ',')) <|> void (many anyChar)
   in
     fromRight' (\_ -> unsafeCrashWith "unreachable (parser always succeeds)") result
