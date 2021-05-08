@@ -106,7 +106,6 @@ data NdError
   | FormulaMismatch
   | InvalidRule
   | NotABox
-  | VarNotInScope
   | VarExists
 
 instance showNdError :: Show NdError where
@@ -118,7 +117,6 @@ instance showNdError :: Show NdError where
   show FormulaMismatch = "formula mismatch"
   show InvalidRule = "invalid rule"
   show NotABox = "not a box"
-  show VarNotInScope = "variable not in scope"
   show VarExists = "variable already exists"
 
 derive instance eqNdError :: Eq NdError
