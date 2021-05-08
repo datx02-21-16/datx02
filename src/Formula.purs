@@ -1,5 +1,4 @@
-module Formula
-  ( Variable(..)
+module Formula  {--( Variable(..)
   , Term(..)
   , Formula(..)
   , bottomProp
@@ -17,7 +16,7 @@ module Formula
   , almostEqual
   , allVarsInFormula
   , equivalent
-  ) where
+  )--} where
 
 import Prelude
 import Data.Array (zipWith)
@@ -177,7 +176,7 @@ instance substitutableFormula :: Substitutable Formula where
     Predicate p args -> Predicate p (substitute θ <$> args)
     Not a -> Not $ sub a
     And a b -> And (sub a) (sub b)
-    Or a b -> And (sub a) (sub b)
+    Or a b -> Or (sub a) (sub b)
     Implies a b -> Implies (sub a) (sub b)
     Forall x a -> Forall x (subWithout x a)
     Exists x a -> Exists x (subWithout x a)
@@ -240,7 +239,7 @@ unify = go mempty
 -- |
 -- | Guaranteed to be the concatenation of all vars in the formula.
 varUniqueIn :: Formula -> Variable
-varUniqueIn = Variable <<< foldl (<>) "" <<< (map \(Variable s) -> s) <<< allVarsInFormula
+varUniqueIn = Variable <<< foldl (<>) "" <<< (map \(Variable s) -> s) <<< Array.nub <<< allVarsInFormula
 
 allVarsInTerm :: Term -> Array Variable
 allVarsInTerm = case _ of
