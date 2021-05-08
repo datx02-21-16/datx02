@@ -25,7 +25,7 @@ import Data.List as List
 import Data.Maybe (Maybe(..), fromJust, isJust, isNothing)
 import Data.Set (Set)
 import Data.Set as Set
-import Data.Tuple (Tuple(..), fst)
+import Data.Tuple (Tuple(..))
 import Formula
   ( Formula(..)
   , Term(..)
@@ -130,7 +130,6 @@ type ProofRow
   = { formula :: Maybe FFC
     , rule :: Maybe Rule
     , error :: Maybe NdError
-    , fresh :: Maybe Variable
     }
 
 type Box
@@ -233,14 +232,6 @@ boxRef ref = do
       Just f1, Just f2 -> Just $ Tuple f1 f2
       _, _ -> Nothing
   except $ note BadRef maybeBox
-
-introRef :: Maybe Int -> ExceptT NdError ND Variable
-introRef ref = do
-  i <- except $ note BadRef ref
-  { rows, scopes } <- get
-  { fresh, error } <- except $ note RefOutOfBounds $ rows Array.!! (i - 1)
-  when (error == Just BadFormula) $ throwError BadRef -- User needs to have input the formula
-  except $ note BadRef fresh
 
 -- | Attempt to apply the specified rule given the user-provided formula.
 -- |
@@ -413,16 +404,13 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
           when (not $ allInScope fTarget scopes) (throwError VarNotInScope)
           a <- proofRef i
           (Tuple b1 b2) <- boxRef box
-          let
-            j = fst $ unsafePartial $ fromJust $ box
-          introduced <- introRef $ Just j
-          when (introduced `Array.elem` allVarsInFormula fTarget) (throwError BadRule)
           case a, b1, b2 of
-            FC (Exists v f), FC f', FC b2' ->
-              if isJust $ hasSingleSubOf v f f' then
-                if b2' `equivalent` fTarget then pure formula' else throwError FormulaMismatch
-              else
-                throwError BadRule
+            FC (Exists v f), FC f', FC b2' -> do
+              case hasSingleSubOf v f f' of
+                Just (Var intro) -> do
+                  when (intro `Array.elem` allVarsInFormula fTarget) (throwError BadRule)
+                  if b2' `equivalent` fTarget then pure formula' else throwError FormulaMismatch
+                _ -> throwError BadRule
             _, _, _ -> throwError FormulaMismatch
         _ -> throwError FormulaMismatch
       ExistsIntro i -> case formula of
@@ -482,11 +470,9 @@ addProof { formula: inputFormula, rule } = do
       Just f, Right g
         | f == g -> Nothing
         | otherwise -> Just FormulaMismatch
-
-    fresh = introduces formula scopes
   modify_ \proof ->
     proof
-      { rows = Array.snoc proof.rows { formula, rule, error, fresh }
+      { rows = Array.snoc proof.rows { formula, rule, error }
       , scopes = addLineToInnermost (Array.length proof.rows + 1) proof.scopes
       }
   case formula of
@@ -502,17 +488,6 @@ addProof { formula: inputFormula, rule } = do
     Forall v f' -> Array.delete v $ scopedVars f'
     Exists v f' -> Array.delete v $ scopedVars f'
     _ -> Array.nub $ allVarsInFormula f
-
-introduces :: Maybe FFC -> List Scope -> Maybe Variable
-introduces ffc scopes = case ffc of
-  Just (FC f) -> do
-    let
-      allVars = allVarsInFormula f
-    case (Array.filter (\v -> not $ varInScope v scopes) allVars) of
-      [ introduced ] -> Just introduced
-      _ -> Nothing
-  Just (VC v) -> Just v
-  Nothing -> Nothing
 
 -- | Open a new box.
 openBox :: ND Unit
