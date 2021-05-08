@@ -1,4 +1,4 @@
-module Parser (formula, parseFormula, parsePremises) where
+module Parser (formula, parseFormula, parsePremises, parseVar) where
 
 import Prelude
 import Control.Alternative ((<|>))
@@ -147,3 +147,6 @@ parsePremises s =
     premise = parsedString $ void (try $ formula <* lookAhead (char ',')) <|> void (many anyChar)
   in
     fromRight' (\_ -> unsafeCrashWith "unreachable (parser always succeeds)") result
+
+parseVar :: String -> Either ParseError Variable
+parseVar = flip runParser $ token.whiteSpace *> variable <* eof

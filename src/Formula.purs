@@ -1,32 +1,37 @@
-module Formula
-  ( Variable(..)
+module Formula  {--( Variable(..)
   , Term(..)
   , Formula(..)
   , bottomProp
   , Substitution
   , singleSub
+  , varSub
   , class Substitutable
   , substitute
   , disagreementSet
   , unify
-  , containsTerm
   , formulaUnifier
+  , equalityProp
+  , hasSingleSubOf
   , isPropFormula
-  ) where
+  , almostEqual
+  , allVarsInFormula
+  , equivalent
+  )--} where
 
 import Prelude
-import Data.List as List
-import Data.List (List(Nil), null, transpose)
+import Data.Array (zipWith)
 import Data.Array as Array
-import Data.Maybe (Maybe(..), fromMaybe, maybe, isJust)
-import Data.String.Common (joinWith)
-import Data.Foldable (foldl, any, or, find)
-import Data.Traversable (sequence)
-import Data.Tuple (Tuple(..))
-import Data.Map as Map
+import Data.Foldable (and, any, find, foldl)
+import Data.List (List(Nil), (:), null, transpose)
+import Data.List as List
 import Data.Map (Map)
-import Data.Set as Set
+import Data.Map as Map
+import Data.Maybe (Maybe(..), fromMaybe, maybe, isJust)
 import Data.Set (Set)
+import Data.Set as Set
+import Data.String.Common (joinWith)
+import Data.Traversable (sequence)
+import Data.Tuple (Tuple(Tuple))
 import Data.Unfoldable as Unfoldable
 
 -- | A variable symbol.
@@ -81,37 +86,23 @@ instance showFormula :: Show Formula where
 
     optParens b s = if b then parens s else s
 
-    showPrec _ (Predicate p []) = p
-
-    showPrec _ (Predicate p args) = p <> parens (joinWith ", " (show <$> args))
-
-    showPrec _ (Not f) = "¬" <> showPrec 4 f
-
-    showPrec _ (Forall x f) = "∀" <> show x <> " " <> showPrec 4 f
-
-    showPrec _ (Exists x f) = "∃" <> show x <> " " <> showPrec 4 f
-
-    showPrec n (And a b) =
-      optParens (n > 3)
-        $ showPrec 3 a
-        <> " ∧ "
-        <> showPrec 4 b
-
-    showPrec n (Or a b) =
-      optParens (n > 2)
-        $ showPrec 2 a
-        <> " ∨ "
-        <> showPrec 3 b
-
-    showPrec n (Implies a b) =
-      optParens (n > 1)
-        $ showPrec 2 a
-        <> " → "
-        <> showPrec 1 b
+    showPrec n = case _ of
+      Predicate p [] -> p
+      Predicate "=" [ x, y ] -> show x <> " = " <> show y
+      Predicate p args -> p <> parens (joinWith ", " (show <$> args))
+      Not f -> "¬" <> showPrec 4 f
+      Forall x f -> "∀" <> show x <> " " <> showPrec 4 f
+      Exists x f -> "∃" <> show x <> " " <> showPrec 4 f
+      And a b -> optParens (n > 3) $ showPrec 3 a <> " ∧ " <> showPrec 4 b
+      Or a b -> optParens (n > 2) $ showPrec 2 a <> " ∨ " <> showPrec 3 b
+      Implies a b -> optParens (n > 1) $ showPrec 2 a <> " → " <> showPrec 1 b
 
 -- | Dedicated symbol for a proposition that is assigned a false truth value.
 bottomProp :: Formula
 bottomProp = Predicate "⊥" []
+
+equalityProp :: Term -> Term -> Formula
+equalityProp t1 t2 = Predicate "=" [ t1, t2 ]
 
 -- | A substitution {t₁/v₁, ..., tₙ/vₙ}.
 -- |
@@ -185,7 +176,7 @@ instance substitutableFormula :: Substitutable Formula where
     Predicate p args -> Predicate p (substitute θ <$> args)
     Not a -> Not $ sub a
     And a b -> And (sub a) (sub b)
-    Or a b -> And (sub a) (sub b)
+    Or a b -> Or (sub a) (sub b)
     Implies a b -> Implies (sub a) (sub b)
     Forall x a -> Forall x (subWithout x a)
     Exists x a -> Exists x (subWithout x a)
@@ -243,64 +234,53 @@ unify = go mempty
     in
       sub >>= (\λ -> go (σ <> λ) (Set.map (map (substitute λ)) w))
 
-containsTerm :: Formula -> Term -> Boolean
-containsTerm f t = case f of
-  Predicate _ args -> or $ map (\t' -> t == t') args
-  Not f' -> containsTerm f' t
-  And f1 f2 -> containsTerm f1 t || containsTerm f2 t
-  Or f1 f2 -> containsTerm f1 t || containsTerm f2 t
-  Implies f1 f2 -> containsTerm f1 t || containsTerm f2 t
-  Forall x f' -> t /= Var x && containsTerm f' t
-  Exists x f' -> t /= Var x && containsTerm f' t
-
 -- | Returns a new variable that does not conflict with any
 -- | pre-existent variable in the specified formula.
 -- |
 -- | Guaranteed to be the concatenation of all vars in the formula.
 varUniqueIn :: Formula -> Variable
-varUniqueIn = Variable <<< foldl (<>) "" <<< allVarsInFormula
-  where
-  allVarsInTerm = case _ of
-    Var (Variable s) -> [ s ]
-    App _ args -> args >>= allVarsInTerm
+varUniqueIn = Variable <<< foldl (<>) "" <<< (map \(Variable s) -> s) <<< Array.nub <<< allVarsInFormula
 
-  allVarsInFormula = case _ of
-    Predicate _ args -> args >>= allVarsInTerm
-    Not f -> allVarsInFormula f
-    And f1 f2 -> allVarsInFormula f1 <> allVarsInFormula f2
-    Or f1 f2 -> allVarsInFormula f1 <> allVarsInFormula f2
-    Implies f1 f2 -> allVarsInFormula f1 <> allVarsInFormula f2
-    Forall (Variable x) f -> [ x ] <> allVarsInFormula f
-    Exists (Variable x) f -> [ x ] <> allVarsInFormula f
+allVarsInTerm :: Term -> Array Variable
+allVarsInTerm = case _ of
+  Var v -> [ v ]
+  App _ args -> args >>= allVarsInTerm
+
+allVarsInFormula :: Formula -> Array Variable
+allVarsInFormula = case _ of
+  Predicate _ args -> args >>= allVarsInTerm
+  Not f -> allVarsInFormula f
+  And f1 f2 -> allVarsInFormula f1 <> allVarsInFormula f2
+  Or f1 f2 -> allVarsInFormula f1 <> allVarsInFormula f2
+  Implies f1 f2 -> allVarsInFormula f1 <> allVarsInFormula f2
+  Forall x f -> [ x ] <> allVarsInFormula f
+  Exists x f -> [ x ] <> allVarsInFormula f
 
 -- | Unify the terms in the two formulas.
 formulaUnify :: Formula -> Formula -> Maybe (Tuple Substitution (List Term))
-formulaUnify f1 f2 = subTerms f1 f2 >>= unify
+formulaUnify f1 f2 = (Set.fromFoldable <$> subTerms f1 f2) >>= unify
   where
   -- | Returns the subterms if the two formulas have the same structure.
-  subTerms :: Formula -> Formula -> Maybe (Set (List Term))
+  subTerms :: Formula -> Formula -> Maybe (List (List Term))
   subTerms = case _, _ of
     Predicate f args1, Predicate g args2
-      | f == g, Array.length args1 == Array.length args2 ->
-        Just
-          $ Set.fromFoldable
-              [ List.fromFoldable args1, List.fromFoldable args2 ]
+      | f == g, Array.length args1 == Array.length args2 -> Just $ List.fromFoldable args1 : List.fromFoldable args2 : Nil
     Not a, Not b -> subTerms a b
-    And a b, And c d -> (<>) <$> subTerms a c <*> subTerms b d
-    Or a b, Or c d -> (<>) <$> subTerms a c <*> subTerms b d
-    Implies a b, Implies c d -> (<>) <$> subTerms a c <*> subTerms b d
+    And a b, And c d -> List.zipWith (<>) <$> subTerms a c <*> subTerms b d
+    Or a b, Or c d -> List.zipWith (<>) <$> subTerms a c <*> subTerms b d
+    Implies a b, Implies c d -> List.zipWith (<>) <$> subTerms a c <*> subTerms b d
     Forall x f, Forall y g -> subTermsQuantified x f y g
     Exists x f, Exists y g -> subTermsQuantified x f y g
     _, _ -> Nothing
 
-  subTermsQuantified :: Variable -> Formula -> Variable -> Formula -> Maybe (Set (List Term))
+  subTermsQuantified :: Variable -> Formula -> Variable -> Formula -> Maybe (List (List Term))
   subTermsQuantified x f y g =
     let
       gWithoutX = substitute (varSub x (y <> varUniqueIn f <> varUniqueIn g)) g
 
-      gWithXInsteadOfY = substitute (varSub y x) gWithoutX
+      gWithXInsteadOfY = if x == y then g else substitute (varSub y x) gWithoutX
     in
-      case formulaUnify f (if x == y then g else gWithXInsteadOfY) of
+      case formulaUnify f gWithXInsteadOfY of
         Nothing -> Nothing
         -- Disallow unification of ∃x P(x) and ∃y P(z)
         Just (Tuple (Substitution s) _)
@@ -310,6 +290,48 @@ formulaUnify f1 f2 = subTerms f1 f2 >>= unify
 
 formulaUnifier :: Formula -> Formula -> Maybe Substitution
 formulaUnifier a b = (\(Tuple σ _) -> σ) <$> formulaUnify a b
+
+-- | Given x, returns the t in the the substitution {t/v}
+-- | such that g equals f{t/v}, if it exists.
+hasSingleSubOf :: Variable -> Formula -> Formula -> Maybe Term
+hasSingleSubOf x f g = do
+  let
+    uniqueVar = x <> varUniqueIn f <> varUniqueIn g
+
+    fWithoutX = substitute (varSub x uniqueVar) f
+  Substitution s <- formulaUnifier fWithoutX g
+  unless (Map.size s == 1) Nothing
+  case Map.findMin s of
+    Just { key: x', value: t }
+      | x' == uniqueVar -> Just t
+    Just { key: t, value: Var x' }
+      | x' == uniqueVar -> Just $ Var t
+    _ -> Nothing
+
+almostEqual :: Term -> Term -> Formula -> Formula -> Boolean
+almostEqual t1 t2 = go Set.empty
+  where
+  go boundVars f1 f2 = case f1, f2 of
+    Predicate f args1, Predicate g args2
+      | f == g && Array.length args1 == Array.length args2 -> and $ zipWith equalOrSub args1 args2
+    Not a, Not b -> go boundVars a b
+    And a b, And c d -> go boundVars a c && go boundVars b d
+    Or a b, Or c d -> go boundVars a c && go boundVars b d
+    Implies a b, Implies c d -> go boundVars a c && go boundVars b d
+    Forall x f, Forall y g -> go (Set.insert (Var y) $ Set.insert (Var x) boundVars) f g
+    Exists x f, Exists y g -> go (Set.insert (Var y) $ Set.insert (Var x) boundVars) f g
+    _, _ -> false
+    where
+    equalOrSub :: Term -> Term -> Boolean
+    equalOrSub a1 a2 =
+      case a1, a2 of
+        App fun1 fArgs1, App fun2 fArgs2
+          | fun1 == fun2 && Array.length fArgs1 == Array.length fArgs2 -> and $ zipWith equalOrSub fArgs1 fArgs2
+        _, _ -> a1 == a2
+        || (not (a1 `Set.member` boundVars || a2 `Set.member` boundVars) && a1 == t1 && a2 == t2)
+
+equivalent :: Formula -> Formula -> Boolean
+equivalent f1 f2 = f1 == f2 || formulaUnifier f1 f2 == Just mempty
 
 isPropFormula :: Formula -> Boolean
 isPropFormula formula = case formula of

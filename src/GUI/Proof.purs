@@ -1,3 +1,9 @@
+-- | Editable proof Halogen component.
+-- |
+-- | For GUI proof state we use a representation that is easy to
+-- | modify, i.e. has a single contiguous array of all rows. When
+-- | rendering or validating we map this to a tree with subproof
+-- | nodes.
 module GUI.Proof (Slot, proof) where
 
 import Prelude
@@ -24,6 +30,7 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.HTML.Properties.ARIA as HPARIA
+import FormulaOrVar (parseFFC)
 import Parser (parseFormula, parsePremises)
 import Partial.Unsafe (unsafePartial, unsafeCrashWith)
 import Proof (NdError(..))
@@ -40,13 +47,17 @@ import Web.UIEvent.KeyboardEvent (KeyboardEvent)
 import Web.UIEvent.KeyboardEvent as KeyboardEvent
 import Text.Parsing.Parser (parseErrorMessage)
 
--- For GUI proof state we use a representation that is easy to modify,
--- i.e. has a single contiguous array of all rows. When rendering or
--- validating we map this to a tree with subproof nodes.
+data BoxOpenerType
+  = Assumption
+  | Fresh
+
+derive instance eqBoxOpenerType :: Eq BoxOpenerType
+
 data Rule
   = Rule String
   | Premise
-  | Assumption
+  | BoxOpener
+    BoxOpenerType
     { boxEndIdx :: Int -- Inclusive end of box
     }
 
@@ -55,7 +66,7 @@ derive instance eqRule :: Eq Rule
 instance showRule :: Show Rule where
   show (Rule s) = s
   show Premise = "Premise"
-  show (Assumption { boxEndIdx }) = "Assumption (box ends at " <> show boxEndIdx <> ")"
+  show (BoxOpener _ { boxEndIdx }) = "Box (ends at " <> show boxEndIdx <> ")"
 
 data RuleArgType
   = RowIdx
@@ -83,6 +94,13 @@ ruleArgTypes = case _ of
   PBC -> [ BoxRange ]
   LEM -> []
   RtCopy -> [ RowIdx ]
+  RtFresh -> []
+  ForallElim -> [ RowIdx ]
+  ForallIntro -> [ BoxRange ]
+  ExistsElim -> [ RowIdx, BoxRange ]
+  ExistsIntro -> [ RowIdx ]
+  EqElim -> [ RowIdx, RowIdx ]
+  EqIntro -> []
 
 parseRowIdx :: String -> Maybe Int
 parseRowIdx = Int.fromString
@@ -113,6 +131,13 @@ parseRuleText = case _ of
   "PBC" -> Just PBC
   "LEM" -> Just LEM
   "Copy" -> Just RtCopy
+  "Fresh" -> Just RtFresh
+  "∀e" -> Just ForallElim
+  "∀i" -> Just ForallIntro
+  "∃e" -> Just ExistsElim
+  "∃i" -> Just ExistsIntro
+  "=e" -> Just EqElim
+  "=i" -> Just EqIntro
   _ -> Nothing
 
 parseRule :: ProofRow -> Maybe P.Rule
@@ -144,6 +169,13 @@ parseRule { rule, ruleArgs } =
             PBC, [ a ] -> Just $ P.PBC (parseBoxRange a)
             LEM, [] -> Just P.LEM
             RtCopy, [ a ] -> Just $ P.Copy (parseRowIdx a)
+            RtFresh, [] -> Just P.Fresh
+            ForallElim, [ a ] -> Just $ P.ForallElim (parseRowIdx a)
+            ForallIntro, [ a ] -> Just $ P.ForallIntro (parseBoxRange a)
+            ExistsElim, [ a, b ] -> Just $ P.ExistsElim (parseRowIdx a) (parseBoxRange b)
+            ExistsIntro, [ a ] -> Just $ P.ExistsIntro (parseRowIdx a)
+            EqElim, [ a, b ] -> Just $ P.EqElim (parseRowIdx a) (parseRowIdx b)
+            EqIntro, [] -> Just P.EqIntro
             _, _ -> Nothing
 
 ruleText :: Rule -> String
@@ -151,7 +183,9 @@ ruleText (Rule s) = s
 
 ruleText Premise = "Premise"
 
-ruleText (Assumption _) = "Ass."
+ruleText (BoxOpener Assumption _) = "Ass."
+
+ruleText (BoxOpener Fresh _) = "Fresh"
 
 errorText :: P.NdError -> String
 errorText = case _ of
@@ -254,7 +288,7 @@ proofTree { rows } = case result of
     foldlWithIndex
       ( \i (currentBox@{ elems } :| parentBoxes) proofRow ->
           closeBoxesIfPossible i case proofRow.rule of
-            Assumption { boxEndIdx } ->
+            BoxOpener _ { boxEndIdx } ->
               { elems: [ RowNode i proofRow ], endIdx: boxEndIdx }
                 :| currentBox
                 : parentBoxes
@@ -414,7 +448,7 @@ render st =
           <> [ HH.p [ HP.classes [ H.ClassName "help", H.ClassName "is-danger" ] ] (either (\err -> [ HH.text $ "Cannot parse formula: " <> parseErrorMessage err ]) (const []) parseResult) ]
       )
     where
-    parseResult = parseFormula text
+    parseResult = parseFFC text
 
     isOk = isRight parseResult
 
@@ -423,14 +457,14 @@ render st =
       proofTreeAction :: ProofTree -> Array (P.ND Unit)
       proofTreeAction = case _ of
         Subproof xs -> [ P.openBox ] <> (xs >>= proofTreeAction) <> [ P.closeBox ]
-        RowNode i r ->
+        RowNode _ r ->
           pure
             $ P.addProof
-                { formula: hush $ parseFormula r.formulaText
+                { formula: hush $ parseFFC r.formulaText
                 , rule: parseRule r
                 }
 
-      conclusion = hush $ parseFormula st.conclusion
+      conclusion = hush $ parseFFC st.conclusion
     in
       P.runND conclusion (sequence $ proofTree st >>= proofTreeAction)
 
@@ -600,7 +634,7 @@ handleAction = case _ of
           deleteRow i
           H.liftEffect $ Event.preventDefault (KeyboardEvent.toEvent ev)
     _ -> pure unit
-  DragStart i ev -> do
+  DragStart i _ -> do
     H.modify_ (\st -> st { dragged = Just i })
   DragOver i ev -> do
     validDropZone <- isValidDropZone i
@@ -617,11 +651,10 @@ handleAction = case _ of
     when (draggingOver /= Just i) do
       H.liftEffect $ DataTransfer.setDropEffect DataTransfer.None $ DragEvent.dataTransfer ev
       H.modify_ \st -> st { draggingOver = Nothing }
-  DragEnd i ev -> H.modify_ \st -> st { draggingOver = Nothing, dragged = Nothing }
+  DragEnd _ _ -> H.modify_ \st -> st { draggingOver = Nothing, dragged = Nothing }
   Drop i ev -> do
     validDropZone <- isValidDropZone i
     when validDropZone do
-      dragged <- unsafePartial $ fromJust <$> H.gets _.dragged
       H.liftEffect $ Event.preventDefault $ DragEvent.toEvent ev
       { start, end } <- draggedRows
       H.modify_ \st ->
@@ -632,21 +665,21 @@ handleAction = case _ of
 
           updateBoxes =
             mapWithIndex \j -> case _ of
-              row@{ rule: Assumption { boxEndIdx } }
+              row@{ rule: BoxOpener ty { boxEndIdx } }
                 -- Moved box
                 | start <= j, j < end ->
                   row
-                    { rule = Assumption { boxEndIdx: boxEndIdx + (newStart - start) }
+                    { rule = BoxOpener ty { boxEndIdx: boxEndIdx + (newStart - start) }
                     }
                 -- Move before/inside box
                 | i <= boxEndIdx, boxEndIdx < start ->
                   row
-                    { rule = Assumption { boxEndIdx: boxEndIdx + (end - start) }
+                    { rule = BoxOpener ty { boxEndIdx: boxEndIdx + (end - start) }
                     }
                 -- Move after box
                 | start <= boxEndIdx, boxEndIdx < i ->
                   row
-                    { rule = Assumption { boxEndIdx: boxEndIdx - (end - start) }
+                    { rule = BoxOpener ty { boxEndIdx: boxEndIdx - (end - start) }
                     }
               x -> x
 
@@ -725,8 +758,8 @@ handleAction = case _ of
   modifyBoxEnds :: Int -> Int -> Array ProofRow -> Array ProofRow
   modifyBoxEnds off i =
     map case _ of
-      row@{ rule: Assumption { boxEndIdx } }
-        | i <= boxEndIdx -> row { rule = Assumption { boxEndIdx: boxEndIdx + off } }
+      row@{ rule: BoxOpener ty { boxEndIdx } }
+        | i <= boxEndIdx -> row { rule = BoxOpener ty { boxEndIdx: boxEndIdx + off } }
       x -> x
 
   -- | Takes an index and an array of rows. Increases the ending position of
@@ -739,8 +772,8 @@ handleAction = case _ of
           if idx == e then
             r
           else case r of
-            row@{ rule: Assumption { boxEndIdx } }
-              | (i <= boxEndIdx) -> row { rule = Assumption { boxEndIdx: boxEndIdx + 1 } }
+            row@{ rule: BoxOpener ty { boxEndIdx } }
+              | (i <= boxEndIdx) -> row { rule = BoxOpener ty { boxEndIdx: boxEndIdx + 1 } }
             x -> x
       )
       (enumerate rs)
@@ -754,7 +787,7 @@ handleAction = case _ of
       startRow = unsafePartial $ fromJust $ rows !! start
     let
       end = case startRow.rule of
-        Assumption { boxEndIdx } -> boxEndIdx + 1
+        BoxOpener _ { boxEndIdx } -> boxEndIdx + 1
         _ -> start + 1
     pure { start, end }
 
@@ -784,13 +817,13 @@ scopeStart i st = fst $ innermostScope i st
 
   -- | Extracts all boxes along with their index from a list of indexed rows.
   indexedBoxes :: State -> Array (Tuple Int ProofRow)
-  indexedBoxes st = Array.filter (\(Tuple i r) -> isBox r) (enumerate st.rows)
+  indexedBoxes st = Array.filter (\(Tuple _ r) -> isBox r) (enumerate st.rows)
 
   -- | Takes a row, assumed to be the start of a box, along with it's
   --   position in the proof. Returns a tuple with the limits of the box.
   boxLimits :: Tuple Int ProofRow -> Tuple Int Int
   boxLimits (Tuple i r) = case r.rule of
-    (Assumption { boxEndIdx }) -> Tuple i boxEndIdx
+    BoxOpener _ { boxEndIdx } -> Tuple i boxEndIdx
     _ -> unsafeCrashWith "Not a box."
 
   -- | Get a list of all boxes in a state as tuples.
@@ -802,7 +835,7 @@ getAllEndings st = map rToE $ boxes st
   where
   rToE :: ProofRow -> Int
   rToE r = case r.rule of
-    Assumption { boxEndIdx } -> boxEndIdx
+    BoxOpener _ { boxEndIdx } -> boxEndIdx
     _ -> unsafeCrashWith "Row is not a box."
 
 boxes :: State -> Array ProofRow
@@ -811,12 +844,13 @@ boxes st = Array.filter isBox st.rows
 -- | Check if a row is the start of a box.
 isBox :: ProofRow -> Boolean
 isBox r = case r.rule of
-  Assumption _ -> true
+  BoxOpener _ _ -> true
   _ -> false
 
 ruleFromString :: String -> Int -> Rule
 ruleFromString s rowIdx
-  | s == "Ass." || s == "as" = Assumption { boxEndIdx: rowIdx }
   | s == "pr" || s == "Premise" = Premise
+  | s == "Ass." || s == "as" = BoxOpener Assumption { boxEndIdx: rowIdx }
+  | s == "fr" || s == "Fresh" = BoxOpener Fresh { boxEndIdx: rowIdx }
   | s == "cp" || s == "co" || s == "Copy" = Rule "Copy"
   | otherwise = Rule s
