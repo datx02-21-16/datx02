@@ -323,8 +323,12 @@ almostEqual t1 t2 = go Set.empty
     Exists x f, Exists y g -> go (Set.insert (Var y) $ Set.insert (Var x) boundVars) f g
     _, _ -> false
     where
+    equalOrSub :: Term -> Term -> Boolean
     equalOrSub a1 a2 =
-      a1 == a2
+      case a1, a2 of
+        App fun1 fArgs1, App fun2 fArgs2
+          | fun1 == fun2 && Array.length fArgs1 == Array.length fArgs2 -> and $ zipWith equalOrSub fArgs1 fArgs2
+        _, _ -> a1 == a2
         || (not (a1 `Set.member` boundVars || a2 `Set.member` boundVars) && a1 == t1 && a2 == t2)
 
 equivalent :: Formula -> Formula -> Boolean
