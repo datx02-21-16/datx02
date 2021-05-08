@@ -19,7 +19,7 @@ import Control.Monad.Maybe.Trans (MaybeT(MaybeT), runMaybeT)
 import Control.Monad.State (State, class MonadState, runState, modify_, get)
 import Data.Array as Array
 import Data.Either (Either(..), note, hush)
-import Data.Foldable (all, any, foldr)
+import Data.Foldable (all, any)
 import Data.List (List(Nil), (:))
 import Data.List as List
 import Data.Maybe (Maybe(..), fromJust, isJust, isNothing)
@@ -36,8 +36,6 @@ import Formula
   , equalityProp
   , equivalent
   , hasSingleSubOf
-  , singleSub
-  , substitute
   )
 import FormulaOrVar (FFC(FC, VC))
 import Partial.Unsafe (unsafeCrashWith, unsafePartial)
@@ -139,7 +137,6 @@ type Box
 type Scope
   = { lines :: Set Int
     , boxes :: Array Box
-    , vars :: Set Variable
     , boxStart :: Maybe Int
     }
 
@@ -148,7 +145,6 @@ fullScope :: Scope
 fullScope =
   { lines: Set.empty
   , boxes: []
-  , vars: Set.empty
   , boxStart: Nothing
   }
 
@@ -156,7 +152,6 @@ newScope :: Int -> Scope
 newScope n =
   { lines: Set.empty
   , boxes: []
-  , vars: Set.empty
   , boxStart: Just n
   }
 
@@ -286,7 +281,6 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
       OrIntro1 i -> do
         case formula of
           Just f@(FC f'@(Or f1 _)) -> do
-            when (not $ allInScope f' scopes) (throwError VarNotInScope)
             a <- proofRef i
             case a of
               FC a' -> if a' `equivalent` f1 then pure f else throwError FormulaMismatch
@@ -295,7 +289,6 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
       OrIntro2 i -> do
         case formula of
           Just f@(FC f'@(Or _ f2)) -> do
-            when (not $ allInScope f' scopes) (throwError VarNotInScope)
             a <- proofRef i
             case a of
               FC a' -> if a' `equivalent` f2 then pure f else throwError FormulaMismatch
@@ -365,7 +358,7 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
           FC _ -> pure a
           _ -> throwError BadRule
       Fresh -> case formula of
-        Just vc@(VC v) -> if (varInScope v scopes) then (throwError VarExists) else (pure vc)
+        Just vc@(VC v) -> pure vc
         _ -> throwError FormulaMismatch
       ForallElim i -> case formula of
         Just formula'@(FC fTarget) -> do
@@ -380,28 +373,15 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
         _ -> throwError FormulaMismatch
       ForallIntro box -> case formula of
         Just formula'@(FC fTarget@(Forall v f)) -> do
-          when (not $ allInScope fTarget scopes) (throwError VarNotInScope)
           (Tuple a b) <- boxRef box
           case a, b of
-            VC vLocal, FC fLocal -> do
-              let
-                sub = singleSub v (Var vLocal)
-              case sub of
-                Just s ->
-                  if (substitute s f == fLocal) then
-                    pure formula'
-                  else
-                    throwError FormulaMismatch
-                Nothing ->
-                  if (vLocal == v && fLocal == f) then
-                    pure formula'
-                  else
-                    throwError BadRule
+            VC vLocal, FC fLocal -> case hasSingleSubOf v f fLocal of
+              Just (Var vSub) -> if vSub == vLocal then pure formula' else throwError BadRule
+              _ -> throwError BadRule
             _, _ -> throwError BadRule
         _ -> throwError FormulaMismatch
       ExistsElim i box -> case formula of
         Just formula'@(FC fTarget) -> do
-          when (not $ allInScope fTarget scopes) (throwError VarNotInScope)
           a <- proofRef i
           (Tuple b1 b2) <- boxRef box
           case a, b1, b2 of
@@ -443,12 +423,6 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
           else
             throwError FormulaMismatch
         _ -> throwError FormulaMismatch
-    where
-    allInScope f scopes = do
-      case f of
-        Forall v f' -> allInScope f' (addVarToInnermost v scopes)
-        Exists v f' -> allInScope f' (addVarToInnermost v scopes)
-        _ -> all (\var -> varInScope var scopes) (allVarsInFormula f)
 
 -- | Add a row to the derivation.
 -- |
@@ -475,10 +449,6 @@ addProof { formula: inputFormula, rule } = do
       { rows = Array.snoc proof.rows { formula, rule, error }
       , scopes = addLineToInnermost (Array.length proof.rows + 1) proof.scopes
       }
-  case formula of
-    Just (VC v) -> modify_ \proof -> proof { scopes = addVarToInnermost v proof.scopes }
-    Just (FC f) -> modify_ \proof -> proof { scopes = foldr addVarToInnermost proof.scopes (scopedVars f) }
-    Nothing -> pure unit
   where
   scopedVars f = case f of
     Not f' -> scopedVars f'
@@ -528,10 +498,6 @@ boxInScope b ss = any (\s -> b `Array.elem` s.boxes) ss
 lineInScope :: Int -> List Scope -> Boolean
 lineInScope l ss = any (\s -> l `Set.member` s.lines) ss
 
--- | Check if a variable is in scope in a stack of scopes.
-varInScope :: Variable -> List Scope -> Boolean
-varInScope v ss = any (\s -> v `Set.member` s.vars) ss
-
 -- | Add a box to a scope.
 addBox :: Box -> Scope -> Scope
 addBox b s = s { boxes = b `Array.cons` s.boxes }
@@ -539,10 +505,6 @@ addBox b s = s { boxes = b `Array.cons` s.boxes }
 -- | Add a line to a scope.
 addLine :: Int -> Scope -> Scope
 addLine l s = s { lines = l `Set.insert` s.lines }
-
--- | Add a variable to a scope.
-addVar :: Variable -> Scope -> Scope
-addVar v s = s { vars = v `Set.insert` s.vars }
 
 -- | Add a box to the innermost scope in a stack of scopes.
 addBoxToInnermost :: Box -> List Scope -> List Scope
@@ -555,9 +517,3 @@ addLineToInnermost :: Int -> List Scope -> List Scope
 addLineToInnermost l (innermost : outerScopes) = addLine l innermost : outerScopes
 
 addLineToInnermost _ _ = unsafeCrashWith "Cannot add to an empty list of scopes."
-
--- | Add a variable to the innermost scope in a stack of scopes.
-addVarToInnermost :: Variable -> List Scope -> List Scope
-addVarToInnermost v (innermost : outerScopes) = addVar v innermost : outerScopes
-
-addVarToInnermost _ _ = unsafeCrashWith "Cannot add to an empty list of scopes."
