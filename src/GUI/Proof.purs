@@ -24,7 +24,7 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.HTML.Properties.ARIA as HPARIA
-import Parser (parseFormula)
+import Parser (parseFormula, parsePremises)
 import Partial.Unsafe (unsafePartial, unsafeCrashWith)
 import Proof (NdError(..))
 import Proof as P
@@ -280,9 +280,9 @@ premises = map _.formulaText <<< Array.takeWhile ((_ == Premise) <<< _.rule)
 strToPremiseRows :: String -> Array ProofRow
 strToPremiseRows =
   map { formulaText: _, rule: Premise, ruleArgs: [] }
-    <<< map trim
     <<< removeEmptyString
-    <<< split (Pattern ",")
+    <<< Array.fromFoldable
+    <<< parsePremises
   where
   removeEmptyString [ "" ] = []
 
@@ -655,10 +655,12 @@ handleAction = case _ of
           st { rows = rows' }
   UpdatePremises s ->
     H.modify_ \st ->
-      st
-        { premisesInput = s
-        , rows = strToPremiseRows s <> Array.dropWhile ((_ == Premise) <<< _.rule) st.rows
-        }
+      let
+        newRows = case strToPremiseRows s <> Array.dropWhile ((_ == Premise) <<< _.rule) st.rows of
+          [] -> [ emptyRow ]
+          rows -> rows
+      in
+        st { premisesInput = s, rows = newRows }
   UpdateConclusion s -> H.modify_ \st -> st { conclusion = s }
   ClearProof -> H.put $ initialState unit
   ShowHint -> do
