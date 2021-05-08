@@ -1,16 +1,23 @@
-module Parser (formula, parseFormula) where
+module Parser (formula, parseFormula, parsePremises) where
 
 import Prelude
 import Control.Alternative ((<|>))
 import Control.Lazy (fix)
 import Data.Array as Array
+import Data.List (many)
+import Data.List.NonEmpty (NonEmptyList)
 import Data.String.CodePoints (codePointFromChar)
 import Data.CodePoint.Unicode (isLower)
-import Data.Either (Either)
+import Data.Maybe (fromJust)
+import Data.Either (Either, fromRight')
 import Data.Identity (Identity)
-import Text.Parsing.Parser (Parser, ParserT, ParseError, runParser)
-import Text.Parsing.Parser.Combinators (option, choice, chainl1, lookAhead, (<?>))
-import Text.Parsing.Parser.String (char, oneOf, satisfy, eof)
+import Data.String (Pattern(Pattern))
+import Data.String as String
+import Control.Monad.State.Class (gets)
+import Partial.Unsafe (unsafePartial, unsafeCrashWith)
+import Text.Parsing.Parser (Parser, ParserT, ParseError, ParseState(ParseState), runParser)
+import Text.Parsing.Parser.Combinators (option, choice, try, sepBy1, chainl1, lookAhead, (<?>))
+import Text.Parsing.Parser.String (anyChar, char, oneOf, satisfy, eof)
 import Text.Parsing.Parser.Token (GenLanguageDef(..), TokenParser, makeTokenParser, upper, letter, alphaNum)
 import Text.Parsing.Parser.Expr (OperatorTable, Assoc(..), Operator(..), buildExprParser)
 import Formula (Variable(..), Term(..), Formula(..))
@@ -117,3 +124,26 @@ parseFormula :: String -> Either ParseError Formula
 -- not treat EOF as a symbol boundary, so append a single whitespace
 -- to improve error messages.
 parseFormula = flip runParser (token.whiteSpace *> formula <* eof) <<< (_ <> " ")
+
+parsedString :: forall m a. Monad m => ParserT String m a -> ParserT String m String
+parsedString p = do
+  initial <- getInput
+  _ <- p
+  remaining <- getInput
+  pure $ unsafePartial $ fromJust $ String.stripSuffix (Pattern remaining) initial
+  where
+  getInput :: forall s. ParserT s m s
+  getInput = gets \(ParseState input _ _) -> input
+
+-- | Parses a comma-separated premises string.
+-- |
+-- | If a premise fails to parse it is replaced with the remaining
+-- | input.
+parsePremises :: String -> NonEmptyList String
+parsePremises s =
+  let
+    result = runParser s $ token.whiteSpace *> sepBy1 premise (char ',' <* token.whiteSpace)
+
+    premise = parsedString $ void (try formula) <|> void (many anyChar)
+  in
+    fromRight' (\_ -> unsafeCrashWith "unreachable (parser always succeeds)") result
