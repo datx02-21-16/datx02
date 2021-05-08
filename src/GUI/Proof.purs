@@ -197,8 +197,6 @@ errorText = case _ of
   P.FormulaMismatch -> "Formula does not match output from rule"
   P.InvalidRule -> "Non-existent rule"
   P.NotABox -> "Not a valid box"
-  P.VarNotInScope -> "Variable is not in scope."
-  P.VarExists -> "Variable already exists."
 
 type ProofRow
   = { formulaText :: String
