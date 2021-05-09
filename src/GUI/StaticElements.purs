@@ -46,7 +46,6 @@ manualModalBody = HH.div_
               [HH.text $ "The proof column is where the construction of proofs will take place, while the rule column simply lists the inference rules defined in this calculus where clicking on the buttons will give a brief explanation on what they do. The settings column lists this manual whose button you have clicked on because you are here =) , and the shortcut button lists various shortcut keyboard commands used when constructing proofs. An understanding of the shortcuts is needed to be able to know what to type for specific symbols, rules and how to navigate when constructing proofs. In this section, we will for learning purpose write down each command shortcut involved in the process of constructing said proofs. But later when you want to prove sequents that have symbols and rules involved not present in these examples, it is necessary to check the shortcut page to learn how to type them."
              ]
              , HH.section [ HP.classes [ HH.ClassName "section" ] ]
-            --[ HH.h1 [ HP.classes [ HH.ClassName "title", HH.ClassName "has-text-centered" ] ] 
                [ HH.strong_ [ HH.text "Example: P∧Q , R ⊢ Q∧R" ] 
                , HH.div_ [HH.text "Initially the proof panel looks like this:" ] ]
                , HH.img [ HP.src "src/GUI/img/Ex1ProofPanel.png" ]
@@ -90,7 +89,6 @@ manualModalBody = HH.div_
                 ]
 
                 , HH.section [ HP.classes [ HH.ClassName "section" ] ]
-            --[ HH.h1 [ HP.classes [ HH.ClassName "title", HH.ClassName "has-text-centered" ] ] 
                [ HH.strong_ [ HH.text "Example: (P∨Q)∨R , R ⊢ P∨(Q∨R)" ] 
                , HH.div_ [HH.text "Start by adding the conclusion and the premise by typing " 
                  , HH.strong_ [HH.text "Por(QorR) "]
