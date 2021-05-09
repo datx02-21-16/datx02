@@ -188,3 +188,7 @@ $modal-card-title-color: findColorInvert($modal-card-head-background-color);
 
 	background-color: lighten($beige-light, 10%);
 }
+
+.columns.is-gapless.rule-columns {
+	margin-bottom: 0;
+}
