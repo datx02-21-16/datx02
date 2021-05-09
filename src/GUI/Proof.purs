@@ -9,17 +9,18 @@ module GUI.Proof (Slot, proof) where
 import Prelude
 import Data.Array ((!!), unsafeIndex)
 import Data.Array as Array
-import Data.Either (isRight, either, hush)
-import Data.FoldableWithIndex (foldlWithIndex)
+import Data.Either (Either(Left, Right), isRight, either, hush)
+import Data.FoldableWithIndex (foldlWithIndex, foldWithIndexM)
 import Data.FunctorWithIndex (mapWithIndex)
 import Data.Int as Int
 import Data.List (List(Nil), (:))
+import Data.List as List
 import Data.Maybe (Maybe(..), fromJust, fromMaybe, isJust, maybe)
 import Data.NonEmpty ((:|))
-import Data.String (Pattern(Pattern), split, trim, joinWith)
+import Data.String (Pattern(Pattern), split, joinWith)
 import Data.String as String
 import Data.Traversable (sequence)
-import Data.Tuple (Tuple(Tuple), fst)
+import Data.Tuple (Tuple(Tuple))
 import Effect.Class (class MonadEffect)
 import GUI.Rules (RuleType(..))
 import GUI.Rules as R
@@ -31,7 +32,7 @@ import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.HTML.Properties.ARIA as HPARIA
 import FormulaOrVar (parseFFC)
-import Parser (parseFormula, parsePremises)
+import Parser (parsePremises)
 import Partial.Unsafe (unsafePartial, unsafeCrashWith)
 import Proof (NdError(..))
 import Proof as P
@@ -727,19 +728,27 @@ handleAction = case _ of
           }
       H.tell _symbolInput (2 * (i - 1)) SI.Focus
 
-  -- | Creates a new row directly below the current index. If the current
-  -- | index is at the end of a box, the new row is created outside the box.
+  -- | Creates a new row directly below the specified index. If the current
+  -- | index is inside a box, the box will be set to end after the
+  -- | current row.
   exitBox i = do
+    addRowBelow i
     H.modify_ \st ->
       st
         { rows =
-          unsafePartial $ fromJust $ Array.insertAt (i + 1) emptyRow
-            $ ( if i `Array.elem` (getAllEndings st) then
-                  incrBoxEndsWithEx i (scopeStart i st)
-                else
-                  incrBoxEnds i
-              )
-                st.rows
+          case innermostBoxStart i st.rows of
+            Nothing -> st.rows
+            Just boxStart ->
+              unsafePartial $ fromJust
+                $ Array.modifyAt boxStart
+                    ( \row ->
+                        row
+                          { rule =
+                            case row.rule of
+                              BoxOpener ty _ -> BoxOpener ty { boxEndIdx: i }
+                          }
+                    )
+                    st.rows
         }
     H.tell _symbolInput (2 * (i + 1)) SI.Focus -- Focus the newly added row
 
@@ -762,24 +771,8 @@ handleAction = case _ of
         | i <= boxEndIdx -> row { rule = BoxOpener ty { boxEndIdx: boxEndIdx + off } }
       x -> x
 
-  -- | Takes an index and an array of rows. Increases the ending position of
-  -- | all boxes which end after the given index by one, except any box which
-  -- | starts at the exception position.
-  incrBoxEndsWithEx :: Int -> Int -> Array ProofRow -> Array ProofRow
-  incrBoxEndsWithEx i e rs =
-    map
-      ( \(Tuple idx r) ->
-          if idx == e then
-            r
-          else case r of
-            row@{ rule: BoxOpener ty { boxEndIdx } }
-              | (i <= boxEndIdx) -> row { rule = BoxOpener ty { boxEndIdx: boxEndIdx + 1 } }
-            x -> x
-      )
-      (enumerate rs)
-
   -- | Inclusive-exclusive interval of the rows that are currently being dragged.
-  draggedRows :: H.HalogenM _ _ _ _ _ { start :: Int, end :: Int }
+  draggedRows :: H.HalogenM State Action Slots output m { start :: Int, end :: Int }
   draggedRows = do
     start <- unsafePartial $ fromJust <$> H.gets _.dragged
     rows <- H.gets _.rows
@@ -798,54 +791,22 @@ handleAction = case _ of
     else
       pure false
 
--- | Takes an index and a state and returns the starting position of the
--- | innermost box which contains the index.
-scopeStart :: Int -> State -> Int
-scopeStart i st = fst $ innermostScope i st
+-- | Returns the start index of the innermost box containing the given index, if any.
+innermostBoxStart :: Int -> Array ProofRow -> Maybe Int
+innermostBoxStart i rows = either identity (const Nothing) $ foldWithIndexM f Nil rows
   where
-  -- | Gets the innermost box in a state which contains the given index.
-  innermostScope :: Int -> State -> Tuple Int Int
-  innermostScope i st = unsafePartial $ fromJust $ Array.last $ inBoxes i (allBoxLimits st)
+  f j boxes row =
+    let
+      closeBoxes = List.dropWhile \(Tuple _ boxEnd) -> boxEnd < j
 
-  -- | Gets a list of all the boxes which a given position is in.
-  inBoxes :: Int -> Array (Tuple Int Int) -> Array (Tuple Int Int)
-  inBoxes i bs = Array.filter (inBox i) bs
-
-  -- | Checks if a position is inside a box.
-  inBox :: Int -> Tuple Int Int -> Boolean
-  inBox i (Tuple lo hi) = i >= lo && i <= hi
-
-  -- | Extracts all boxes along with their index from a list of indexed rows.
-  indexedBoxes :: State -> Array (Tuple Int ProofRow)
-  indexedBoxes st = Array.filter (\(Tuple _ r) -> isBox r) (enumerate st.rows)
-
-  -- | Takes a row, assumed to be the start of a box, along with it's
-  --   position in the proof. Returns a tuple with the limits of the box.
-  boxLimits :: Tuple Int ProofRow -> Tuple Int Int
-  boxLimits (Tuple i r) = case r.rule of
-    BoxOpener _ { boxEndIdx } -> Tuple i boxEndIdx
-    _ -> unsafeCrashWith "Not a box."
-
-  -- | Get a list of all boxes in a state as tuples.
-  allBoxLimits :: State -> Array (Tuple Int Int)
-  allBoxLimits st = map boxLimits $ indexedBoxes st
-
-getAllEndings :: State -> Array Int
-getAllEndings st = map rToE $ boxes st
-  where
-  rToE :: ProofRow -> Int
-  rToE r = case r.rule of
-    BoxOpener _ { boxEndIdx } -> boxEndIdx
-    _ -> unsafeCrashWith "Row is not a box."
-
-boxes :: State -> Array ProofRow
-boxes st = Array.filter isBox st.rows
-
--- | Check if a row is the start of a box.
-isBox :: ProofRow -> Boolean
-isBox r = case r.rule of
-  BoxOpener _ _ -> true
-  _ -> false
+      newBox = case row.rule of
+        BoxOpener _ { boxEndIdx } -> Tuple j boxEndIdx : Nil
+        _ -> Nil
+    in
+      case newBox <> closeBoxes boxes of
+        Tuple boxStart _ : _
+          | j == i -> Left $ Just boxStart
+        x -> if j > i then Left Nothing else Right x
 
 ruleFromString :: String -> Int -> Rule
 ruleFromString s rowIdx
