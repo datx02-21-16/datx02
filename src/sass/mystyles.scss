@@ -3,7 +3,6 @@
 // Import a Google Font
 @import url("https://fonts.googleapis.com/css?family=Nunito:400,700");
 
-
 // Functions must be imported before use.
 @import "bulma/sass/utilities/functions.sass";
 
@@ -34,6 +33,7 @@ $body-background-color: white;
 $control-border-width: 2px;
 $input-border-color: transparent;
 $input-shadow: $primary;
+$input-placeholder-color: #505050; // Change placeholder color to to a more visible one.
 
 $modal-card-head-background-color: $primary;
 $modal-card-title-color: findColorInvert($modal-card-head-background-color);
