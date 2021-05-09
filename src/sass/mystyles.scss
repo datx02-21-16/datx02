@@ -77,11 +77,11 @@ $modal-card-title-color: findColorInvert($modal-card-head-background-color);
 .proof-header {
 	display: flex;
 	justify-content: space-around;
-	align-items: center;
-
+	
 	margin: 1rem auto;
 
 	white-space: nowrap;
+	vertical-align:top;
 }
 
 .proof-rows {
@@ -172,6 +172,10 @@ $modal-card-title-color: findColorInvert($modal-card-head-background-color);
 
 .premises > input {
 	text-align: right;
+}
+
+.conclusion-field {
+	white-space: normal;
 }
 
 // No border under conclusion text field
