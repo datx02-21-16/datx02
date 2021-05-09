@@ -12,6 +12,8 @@ import Halogen.HTML.Properties as HP
 type Slot id
   = forall query output. H.Slot query output id
 
+foreign import pictureURL :: String -> String
+
 type State
   = Maybe RuleType
 
@@ -34,12 +36,11 @@ ruleButtonPanel =
       [ HP.classes [ HH.ClassName "panel", HH.ClassName "is-primary" ] ]
       $ [ HH.p
             [ HP.classes [ HH.ClassName "panel-heading" ] ]
-            [ HH.text "Rules" ]
+            [ HH.text "About the rules" ]
         ]
       <> [ createButtons ]
       <> [ hintBox st ]
     where
-    -- I don't understand why the buttons does not fill out the whole space?
     createButtons = HH.div [ HP.classes [ HH.ClassName "columns", HH.ClassName "is-multiline", HH.ClassName "is-gapless" ] ] (map createButton rules)
 
     createButton rule =
@@ -54,44 +55,73 @@ ruleButtonPanel =
 
   hintBox st =
     HH.div
-      [ HP.classes [ HH.ClassName "box" ] ]
-      [ HH.div
-          [ HP.classes [ HH.ClassName "has-text-centered" ] ]
-          [ HH.text $ maybe hintString sequent st ]
-      , HH.br_
-      , HH.div
-          [ HP.classes [ HH.ClassName "has-text-centered" ] ]
-          [ HH.text $ maybe "" textualHint st ]
-      ]
-    where
-    hintString :: String
-    hintString =
-      "Please click one of the rules above to "
-        <> "get a description of the rule."
+      [ HP.classes [ H.ClassName "box", H.ClassName "has-text-centered" ] ]
+      $ maybe [ HH.text "Please click one of the rules above to get a description of the rule." ]
+          ( \rule ->
+              [ HH.img [ HP.src $ pictureURL (ruleImageName rule) ]
+              , HH.p_ [ HH.strong_ [ HH.text $ "Shortcut: " <> shortcut rule ] ]
+              , HH.p [ HP.classes [ HH.ClassName "has-text-left" ] ] [ HH.text $ textualHint rule ]
+              ]
+          )
+          st
 
-  sequent :: RuleType -> String
-  sequent r = case r of
-    RtPremise -> "⊢ A"
-    -- Not sure if this is correct or how to (or even if we should) represent assumption as a sequent?
-    RtAssumption -> "(⊢ A)"
-    AndElim1 -> "A ∧ B ⊢ A"
-    AndElim2 -> "A ∧ B ⊢ B"
-    AndIntro -> "A,B ⊢ A ∧ B"
-    OrElim -> "(A ⊢ C), (B ⊢ C), A ∨ B ⊢ C"
-    OrIntro1 -> "A ⊢ A ∨ B"
-    OrIntro2 -> "B ⊢ A ∨ B"
-    ImplElim -> "A → B, A ⊢ B"
-    ImplIntro -> "(A ⊢ B) ⊢ A → B"
-    NegElim -> "A,¬A ⊢ ⊥"
-    NegIntro -> "(A ⊢ ⊥) ⊢ ¬A"
-    BottomElim -> "⊥ ⊢ A"
-    DoubleNegElim -> "¬¬A ⊢ A"
-    ModusTollens -> "A → B, ¬B ⊢ ¬A"
-    DoubleNegIntro -> "A ⊢ ¬¬A"
-    PBC -> "(¬A ⊢ ⊥) ⊢ A"
-    LEM -> "⊢ A ∨ ¬A"
-    RtCopy -> "A ⊢ A"
-    _ -> "no show"
+  shortcut :: RuleType -> String
+  shortcut = case _ of
+    RtPremise -> "pr"
+    RtAssumption -> "as"
+    AndElim1 -> "ane1"
+    AndElim2 -> "ane2"
+    AndIntro -> "ani"
+    OrElim -> "ore"
+    OrIntro1 -> "ori1"
+    OrIntro2 -> "ori2"
+    ImplElim -> "ime"
+    ImplIntro -> "imi"
+    NegElim -> "noe/nee"
+    NegIntro -> "noi/nei"
+    BottomElim -> "boe/coe"
+    DoubleNegElim -> "nonoe/nenee"
+    ModusTollens -> "mt"
+    DoubleNegIntro -> "nonoi/nenee"
+    PBC -> "pbc"
+    LEM -> "lem"
+    RtCopy -> "cp"
+    RtFresh -> "fr"
+    ForallElim -> "foe/fae"
+    ForallIntro -> "foi/fai"
+    ExistsElim -> "exe/tee"
+    ExistsIntro -> "exi/tei"
+    EqElim -> "eqe"
+    EqIntro -> "eqi"
+
+  ruleImageName :: RuleType -> String
+  ruleImageName = case _ of
+    RtPremise -> "premise"
+    RtAssumption -> "assumption"
+    AndElim1 -> "and-elim1"
+    AndElim2 -> "and-elim2"
+    AndIntro -> "and-intro"
+    OrElim -> "or-elim"
+    OrIntro1 -> "or-intro1"
+    OrIntro2 -> "or-intro2"
+    ImplElim -> "implication-elim"
+    ImplIntro -> "implication-intro"
+    NegElim -> "negation-elim"
+    NegIntro -> "negation-intro"
+    BottomElim -> "bottom-elim"
+    DoubleNegElim -> "double-negation-elim"
+    ModusTollens -> "MT"
+    DoubleNegIntro -> "double-negation-intro"
+    PBC -> "PBC"
+    LEM -> "LEM"
+    RtCopy -> "copy"
+    RtFresh -> "fresh"
+    ForallElim -> "forall-elim"
+    ForallIntro -> "forall-intro"
+    ExistsElim -> "exist-elim"
+    ExistsIntro -> "exist-intro"
+    EqElim -> "eq-elim"
+    EqIntro -> "eq-intro"
 
   textualHint :: RuleType -> String
   textualHint r = case r of
@@ -104,54 +134,77 @@ ruleButtonPanel =
         <> "drawn from it is not allowed to escape this scope."
     AndElim1 ->
       "The left conjunction elimination rule concludes "
-        <> "the formula A from the premise A∧B."
+        <> "the formula φ from the premise φ∧ψ."
     AndElim2 ->
       "The right conjunction elimination rule concludes "
-        <> "the formula B from the premise A∧B."
+        <> "the formula ψ from the premise φ∧ψ."
     AndIntro ->
       "The conjunction introduction rule concludes the "
-        <> "formula A ∧ B from the premises A, B."
+        <> "formula φ ∧ ψ from the premises φ, ψ."
     OrElim ->
       "To eliminate a disjunction we must show that we can conclude "
-        <> "C regardless of which of A or B holds. We show this by assuming, "
-        <> "in turn, A and B respectively and showing that they both will lead to C"
+        <> "χ regardless of which of φ or ψ holds. We show this by assuming, "
+        <> "in turn, φ and ψ respectively and showing that they both will lead to χ"
     OrIntro1 ->
-      "The left disjunction introduction rule concludes A ∨ B from the "
-        <> "knowledge that A holds."
+      "The left disjunction introduction rule concludes φ ∨ ψ from the "
+        <> "knowledge that φ holds."
     OrIntro2 ->
-      "The right disjunction introduction rule concludes A ∨ B from the "
-        <> "knowledge that B holds."
+      "The right disjunction introduction rule concludes φ ∨ ψ from the "
+        <> "knowledge that ψ holds."
     ImplElim ->
-      "If A→B and A are both known facts, the implication elimination "
-        <> "rule can conclude that B also hold."
+      "If φ→ψ and φ are both known facts, the implication elimination "
+        <> "rule can conclude that ψ also hold."
     ImplIntro ->
-      "The implication introduction rule can conclude that A implies B "
-        <> "from a box where the initial assumption is A and the final "
-        <> "conclusion is B."
+      "The implication introduction rule can conclude that φ implies ψ "
+        <> "from a box where the initial assumption is φ and the final "
+        <> "conclusion is ψ."
     NegElim ->
       "The negation elimination rule concludes absurdity from the knowledge "
-        <> "that both A and ¬A hold."
+        <> "that both φ and ¬φ hold."
     NegIntro ->
-      "The negation introduction rule can conclude that A does not hold if "
-        <> "from the assumption that A does hold absurdity is concluded."
+      "The negation introduction rule can conclude that φ does not hold if "
+        <> "from the assumption that φ does hold absurdity is concluded."
     BottomElim ->
       "The absurdity elimination rule can conclude anything from the "
         <> "knowledge of absurdity."
-    DoubleNegElim -> "Double negation elimination concludes A from ¬¬A."
+    DoubleNegElim -> "Double negation elimination concludes φ from ¬¬φ."
     ModusTollens ->
-      "The Modus Tollens rule concludes that A does not hold from the "
-        <> "knowledge that A → B and ¬B."
-    DoubleNegIntro -> "Double negation introduction concludes ¬¬A from A."
+      "The Modus Tollens rule concludes that φ does not hold from the "
+        <> "knowledge that φ → B and ¬B."
+    DoubleNegIntro -> "Double negation introduction concludes ¬¬φ from φ."
     PBC ->
       "To prove something by contradiction we open a box with the assumption "
         <> "that that which we want to prove does not hold. If we can conclude "
         <> "absurdity within the box, the assumption is clearly false and the "
         <> "opposite must be true."
     LEM ->
-      "The Law of Excluded Middle concludes that either A must hold or "
-        <> "¬A must hold."
+      "The Law of Excluded Middle concludes that either φ must hold or "
+        <> "¬φ must hold."
     RtCopy -> "A proven formula can always be copied if it is in scope."
-    _ -> "No explanation"
+    RtFresh ->
+      "A fresh variable is a new variable which does not occur anywhere "
+        <> "outside its box. It can be thought of as an arbitrary term."
+    ForallElim ->
+      "You can replace the x in φ with any term t as long as "
+        <> "t is free for x in φ."
+    ForallIntro ->
+      "If you start with a fresh variable and are able to prove "
+        <> "some formula φ[x0/x] with x0 in it then you can derive ∀xφ."
+    ExistsElim ->
+      "You use x0 as a generic value representing all possible "
+        <> "values. If [x0/x] allows you to prove something which does not "
+        <> "mention x0 then this must be true no matter which specific value of "
+        <> "x0 makes φ[x0/x]. Note that x0 cannot occur outside the scope of "
+        <> "the assumption."
+    ExistsIntro ->
+      "If you have φ[t/x] for some term t that is free for x in "
+        <> "φ, then you may deduce ∃xφ."
+    EqElim ->
+      "This rule allows us to substitute equals with equals repeatedly. It "
+        <> "comes with the side condition that t1 and t2 has to be free for x in φ"
+    EqIntro ->
+      "Equality in terms of computation results. It can only be "
+        <> "applied to terms."
 
   handleAction :: Action -> H.HalogenM State Action () output m Unit
   handleAction action = case action of
