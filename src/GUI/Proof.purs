@@ -22,6 +22,8 @@ import Data.String as String
 import Data.Traversable (sequence)
 import Data.Tuple (Tuple(Tuple))
 import Effect.Class (class MonadEffect)
+import FormulaOrVar (parseFFC)
+import GUI.Hint as Hint
 import GUI.Rules (RuleType(..))
 import GUI.Rules as R
 import GUI.SymbolInput (symbolInput)
@@ -31,13 +33,12 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.HTML.Properties.ARIA as HPARIA
-import FormulaOrVar (parseFFC)
 import Parser (parsePremises)
 import Partial.Unsafe (unsafePartial, unsafeCrashWith)
 import Proof (NdError(..))
 import Proof as P
+import Text.Parsing.Parser (parseErrorMessage)
 import Type.Proxy (Proxy(..))
-import GUI.Hint as Hint
 import Util (enumerate, moveWithin)
 import Web.Event.Event as Event
 import Web.HTML.Event.DataTransfer as DataTransfer
@@ -46,7 +47,6 @@ import Web.HTML.Event.DragEvent as DragEvent
 import Web.HTML.HTMLInputElement as HTMLInputElement
 import Web.UIEvent.KeyboardEvent (KeyboardEvent)
 import Web.UIEvent.KeyboardEvent as KeyboardEvent
-import Text.Parsing.Parser (parseErrorMessage)
 
 foreign import addRowIcon :: String
 
@@ -195,13 +195,43 @@ ruleText (BoxOpener Fresh _) = "Fresh"
 errorText :: P.NdError -> String
 errorText = case _ of
   P.BadRef -> "Reference to invalid row"
+  P.BadRef_Box -> "Reference to invalid box"
   P.RefDiscarded -> "Reference to row in discarded box"
-  P.RefOutOfBounds -> "Reference to non-existent row"
+  P.RefOutOfBounds -> "Reference to self or non-existent row(s)"
+  P.RefOutOfBounds_Box -> "Wrong applied range of numbers for a box."
   P.BadRule -> "Bad rule application"
   P.BadFormula -> "No formula can be parsed"
-  P.FormulaMismatch -> "Formula does not match output from rule"
+  P.FormulaMismatch mme -> "Formula does not match rule output. " <> mismatchText mme
   P.InvalidRule -> "Non-existent rule"
   P.NotABox -> "Not a valid box"
+  P.InvalidArg ae -> "Bad rule arguments: " <> badArgsText ae
+  P.BadPremise -> "Premises need to be at the start of a proof."
+
+mismatchText :: P.MismatchError -> String
+mismatchText = case _ of
+  P.BadLem -> "Expected: φ ∨ ¬ φ"
+  P.BadOrI_Order -> "Wrong order of subformulas between the disjunction or formula at given row is not in output."
+  P.BadOrI_Formula -> "Expected: φ ∨ ψ"
+  P.GenericMismatch str -> str
+  P.PremiseM -> "Premises cant be variables"
+  P.FreshM -> "Not a variable"
+  P.NotAFormulaM -> "Not a formula"
+  P.UnExplainedError -> ""
+
+badArgsText :: P.ArgumentError -> String
+badArgsText = case _ of
+  P.BadAndE -> "Argument is not a conjunction formula."
+  P.BadMt1 -> "Negation does not match consequent of the implication"
+  P.BadMt2 -> "Expected: φ → ψ , ¬ψ"
+  P.BadImplE -> "Expected: φ, φ → ψ"
+  P.BadNegE -> "Expected: φ , ¬φ"
+  P.BadBottomE -> "Argument is not ⊥"
+  P.BadDoubleNegE -> "Argument is not a double negation formula"
+  P.BadOrE1 -> "You need two assumption boxes, where the last row in each box have the same formula."
+  P.BadOrE2 -> "First argument field of rule needs to refer a disjunction formula"
+  P.BadNegI -> "Expected ⊥ at last row in assumption box."
+  P.BadPBC -> "Top row in assumption box needs to be a negation formula and last row a ⊥"
+  P.ArgNotFormula -> "Argument is not a formula"
 
 type ProofRow
   = { formulaText :: String
@@ -529,23 +559,24 @@ render st =
     ruleDisplay :: HH.HTML _ _
     ruleDisplay =
       HH.span [ HP.classes [ H.ClassName "column is-half" ] ]
-        [ HH.div [ HP.classes [ H.ClassName "columns is-gapless" ] ] ([ ruleField ] <> argFields) ]
+        ( [ HH.div [ HP.classes [ H.ClassName "columns is-gapless", H.ClassName "rule-columns" ] ] ([ ruleField ] <> argFields) ]
+            <> [ HH.p [ HP.classes [ H.ClassName "help", H.ClassName "is-danger" ] ]
+                  (if isRuleError error then [ HH.text $ errorText (unsafePartial $ fromJust error) ] else [])
+              ]
+        )
 
     ruleField :: HH.HTML _ _
     ruleField =
       HH.span
         [ HP.classes ([ H.ClassName "column rule-field" ] <> if isRuleError error then [ H.ClassName "invalid" ] else []) ]
         ( [ HH.slot _symbolInput (2 * i + 1) (symbolInput "Rule") (ruleText rule) (UpdateRule i) ]
-            <> [ HH.p [ HP.classes [ H.ClassName "help", H.ClassName "is-danger" ] ]
-                  (if isRuleError error then [ HH.text $ errorText (unsafePartial $ fromJust error) ] else [])
-              ]
         )
-      where
-      isRuleError err = case err of
-        Nothing -> false
-        Just e -> case e of
-          BadFormula -> false
-          _ -> true
+
+    isRuleError err = case err of
+      Nothing -> false
+      Just e -> case e of
+        BadFormula -> false
+        _ -> true
 
     argField :: Tuple Int (Tuple RuleArgType String) -> HH.HTML _ _
     argField (Tuple j (Tuple ruleArgType s)) =

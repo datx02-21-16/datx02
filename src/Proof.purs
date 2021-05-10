@@ -10,6 +10,8 @@ module Proof
   , addProof
   , openBox
   , closeBox
+  , MismatchError(..)
+  , ArgumentError(..)
   ) where
 
 import Prelude
@@ -99,25 +101,42 @@ instance showRule :: Show Rule where
 
 data NdError
   = BadRef
+  | BadRef_Box
   | RefDiscarded
   | RefOutOfBounds
   | BadRule
   | BadFormula
-  | FormulaMismatch
+  | FormulaMismatch MismatchError
   | InvalidRule
   | NotABox
+  | InvalidArg ArgumentError
+  | BadPremise
+  | RefOutOfBounds_Box
+
+--TODO: Add error constructors for predicate logic with specific error scenario messages. 
+data MismatchError = BadLem | BadOrI_Order | BadOrI_Formula | GenericMismatch String 
+                   | PremiseM | FreshM | NotAFormulaM | UnExplainedError
+
+data ArgumentError = BadAndE | BadMt1 | BadMt2 | BadImplE | BadNegE | BadBottomE 
+                   | BadDoubleNegE | BadOrE1 | BadOrE2 | BadNegI | BadPBC | ArgNotFormula
 
 instance showNdError :: Show NdError where
   show BadRef = "bad reference"
+  show BadRef_Box ="bad reference box" 
   show RefDiscarded = "reference discarded"
   show RefOutOfBounds = "reference out of bounds"
   show BadRule = "bad rule"
   show BadFormula = "bad formula"
-  show FormulaMismatch = "formula mismatch"
+  show (FormulaMismatch _) = "formula mismatch"
   show InvalidRule = "invalid rule"
+  show (InvalidArg _) =  "invalid arg"   
   show NotABox = "not a box"
+  show BadPremise ="Bad premise order"
+  show RefOutOfBounds_Box ="Reference out of bounds for box"  
 
 derive instance eqNdError :: Eq NdError
+derive instance eqMismatchError :: Eq MismatchError
+derive instance eqArgumentError :: Eq ArgumentError
 
 type ProofRow
   = { formula :: Maybe FFC
@@ -210,10 +229,10 @@ proofRef ref = do
 
 boxRef :: Maybe Box -> ExceptT NdError ND (Tuple FFC FFC)
 boxRef ref = do
-  box@(Tuple i j) <- except $ note BadRef ref
+  box@(Tuple i j) <- except $ note BadRef_Box ref
   { rows, scopes } <- get
-  { formula: maybeF1, error: e1 } <- except $ note RefOutOfBounds $ rows Array.!! (i - 1)
-  { formula: maybeF2, error: e2 } <- except $ note RefOutOfBounds $ rows Array.!! (j - 1)
+  { formula: maybeF1, error: e1 } <- except $ note RefOutOfBounds_Box $ rows Array.!! (i - 1)
+  { formula: maybeF2, error: e2 } <- except $ note RefOutOfBounds_Box $ rows Array.!! (j - 1)
   when (isNotBox box scopes) $ throwError NotABox
   when (not (boxInScope box scopes)) $ throwError RefDiscarded
   when (e1 == Just BadFormula || e2 == Just BadFormula) $ throwError BadRef -- User needs to have input the formula
@@ -242,26 +261,26 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
             if all isPremise rows then
               except $ note BadFormula formula
             else
-              throwError BadRule
-          _ -> throwError FormulaMismatch
+              throwError BadPremise
+          _ -> throwError $ FormulaMismatch PremiseM
       -- TODO Check if this assumption is the first formula in the current box
       Assumption -> do except $ note BadFormula formula
       AndElim1 i -> do
         a <- proofRef i
         case a of
           FC (And x _) -> pure $ FC x
-          _ -> throwError BadRule
+          _ -> throwError $ InvalidArg BadAndE
       AndElim2 i -> do
         a <- proofRef i
         case a of
           FC (And _ x) -> pure $ FC x
-          _ -> throwError BadRule
+          _ -> throwError $ InvalidArg BadAndE
       AndIntro i j -> do
         a <- proofRef i
         b <- proofRef j
         case a, b of
           FC f1, FC f2 -> pure $ FC (And f1 f2)
-          _, _ -> throwError BadRule
+          _, _ -> throwError $ InvalidArg ArgNotFormula
       OrElim i box1 box2 -> do
         a <- proofRef i
         (Tuple b1 b2) <- boxRef box1
@@ -271,24 +290,26 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
             if f1 `equivalent` b1' && f2 `equivalent` c1' && b2' `equivalent` c2' then
               pure b2
             else
-              throwError BadRule
-          _, _, _, _, _ -> throwError BadRule
+              throwError $ InvalidArg BadOrE1
+          _, _, _, _, _ -> throwError $ InvalidArg BadOrE2
       OrIntro1 i -> do
         case formula of
           Just f@(FC f'@(Or f1 _)) -> do
             a <- proofRef i
             case a of
-              FC a' -> if a' `equivalent` f1 then pure f else throwError FormulaMismatch
-              _ -> throwError BadFormula
-          _ -> throwError BadRule
+              FC a' -> if a' `equivalent` f1 then pure f else throwError $ FormulaMismatch BadOrI_Order
+              _ -> throwError $ InvalidArg ArgNotFormula
+  
+          _ -> throwError $ FormulaMismatch BadOrI_Formula
       OrIntro2 i -> do
         case formula of
           Just f@(FC f'@(Or _ f2)) -> do
             a <- proofRef i
             case a of
-              FC a' -> if a' `equivalent` f2 then pure f else throwError FormulaMismatch
-              _ -> throwError BadRef
-          _ -> throwError BadRule
+              FC a' -> if a' `equivalent` f2 then pure f else throwError $ FormulaMismatch BadOrI_Order
+              _ -> throwError $ InvalidArg ArgNotFormula
+  
+          _ -> throwError $ FormulaMismatch BadOrI_Formula
       ImplElim i j -> do
         a <- proofRef i
         b <- proofRef j
@@ -297,12 +318,12 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
             | x `equivalent` z -> pure $ FC y
           FC z, FC (Implies x y)
             | x `equivalent` z -> pure $ FC y
-          _, _ -> throwError BadRule
+          _, _ -> throwError $ InvalidArg BadImplE
       ImplIntro box -> do
         (Tuple a b) <- boxRef box
         case a, b of
           FC f1, FC f2 -> pure $ FC $ Implies f1 f2
-          _, _ -> throwError BadRule
+          _, _ -> throwError $ InvalidArg ArgNotFormula
       NegElim i j -> do
         a <- proofRef i
         b <- proofRef j
@@ -311,50 +332,50 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
             if f1 `equivalent` Not f2 || Not f1 `equivalent` f2 then
               pure (FC bottomProp)
             else
-              throwError BadRule
-          _, _ -> throwError BadRule
+              throwError $ InvalidArg BadNegE
+          _, _ -> throwError $ InvalidArg ArgNotFormula
       NegIntro box -> do
         (Tuple a b) <- boxRef box
         case a, b of
-          FC f1, FC f2 -> if f2 == bottomProp then pure $ FC (Not f1) else throwError BadRule
-          _, _ -> throwError BadRule
+          FC f1, FC f2 -> if f2 == bottomProp then pure $ FC (Not f1) else throwError $ InvalidArg BadNegI
+          _, _ -> throwError $ InvalidArg ArgNotFormula
       BottomElim i -> do
         a <- proofRef i
-        if a == FC bottomProp then except $ note BadFormula formula else throwError BadRule
+        if a == FC bottomProp then except $ note BadFormula formula else throwError $ InvalidArg BadBottomE
       DoubleNegElim i -> do
         a <- proofRef i
         case a of
           FC (Not (Not x)) -> pure $ FC x
-          _ -> throwError BadRule
+          _ -> throwError $ InvalidArg BadDoubleNegE
       ModusTollens i j -> do
         a <- proofRef i
         b <- proofRef j
         case a, b of
-          FC (Implies x y), FC (Not z) -> if y `equivalent` z then pure (FC $ Not x) else throwError BadRule
-          FC (Not z), FC (Implies x y) -> if y `equivalent` z then pure (FC $ Not x) else throwError BadRule
-          _, _ -> throwError BadRule
+          FC (Implies x y), FC (Not z) -> if y `equivalent` z then pure (FC $ Not x) else throwError $ InvalidArg BadMt1
+          FC (Not z), FC (Implies x y) -> if y `equivalent` z then pure (FC $ Not x) else throwError $ InvalidArg BadMt1
+          _, _ -> throwError $ InvalidArg BadMt2
       DoubleNegIntro i -> do
         a <- proofRef i
         case a of
           FC f -> pure $ FC $ Not $ Not f
-          _ -> throwError BadFormula
+          _ -> throwError $ InvalidArg ArgNotFormula
       PBC box -> do
         (Tuple a b) <- boxRef box
         case a, b of
-          FC (Not f), FC f2 -> if f2 == bottomProp then pure $ FC f else throwError BadRule
-          _, _ -> throwError BadRule
+          FC (Not f), FC f2 -> if f2 == bottomProp then pure $ FC f else throwError $ InvalidArg BadPBC
+          _, _ -> throwError $ InvalidArg BadPBC
       LEM -> case formula of
         Just f@(FC (Or f1 f2))
           | f1 `equivalent` Not f2 || f2 `equivalent` Not f1 -> pure f
-        _ -> throwError BadRule
+        _ -> throwError $ FormulaMismatch BadLem
       Copy i -> do
         a <- proofRef i
         case a of
           FC _ -> pure a
-          _ -> throwError BadRule
+          _ -> throwError $ InvalidArg ArgNotFormula
       Fresh -> case formula of
         Just vc@(VC v) -> pure vc
-        _ -> throwError FormulaMismatch
+        _ -> throwError $ FormulaMismatch FreshM
       ForallElim i -> case formula of
         Just formula'@(FC fTarget) -> do
           f <- proofRef i
@@ -363,9 +384,9 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
               if isJust $ hasSingleSubOf v f' fTarget then
                 pure formula'
               else
-                throwError FormulaMismatch
-            _ -> throwError BadRule
-        _ -> throwError FormulaMismatch
+                throwError $ FormulaMismatch UnExplainedError
+            _ -> throwError $ InvalidArg ArgNotFormula
+        _ -> throwError $ FormulaMismatch UnExplainedError
       ForallIntro box -> case formula of
         Just formula'@(FC fTarget@(Forall v f)) -> do
           (Tuple a b) <- boxRef box
@@ -374,7 +395,7 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
               Just (Var vSub) -> if vSub == vLocal then pure formula' else throwError BadRule
               _ -> throwError BadRule
             _, _ -> throwError BadRule
-        _ -> throwError FormulaMismatch
+        _ -> throwError $ FormulaMismatch UnExplainedError
       ExistsElim i box -> case formula of
         Just formula'@(FC fTarget) -> do
           a <- proofRef i
@@ -384,10 +405,10 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
               case hasSingleSubOf v f f' of
                 Just (Var intro) -> do
                   when (intro `Array.elem` allVarsInFormula fTarget) (throwError BadRule)
-                  if b2' `equivalent` fTarget then pure formula' else throwError FormulaMismatch
+                  if b2' `equivalent` fTarget then pure formula' else throwError $ FormulaMismatch UnExplainedError
                 _ -> throwError BadRule
-            _, _, _ -> throwError FormulaMismatch
-        _ -> throwError FormulaMismatch
+            _, _, _ -> throwError $ FormulaMismatch UnExplainedError
+        _ -> throwError $ FormulaMismatch UnExplainedError
       ExistsIntro i -> case formula of
         Just formula'@(FC (Exists v fTarget)) -> do
           a <- proofRef i
@@ -398,7 +419,7 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
               else
                 throwError BadRule
             _ -> throwError BadRule
-        _ -> throwError FormulaMismatch
+        _ -> throwError $ FormulaMismatch UnExplainedError
       EqElim i j -> case formula of
         Just formula'@(FC verifyF) -> do
           eqFormula <- proofRef i
@@ -408,16 +429,16 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
               if (eqF == equalityProp t1 t2 && almostEqual t1 t2 sF verifyF) then
                 pure formula'
               else
-                throwError FormulaMismatch
+                throwError $ FormulaMismatch UnExplainedError
             _, _ -> throwError BadFormula
-        _ -> throwError FormulaMismatch
+        _ -> throwError $ FormulaMismatch UnExplainedError
       EqIntro -> case formula of
         Just formula'@(FC p@(Predicate _ [ t1, t2 ])) ->
           if p == equalityProp t1 t2 && t1 == t2 then
             pure formula'
           else
-            throwError FormulaMismatch
-        _ -> throwError FormulaMismatch
+            throwError $ FormulaMismatch UnExplainedError
+        _ -> throwError $ FormulaMismatch UnExplainedError
 
 -- | Add a row to the derivation.
 -- |
@@ -438,13 +459,16 @@ addProof { formula: inputFormula, rule } = do
       Nothing, Right _ -> Just BadFormula
       Just f, Right g
         | f == g -> Nothing
-        | otherwise -> Just FormulaMismatch
+        | otherwise -> Just $ FormulaMismatch (GenericMismatch (genericMismatchText result))
   modify_ \proof ->
     proof
       { rows = Array.snoc proof.rows { formula, rule, error }
       , scopes = addLineToInnermost (Array.length proof.rows + 1) proof.scopes
       }
   where
+  genericMismatchText r = case r of 
+                          Right (FC r') -> "Expected: \"" <> show r' <> "\""
+                          _             -> "Error"  
   scopedVars f = case f of
     Not f' -> scopedVars f'
     And f' f'' -> Array.nub $ scopedVars f' <> scopedVars f''
