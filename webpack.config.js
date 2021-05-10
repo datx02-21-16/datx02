@@ -49,7 +49,7 @@ module.exports = {
 				],
 			},
 			{
-				test: /\.(png|jpe?g)$/i,
+				test: /\.(png|jpe?g|svg)$/i,
 				type: "asset"
 			},
 			{

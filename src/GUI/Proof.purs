@@ -48,6 +48,10 @@ import Web.UIEvent.KeyboardEvent (KeyboardEvent)
 import Web.UIEvent.KeyboardEvent as KeyboardEvent
 import Text.Parsing.Parser (parseErrorMessage)
 
+foreign import addRowIcon :: String
+
+foreign import exitBoxIcon :: String
+
 data BoxOpenerType
   = Assumption
   | Fresh
@@ -375,25 +379,25 @@ render st =
       ]
 
   addRowButton :: HH.HTML _ _
-  addRowButton = toolbarButton "Add row" "Add a new row below the row currently in focus, stay in the current box." AddBelow
+  addRowButton = toolbarButton (HH.img [ HP.src addRowIcon ]) "Add a new row below the row currently in focus, stay in the current box." AddBelow
 
   addRowOutsideButton :: HH.HTML _ _
-  addRowOutsideButton = toolbarButton "Add row (with box exit)" "Add a new row below the row currently in focus, exit the current box if the current line is at the end of the box." AddOutsideBox
+  addRowOutsideButton = toolbarButton (HH.img [ HP.src exitBoxIcon ]) "Add a new row below the row currently in focus. Close the current box (if any) before the new line." AddOutsideBox
 
   clearButton :: HH.HTML _ _
-  clearButton = toolbarButton "Clear" "Erase all rows from the current proof." ClearProof
+  clearButton = toolbarButton (HH.text "Clear") "Erase all rows from the current proof." ClearProof
 
   hintButton :: HH.HTML _ _
-  hintButton = toolbarButton "Hint" "Get a hint on how to get started." ShowHint
+  hintButton = toolbarButton (HH.text "Hint") "Get a hint on how to get started." ShowHint
 
-  toolbarButton :: String -> String -> Action -> HH.HTML _ _
-  toolbarButton buttonText buttonTitle buttonAction =
+  toolbarButton :: forall w. (HH.HTML w Action) -> String -> Action -> HH.HTML w Action
+  toolbarButton content buttonTitle buttonAction =
     HH.button
       [ HP.classes [ H.ClassName "button", H.ClassName "is-white", H.ClassName "is-small" ]
       , HE.onClick $ const buttonAction
       , HP.title buttonTitle
       ]
-      [ HH.text buttonText ]
+      [ content ]
 
   -- | Displays the premises in the header.
   premiseDisplay :: HH.HTML _ _

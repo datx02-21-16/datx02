@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">
+  <defs/>
+  <defs>
+    <clipPath id="a" clipPathUnits="userSpaceOnUse">
+      <path d="M-.8-1.8H21v19.6H-.8zM7 8v8h8V8zM0 0v9.5h9.5V0z" class="powerclip"/>
+    </clipPath>
+  </defs>
+  <path fill="none" stroke="#424242" d="M13.5 3.5h-9v9H16" clip-path="url(#a)"/>
+  <path fill="#424242" d="M12 8h-2v5l-3-3v2l4 4 4-4v-2l-3 3z"/>
+  <path fill="#393" d="M3 0v3H0v3h3v3h3V6h3V3H6V0z"/>
+</svg>
