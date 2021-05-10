@@ -33,8 +33,7 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.HTML.Properties.ARIA as HPARIA
-import FormulaOrVar (parseFFC)
-import Parser (parseFormula, parsePremises)
+import Parser (parsePremises)
 import Partial.Unsafe (unsafePartial, unsafeCrashWith)
 import Proof (NdError(..))
 import Proof as P
