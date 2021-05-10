@@ -201,7 +201,7 @@ errorText = case _ of
   P.RefOutOfBounds_Box -> "Wrong applied range of numbers for a box."
   P.BadRule -> "Bad rule application"
   P.BadFormula -> "No formula can be parsed"
-  P.FormulaMismatch mme -> "Formula does not match rule output: " <> mismatchText mme
+  P.FormulaMismatch mme -> "Formula does not match rule output. " <> mismatchText mme
   P.InvalidRule -> "Non-existent rule"
   P.NotABox -> "Not a valid box"
   P.InvalidArg ae -> "Bad rule arguments: " <> badArgsText ae
@@ -212,7 +212,7 @@ mismatchText = case _ of
   P.BadLem -> "Expected: φ ∨ ¬ φ"
   P.BadOrI_Order -> "Wrong order of subformulas between the disjunction or formula at given row is not in output."
   P.BadOrI_Formula -> "Expected: φ ∨ ψ"
-  P.GenericMismatch str -> "" <> str
+  P.GenericMismatch str -> str
   P.PremiseM -> "Premises cant be variables"
   P.FreshM -> "Not a variable"
   P.NotAFormulaM -> "Not a formula"
