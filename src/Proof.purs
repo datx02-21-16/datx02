@@ -114,28 +114,48 @@ data NdError
   | RefOutOfBounds_Box
 
 --TODO: Add error constructors for predicate logic with specific error scenario messages. 
-data MismatchError = BadLem | BadOrI_Order | BadOrI_Formula | GenericMismatch String 
-                   | PremiseM | FreshM | NotAFormulaM | UnExplainedError
+data MismatchError
+  = BadLem
+  | BadOrI_Order
+  | BadOrI_Formula
+  | GenericMismatch String
+  | PremiseM
+  | FreshM
+  | NotAFormulaM
+  | UnExplainedError
 
-data ArgumentError = BadAndE | BadMt1 | BadMt2 | BadImplE | BadNegE | BadBottomE 
-                   | BadDoubleNegE | BadOrE1 | BadOrE2 | BadNegI | BadPBC | ArgNotFormula
+data ArgumentError
+  = BadAndE
+  | BadMt1
+  | BadMt2
+  | BadImplE
+  | BadNegE
+  | BadBottomE
+  | BadDoubleNegE
+  | BadOrE1
+  | BadOrE2
+  | BadNegI
+  | BadPBC
+  | ArgNotFormula
 
 instance showNdError :: Show NdError where
   show BadRef = "bad reference"
-  show BadRef_Box ="bad reference box" 
+  show BadRef_Box = "bad reference box"
   show RefDiscarded = "reference discarded"
   show RefOutOfBounds = "reference out of bounds"
   show BadRule = "bad rule"
   show BadFormula = "bad formula"
   show (FormulaMismatch _) = "formula mismatch"
   show InvalidRule = "invalid rule"
-  show (InvalidArg _) =  "invalid arg"   
+  show (InvalidArg _) = "invalid arg"
   show NotABox = "not a box"
-  show BadPremise ="Bad premise order"
-  show RefOutOfBounds_Box ="Reference out of bounds for box"  
+  show BadPremise = "Bad premise order"
+  show RefOutOfBounds_Box = "Reference out of bounds for box"
 
 derive instance eqNdError :: Eq NdError
+
 derive instance eqMismatchError :: Eq MismatchError
+
 derive instance eqArgumentError :: Eq ArgumentError
 
 type ProofRow
@@ -299,7 +319,6 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
             case a of
               FC a' -> if a' `equivalent` f1 then pure f else throwError $ FormulaMismatch BadOrI_Order
               _ -> throwError $ InvalidArg ArgNotFormula
-  
           _ -> throwError $ FormulaMismatch BadOrI_Formula
       OrIntro2 i -> do
         case formula of
@@ -308,7 +327,6 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
             case a of
               FC a' -> if a' `equivalent` f2 then pure f else throwError $ FormulaMismatch BadOrI_Order
               _ -> throwError $ InvalidArg ArgNotFormula
-  
           _ -> throwError $ FormulaMismatch BadOrI_Formula
       ImplElim i j -> do
         a <- proofRef i
@@ -466,9 +484,10 @@ addProof { formula: inputFormula, rule } = do
       , scopes = addLineToInnermost (Array.length proof.rows + 1) proof.scopes
       }
   where
-  genericMismatchText r = case r of 
-                          Right (FC r') -> "Expected: \"" <> show r' <> "\""
-                          _             -> "Error"  
+  genericMismatchText r = case r of
+    Right (FC r') -> "Expected: \"" <> show r' <> "\""
+    _ -> "Error"
+
   scopedVars f = case f of
     Not f' -> scopedVars f'
     And f' f'' -> Array.nub $ scopedVars f' <> scopedVars f''
