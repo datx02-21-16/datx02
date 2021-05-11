@@ -674,9 +674,7 @@ handleAction = case _ of
     H.modify_ (\st -> st { dragged = Just i })
   DragOver i ev -> do
     validDropZone <- isValidDropZone i
-    when validDropZone do
-      H.modify_ \st -> st { draggingOver = Just i }
-      H.liftEffect $ Event.preventDefault $ DragEvent.toEvent ev
+    when validDropZone $ H.liftEffect $ Event.preventDefault $ DragEvent.toEvent ev
   DragEnter i ev -> do
     validDropZone <- isValidDropZone i
     when validDropZone do
@@ -684,6 +682,7 @@ handleAction = case _ of
       H.modify_ \st -> st { draggingOver = Just i }
   DragLeave i ev -> do
     draggingOver <- H.gets _.draggingOver
+    -- Note: dragleave fires after dragenter
     when (draggingOver /= Just i) do
       H.liftEffect $ DataTransfer.setDropEffect DataTransfer.None $ DragEvent.dataTransfer ev
       H.modify_ \st -> st { draggingOver = Nothing }
@@ -721,7 +720,7 @@ handleAction = case _ of
 
           rows' = moveWithin target start end $ updateBoxes st.rows
         in
-          st { rows = rows' }
+          st { rows = rows', draggingOver = Nothing, dragged = Nothing }
   UpdatePremises s ->
     H.modify_ \st ->
       let
@@ -813,7 +812,7 @@ handleAction = case _ of
     rows <- H.gets _.rows
     let
       startRow = unsafePartial $ fromJust $ rows !! start
-    let
+
       end = case startRow.rule of
         BoxOpener _ { boxEndIdx } -> boxEndIdx + 1
         _ -> start + 1
