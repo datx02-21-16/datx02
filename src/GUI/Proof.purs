@@ -7,6 +7,7 @@
 module GUI.Proof (Slot, proof) where
 
 import Prelude
+import Control.Alt ((<|>))
 import Data.Array ((!!), unsafeIndex)
 import Data.Array as Array
 import Data.Either (Either(Left, Right), isRight, either, hush)
@@ -110,10 +111,18 @@ ruleArgTypes = case _ of
 parseRowIdx :: String -> Maybe Int
 parseRowIdx = Int.fromString
 
-parseBoxRange :: String -> Maybe P.Box
-parseBoxRange s = case Int.fromString <$> split (Pattern "-") s of
-  [ Just i, Just j ] -> Just $ Tuple i j
-  _ -> Nothing
+parseBoxRange :: Array ProofRow -> String -> Maybe P.Box
+parseBoxRange rows s = implicitRange <|> parsedRange
+  where
+  implicitRange =
+    parseRowIdx s
+      >>= \i -> case rows !! (i - 1) of
+          Just { rule: BoxOpener _ { boxEndIdx: j } } -> Just $ Tuple i (1 + j)
+          _ -> Nothing
+
+  parsedRange = case Int.fromString <$> split (Pattern "-") s of
+    [ Just i, Just j ] -> Just $ Tuple i j
+    _ -> Nothing
 
 parseRuleText :: String -> Maybe RuleType
 parseRuleText = case _ of
@@ -145,8 +154,8 @@ parseRuleText = case _ of
   "=i" -> Just EqIntro
   _ -> Nothing
 
-parseRule :: ProofRow -> Maybe P.Rule
-parseRule { rule, ruleArgs } =
+parseRule :: Array ProofRow -> ProofRow -> Maybe P.Rule
+parseRule rows { rule, ruleArgs } =
   parseRuleText (ruleText rule)
     >>= \ruleType ->
         let
@@ -160,24 +169,24 @@ parseRule { rule, ruleArgs } =
             AndElim1, [ a ] -> Just $ P.AndElim1 (parseRowIdx a)
             AndElim2, [ a ] -> Just $ P.AndElim2 (parseRowIdx a)
             AndIntro, [ a, b ] -> Just $ P.AndIntro (parseRowIdx a) (parseRowIdx b)
-            OrElim, [ a, b, c ] -> Just $ P.OrElim (parseRowIdx a) (parseBoxRange b) (parseBoxRange c)
+            OrElim, [ a, b, c ] -> Just $ P.OrElim (parseRowIdx a) (parseBoxRange rows b) (parseBoxRange rows c)
             OrIntro1, [ a ] -> Just $ P.OrIntro1 (parseRowIdx a)
             OrIntro2, [ a ] -> Just $ P.OrIntro2 (parseRowIdx a)
             ImplElim, [ a, b ] -> Just $ P.ImplElim (parseRowIdx a) (parseRowIdx b)
-            ImplIntro, [ a ] -> Just $ P.ImplIntro (parseBoxRange a)
+            ImplIntro, [ a ] -> Just $ P.ImplIntro (parseBoxRange rows a)
             NegElim, [ a, b ] -> Just $ P.NegElim (parseRowIdx a) (parseRowIdx b)
-            NegIntro, [ a ] -> Just $ P.NegIntro (parseBoxRange a)
+            NegIntro, [ a ] -> Just $ P.NegIntro (parseBoxRange rows a)
             BottomElim, [ a ] -> Just $ P.BottomElim (parseRowIdx a)
             DoubleNegElim, [ a ] -> Just $ P.DoubleNegElim (parseRowIdx a)
             ModusTollens, [ a, b ] -> Just $ P.ModusTollens (parseRowIdx a) (parseRowIdx b)
             DoubleNegIntro, [ a ] -> Just $ P.DoubleNegIntro (parseRowIdx a)
-            PBC, [ a ] -> Just $ P.PBC (parseBoxRange a)
+            PBC, [ a ] -> Just $ P.PBC (parseBoxRange rows a)
             LEM, [] -> Just P.LEM
             RtCopy, [ a ] -> Just $ P.Copy (parseRowIdx a)
             RtFresh, [] -> Just P.Fresh
             ForallElim, [ a ] -> Just $ P.ForallElim (parseRowIdx a)
-            ForallIntro, [ a ] -> Just $ P.ForallIntro (parseBoxRange a)
-            ExistsElim, [ a, b ] -> Just $ P.ExistsElim (parseRowIdx a) (parseBoxRange b)
+            ForallIntro, [ a ] -> Just $ P.ForallIntro (parseBoxRange rows a)
+            ExistsElim, [ a, b ] -> Just $ P.ExistsElim (parseRowIdx a) (parseBoxRange rows b)
             ExistsIntro, [ a ] -> Just $ P.ExistsIntro (parseRowIdx a)
             EqElim, [ a, b ] -> Just $ P.EqElim (parseRowIdx a) (parseRowIdx b)
             EqIntro, [] -> Just P.EqIntro
@@ -496,7 +505,7 @@ render st =
           pure
             $ P.addProof
                 { formula: hush $ parseFFC r.formulaText
-                , rule: parseRule r
+                , rule: parseRule st.rows r
                 }
 
       conclusion = hush $ parseFFC st.conclusion
@@ -578,10 +587,16 @@ render st =
         BadFormula -> false
         _ -> true
 
-    argField :: Tuple Int (Tuple RuleArgType String) -> HH.HTML _ _
+    argField :: forall w. Tuple Int (Tuple RuleArgType String) -> HH.HTML w Action
     argField (Tuple j (Tuple ruleArgType s)) =
       HH.span [ HP.classes [ H.ClassName "column", H.ClassName "is-narrow" ] ]
         [ HH.input
+            [ HP.classes [ H.ClassName "input", H.ClassName "arg-field", H.ClassName "hint" ]
+            , HP.value typeahead
+            , HP.readOnly true
+            , HP.tabIndex (-1)
+            ]
+        , HH.input
             [ HP.classes
                 ( [ H.ClassName "input", H.ClassName "arg-field" ]
                     <> if isOk then [ H.ClassName "is-primary" ] else [ H.ClassName "is-danger" ]
@@ -596,9 +611,17 @@ render st =
         RowIdx -> "Row"
         BoxRange -> "Box"
 
+      typeahead =
+        fromMaybe "" case ruleArgType of
+          RowIdx -> Nothing
+          BoxRange -> do
+            void $ parseRowIdx s -- If only inputted a single row arg
+            Tuple _ boxEnd <- parseBoxRange st.rows s
+            pure $ s <> "-" <> show boxEnd
+
       isOk = case ruleArgType of
         RowIdx -> isJust $ parseRowIdx s
-        BoxRange -> isJust $ parseBoxRange s
+        BoxRange -> isJust $ parseBoxRange st.rows s
 
     argFields =
       fromMaybe [] do
@@ -739,7 +762,7 @@ handleAction = case _ of
   SetFocus i -> H.modify_ \st -> st { inFocus = i }
   where
   fixRefs :: (Int -> Int) -> (Tuple Int Int -> Tuple Int Int) -> Array ProofRow -> Array ProofRow
-  fixRefs refMap boxMap = map \row -> row { ruleArgs = fixArgs row }
+  fixRefs refMap boxMap rows = map (\row -> row { ruleArgs = fixArgs row }) rows
     where
     fixArg ruleArgType ruleArg = case ruleArgType of
       RowIdx -> maybe ruleArg (\i -> show $ 1 + refMap (i - 1)) $ parseRowIdx ruleArg
@@ -750,9 +773,12 @@ handleAction = case _ of
               let
                 Tuple i' j' = boxMap $ Tuple (i - 1) (j - 1)
               in
-                show (1 + i') <> "-" <> show (1 + j')
+                if isJust $ parseRowIdx ruleArg then
+                  show (1 + i')
+                else
+                  show (1 + i') <> "-" <> show (1 + j')
           )
-          $ parseBoxRange ruleArg
+          $ parseBoxRange rows ruleArg
 
     fixArgs { rule, ruleArgs } = case parseRuleText (ruleText rule) of
       Just ruleType -> Array.zipWith fixArg (ruleArgTypes ruleType) ruleArgs
