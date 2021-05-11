@@ -1,15 +1,10 @@
 module GUI.StaticElements where
 
-import Prelude
-import Effect.Class (class MonadEffect)
-import Type.Proxy (Proxy(..))
 import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
-import GUI.RawHTML as RawHTML
 
 foreign import manualHTMLString :: String
 
-_rawHTML = Proxy :: Proxy "rawHTML"
 
 -- | Main page header.
 siteHeader :: forall w i. String -> String -> HH.HTML w i
@@ -36,139 +31,7 @@ siteFooter =
         ]
     ]
 
-manualModalBody :: forall r action m. MonadEffect m => HH.ComponentHTML action ( rawHTML :: RawHTML.Slot Int | r ) m
-manualModalBody = HH.slot_ _rawHTML 0 RawHTML.component manualHTMLString
 
-shortcutModalBody :: forall w i. HH.HTML w i
-shortcutModalBody =
-  HH.div_
-    [ HH.section [ HP.classes [ HH.ClassName "section" ] ]
-        [ HH.text $ "This section lists various shortcut commands you can "
-            <> "type or press with the keyboard when constructing various proofs."
-        ]
-    , HH.section [ HP.classes [ HH.ClassName "section" ] ]
-        [ HH.h1 [ HP.classes [ HH.ClassName "title", HH.ClassName "has-text-centered" ] ] [ HH.text "General" ]
-        , HH.table [ HP.classes [ HH.ClassName "table" ] ]
-            [ HH.thead_
-                [ HH.tr_
-                    [ HH.th_ [ HH.abbr [ HP.title "Commands" ] [ HH.text "Command" ] ]
-                    , HH.th_ [ HH.abbr [ HP.title "Explanation of the commands" ] [ HH.text "Explanation" ] ]
-                    , HH.th_ [ HH.abbr [ HP.title "Keyboard shortcuts" ] [ HH.text "Keyboard shortcuts" ] ]
-                    ]
-                ]
-            , HH.tbody []
-                [ HH.tr_
-                    [ HH.th_ [ HH.text "Add row" ]
-                    , HH.td_ [ HH.text "Adds an empty row beneath the current one." ]
-                    , HH.td_ [ HH.strong_ [ HH.text "enter" ] ]
-                    ]
-                , HH.tr_
-                    [ HH.th_ [ HH.text "Delete row" ]
-                    , HH.td_ [ HH.text "Deletes the current row if pressed while having the cursor in the formula field. Note, the formula field needs to be empty for this to work." ]
-                    , HH.td_ [ HH.strong_ [ HH.text "backspace" ] ]
-                    ]
-                , HH.tr_
-                    [ HH.th_ [ HH.text "Add assumption box" ]
-                    , HH.td_ [ HH.text "Opens an assumption box in the current row when you write this command in the rule field." ]
-                    , HH.td_
-                        [ HH.strong_ [ HH.text "as" ]
-                        , HH.text ", "
-                        , HH.strong_ [ HH.text "Ass." ]
-                        ]
-                    ]
-                , HH.tr_
-                    [ HH.th_ [ HH.text "Add row outside of assumption box" ]
-                    , HH.td_ [ HH.text "While inside an assumption box, pressing enter will add a row in that current box. This command is used to jump out of the box and add a new empty row outside of it." ]
-                    , HH.td_ [ HH.strong_ [ HH.text "Shift+Enter" ] ]
-                    ]
-                , HH.tr_
-                    [ HH.th_ [ HH.text "Add Premise" ]
-                    , HH.td_ [ HH.text "Adds the formula of the current row as a premise when you write this command in the rule field." ]
-                    , HH.td_
-                        [ HH.strong_ [ HH.text "pr" ]
-                        , HH.text ", "
-                        , HH.strong_ [ HH.text "Premise" ]
-                        ]
-                    ]
-                ]
-            ]
-        ]
-    , HH.section [ HP.classes [ HH.ClassName "section" ] ]
-        [ HH.h1 [ HP.classes [ HH.ClassName "title", HH.ClassName "has-text-centered" ] ] [ HH.text "Symbols" ]
-        , HH.table [ HP.classes [ HH.ClassName "table", HH.ClassName "is-fullwidth" ] ]
-            [ HH.thead_
-                [ HH.tr_
-                    [ HH.th_ [ HH.abbr [ HP.title "Symbols defined in the logic" ] [ HH.text "Symbol" ] ]
-                    , HH.th_ [ HH.abbr [ HP.title "Connectives" ] [ HH.text "Connective" ] ]
-                    , HH.th_ [ HH.abbr [ HP.title "Keyboard shortcuts for inputting symbols" ] [ HH.text "Keyboard shortcuts" ] ]
-                    ]
-                ]
-            , HH.tbody []
-                [ HH.tr_
-                    [ HH.th_ [ HH.text "∧" ]
-                    , HH.td_ [ HH.text "Conjunction" ]
-                    , HH.td_ [ HH.strong_ [ HH.text "an" ] ]
-                    ]
-                , HH.tr_
-                    [ HH.th_ [ HH.text "∨" ]
-                    , HH.td_ [ HH.text "Disjunction" ]
-                    , HH.td_
-                        [ HH.strong_ [ HH.text "or" ]
-                        , HH.text ", "
-                        , HH.strong_ [ HH.text "v" ]
-                        ]
-                    ]
-                , HH.tr_
-                    [ HH.th_ [ HH.text "→" ]
-                    , HH.td_ [ HH.text "Implication" ]
-                    , HH.td_
-                        [ HH.strong_ [ HH.text "->" ]
-                        , HH.text ", "
-                        , HH.strong_ [ HH.text "imp" ]
-                        ]
-                    ]
-                , HH.tr_
-                    [ HH.th_ [ HH.text "¬" ]
-                    , HH.td_ [ HH.text "Negation" ]
-                    , HH.td_
-                        [ HH.strong_ [ HH.text "not" ]
-                        , HH.text ", "
-                        , HH.strong_ [ HH.text "neg" ]
-                        , HH.text ", "
-                        , HH.strong_ [ HH.text "!" ]
-                        ]
-                    ]
-                , HH.tr_
-                    [ HH.th_ [ HH.text "∀" ]
-                    , HH.td_ [ HH.text "Universal, for all" ]
-                    , HH.td_
-                        [ HH.strong_ [ HH.text "fa" ]
-                        , HH.text ", "
-                        , HH.strong_ [ HH.text "fo" ]
-                        ]
-                    ]
-                , HH.tr_
-                    [ HH.th_ [ HH.text "∃" ]
-                    , HH.td_ [ HH.text "Existential, there exist" ]
-                    , HH.td_
-                        [ HH.strong_ [ HH.text "ex" ]
-                        , HH.text ", "
-                        , HH.strong_ [ HH.text "te" ]
-                        ]
-                    ]
-                , HH.tr_
-                    [ HH.th_ [ HH.text "⊥" ]
-                    , HH.td_ [ HH.text "Bottom / Contradiction" ]
-                    , HH.td_
-                        [ HH.strong_ [ HH.text "bo" ]
-                        , HH.text ", "
-                        , HH.strong_ [ HH.text "con" ]
-                        ]
-                    ]
-                ]
-            ]
-        ]
-    ]
 
 {- This might be unnecessary information to include.
     , HH.section [ HP.classes [ HH.ClassName "section" ] ]
