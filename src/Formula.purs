@@ -1,4 +1,5 @@
-module Formula  {--( Variable(..)
+module Formula
+  ( Variable(..)
   , Term(..)
   , Formula(..)
   , bottomProp
@@ -16,7 +17,7 @@ module Formula  {--( Variable(..)
   , almostEqual
   , allVarsInFormula
   , equivalent
-  )--} where
+  ) where
 
 import Prelude
 import Data.Array (zipWith)
