@@ -113,7 +113,7 @@ data NdError
   | BadPremise
   | RefOutOfBounds_Box
 
---TODO: Add error constructors for predicate logic with specific error scenario messages. 
+--TODO: Add error constructors for predicate logic with specific error scenario messages.
 data MismatchError
   = BadLem
   | BadOrI_Order
@@ -421,9 +421,8 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
           case a, b1, b2 of
             FC (Exists v f), FC f', FC b2' -> do
               case hasSingleSubOf v f f' of
-                Just (Var intro) -> do
-                  when (intro `Array.elem` allVarsInFormula fTarget) (throwError BadRule)
-                  if b2' `equivalent` fTarget then pure formula' else throwError $ FormulaMismatch UnExplainedError
+                Just (Var intro)
+                  | not (intro == v || intro `Array.elem` allVarsInFormula fTarget) -> if b2' `equivalent` fTarget then pure formula' else throwError $ FormulaMismatch UnExplainedError
                 _ -> throwError BadRule
             _, _, _ -> throwError $ FormulaMismatch UnExplainedError
         _ -> throwError $ FormulaMismatch UnExplainedError
