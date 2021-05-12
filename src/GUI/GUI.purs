@@ -1,7 +1,6 @@
 module GUI (siteBody) where
 
 import Prelude
-
 import Data.Maybe (Maybe(..))
 import Effect.Class (class MonadEffect)
 import GUI.Config.Text as GCT
@@ -16,7 +15,6 @@ import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.HTML.Properties.ARIA as ARIA
 import Type.Proxy (Proxy(..))
-
 
 foreign import pictureURL :: String -> String
 
@@ -116,157 +114,175 @@ siteBody =
     ActivateModal m -> H.put (Just m)
     CloseModals -> H.put Nothing
 
-manualModalBody :: forall w . HH.HTML w Action
-manualModalBody = HH.div [HP.classes [HH.ClassName "content"]]
-        [ HH.section [ HP.classes [ HH.ClassName "section" ] ]
-            [ HH.text $ "This manual will give a brief explanation on how to construct proofs in Logan, by working through two examples. When starting the program, you are greeted with the following layout:"]
-           , HH.img [ HP.src $ pictureURL "intro"
-             ]
-           , HH.section [ HP.classes [ HH.ClassName "section"] ] 
-              [HH.p_ [HH.text "The interface consists of three main panels, the \"Proof\" panel, the \"About the rules\" panel, and the \"Instructions\" panel."]
-              , HH.p_ [HH.text "The \"Proof\" panel is where you construct the proofs. It has a field for premises, a field for the conclusions, and a number of lines, each of which has a formula field, a rule field, and, if applicable, a number of argument fields."]
-              , HH.p_ [HH.text "The \"About the rules\" panel shows the available inference rules. Clicking one of the rules will show additional information about its usage."]
-              , HH.p_ [HH.text "The \"Instructions\" panel contains this manual and an introduction to the available ", HH.a [HE.onClick (\_ -> ActivateModal SP.ShortcutModal)] [HH.text "shortcuts."]]
-             ]
-             , HH.h4 [HP.classes [HH.ClassName "title", HH.ClassName "is-5"] ] 
-               [ HH.text "Example: P∧Q , R ⊢ Q∧R" ] 
-               , HH.p_ [HH.text "Initially the proof panel looks like this:" ]
-               , HH.img [ HP.src $ pictureURL "Ex1ProofPanel" ]
-             , HH.section [ HP.classes [ HH.ClassName "section" ] ] 
-              [HH.text $ "When trying to prove a sequent, we start by adding the premises and conclusion at the top of the proof. We add the premises by typing "
-                , HH.strong_ [HH.text "PanQ, R " ]
-                , HH.text "in the premise field, and the conclusion by typing"
-                , HH.strong_ [HH.text " QanR"]
-                , HH.text " in the conclusion field."
-               ]
-               , HH.img [ HP.src $ pictureURL "Ex1Step1" ]
-               , HH.section [HP.classes [HH.ClassName "section"]]
-                [HH.text "The next step is to perform an and-elimination. We do this by typing "
-                  , HH.strong_ [HH.text "Q "]
-                  , HH.text "in the formula field, and the formula "
-                  , HH.strong_ [HH.text "ane2 1"]
-                  , HH.text " in the rule and row fields on line 3."
-                ]
-                , HH.img [ HP.src $ pictureURL "Ex1Step2" ]
-                , HH.section [HP.classes [HH.ClassName "section"]]
-                [HH.text "Finally we add a new row, by pressing enter, and perform an and-introduction by typing "
-                  , HH.strong_ [HH.text "QanR"]
-                  , HH.text " in the formula field, and the rule "
-                  , HH.strong_ [HH.text "ani 3 2"]
-                  , HH.text " in the rule and row fields on line 4." 
-                  ]
-                , HH.img [ HP.src $ pictureURL "Ex1Step3" ]
-                , HH.section [HP.classes [HH.ClassName "section"]]
-                [HH.text "We have now proven the sequent P∧Q , R ⊢ Q∧R. The last row is highlighted in green to indicate that the conclusion has been reached and that all steps are valid. We now move on to another example, which demonstrates the use of boxes in a proof."
-                ]
-
-                , HH.section [ HP.classes [ HH.ClassName "section" ] ]
-               [ HH.h4 [HP.classes [HH.ClassName "title", HH.ClassName "is-5"] ][ HH.text "Example: (P∨Q)∨R , R ⊢ P∨(Q∨R)" ] 
-               , HH.div_ [HH.text "Start by adding the conclusion and the premise by typing " 
-                 , HH.strong_ [HH.text "(PorQ)orR"]
-                 , HH.text " in the premise field, and "
-                 , HH.strong_ [HH.text "Por(QorR) " ]
-                 , HH.text ", in the conclusion field."
-                ]
-              ]
-              , HH.img [ HP.src $ pictureURL "Ex2Step1" ]
-              , HH.section [HP.classes [HH.ClassName "section"]]
-                [HH.text "Type "
-                  , HH.strong_ [HH.text "PorQ "]
-                  , HH.text "in the formula field and "
-                  , HH.strong_ [HH.text "as "]
-                  , HH.text "in the rule field on line 2. This opens up a new assumption box with its own scope and assumed formula at the top row. Note that when pressing enter, you will add rows inside the current box." 
-                  ]
-              , HH.img [ HP.src $ pictureURL "Ex2Step2" ]
-              , HH.section [HP.classes [HH.ClassName "section"]]
-               [HH.text "We will now add two new assumptions inside the box we created, because we are going to perform a or-elimination at row 2 eventually. To add these assumptions and the inference rules involved, type in the following sequence:  "
-                 , HH.ul_ [ HH.li_ [HH.text "On row 3, type "
-                 , HH.strong_ [HH.text "P"]
-                 , HH.text " in the formula field, and "
-                 , HH.strong_ [HH.text "as"]
-                 , HH.text " in the rule field."]
-                 , HH.li_ [HH.text "On row 4, type "
-                 , HH.strong_ [HH.text "Por(QorR)"]
-                 , HH.text " in the formula field, and "
-                 , HH.strong_ [HH.text "ori1 3"]
-                 , HH.text " in the rule field."
-                 ]
-                ]
-                ,HH.p_ [HH.text "The first assumption box is now finished and we want to add new rows outside of this box. To add a new row outside the box, press "
-                  , HH.strong_ [HH.text "shift+enter"]
-                  , HH.text ". Now we make a second assumption and apply the inference rules involved by writing the following: "]
-                    , HH.ul_ [HH.li_[HH.text "On row 5, type "
-                    , HH.strong_ [HH.text "Q"]
-                    , HH.text " in the formula field, and "
-                    , HH.strong_ [HH.text "as"] 
-                    , HH.text " in the rule field."]
-                    , HH.li_ [HH.text "On row 6, type "
-                    , HH.strong_ [HH.text "QorR"]
-                    , HH.text " in the formula field, and "
-                    , HH.strong_ [HH.text "ori1 5"] 
-                    , HH.text " in the rule field."]
-                    , HH.li_ [HH.text "On row 7, type "
-                    , HH.strong_ [HH.text "Por(QorR)"]
-                    , HH.text " in the formula field, and "
-                    , HH.strong_ [HH.text "ori2 6"]
-                    , HH.text " in the rule field."
-                  ]    
-                ]
-                , HH.p_ [HH.text "The proof should now look like this: " ]
-               ]
-
-              , HH.img [HP.src $ pictureURL "Ex2Step3"]
-              , HH.section [HP.classes [HH.ClassName "section"]]
-                [HH.text "Now we press "
-                  , HH.strong_ [HH.text "shift+enter "]
-                  , HH.text "to get outside of the current box and add a new row. At this row we also input "
-                  , HH.strong_ [HH.text "Por(QorR) "]
-                  , HH.text "and "
-                  , HH.strong_ [HH.text "ore 2 3-4 5-7 "]
-                
-              ]
-              , HH.img [HP.src $ pictureURL "Ex2Step4"]
-              , HH.section [HP.classes [HH.ClassName "section"]]
-                [HH.text "Add a new assumption box and inference rules inside of it by doing: "
-                    , HH.ul_ [HH.li_[HH.text "On row 9, type "
-                    , HH.strong_ [HH.text "R"]
-                    , HH.text " in the formula field, and "
-                    , HH.strong_ [HH.text "as"] 
-                    , HH.text " in the rule field."]
-                    , HH.li_ [HH.text "On row 10, type "
-                    , HH.strong_ [HH.text "QorR"]
-                    , HH.text " in the formula field, and "
-                    , HH.strong_ [HH.text "ori2 9"] 
-                    , HH.text " in the rule field."]
-                    , HH.li_ [HH.text "On row 11, type "
-                    , HH.strong_ [HH.text "Por(QorR)"]
-                    , HH.text " in the formula field, and "
-                    , HH.strong_ [HH.text "ori2 10"]
-                    , HH.text " in the rule field."
-                  ]    
-                ]
-                , HH.p_ [HH.text "The proof should now look like this:"]
-              ]
-              , HH.img [HP.src $ pictureURL "Ex2Step5"]
-              , HH.section [HP.classes [HH.ClassName "section"]]
-                [HH.text "We finish the proof by typing "
-                , HH.strong_ [HH.text "Por(QorR)"]
-                , HH.text " in the formula field, and "
-                , HH.strong_ [HH.text "ore 1 , 2-8 , 9-11 "]
-                , HH.text "in the rule field, which completes the proof."
-                ]
-                , HH.img [HP.src $ pictureURL "Ex2Step6"]
-                , HH.section [HP.classes [HH.ClassName "section"]]
-                  [HH.text "Phew! This was a little harder than the first one but now you should have enough information about how to use the editor. For more information about the symbols and how to use them, please visit the ", HH.a [HE.onClick (\_ -> ActivateModal SP.ShortcutModal)] [HH.text "shortcut page."]]
-
+manualModalBody :: forall w. HH.HTML w Action
+manualModalBody =
+  HH.div [ HP.classes [ HH.ClassName "content" ] ]
+    [ HH.section [ HP.classes [ HH.ClassName "section" ] ]
+        [ HH.text $ "This manual will give a brief explanation on how to construct proofs in Logan, by working through two examples. When starting the program, you are greeted with the following layout:" ]
+    , HH.img
+        [ HP.src $ pictureURL "intro"
         ]
+    , HH.section [ HP.classes [ HH.ClassName "section" ] ]
+        [ HH.p_ [ HH.text "The interface consists of three main panels, the \"Proof\" panel, the \"About the rules\" panel, and the \"Instructions\" panel." ]
+        , HH.p_ [ HH.text "The \"Proof\" panel is where you construct the proofs. It has a field for premises, a field for the conclusions, and a number of lines, each of which has a formula field, a rule field, and, if applicable, a number of argument fields." ]
+        , HH.p_ [ HH.text "The \"About the rules\" panel shows the available inference rules. Clicking one of the rules will show additional information about its usage." ]
+        , HH.p_ [ HH.text "The \"Instructions\" panel contains this manual and an introduction to the available ", HH.a [ HE.onClick (\_ -> ActivateModal SP.ShortcutModal) ] [ HH.text "shortcuts." ] ]
+        ]
+    , HH.h4 [ HP.classes [ HH.ClassName "title", HH.ClassName "is-5" ] ]
+        [ HH.text "Example: P∧Q , R ⊢ Q∧R" ]
+    , HH.p_ [ HH.text "Initially the proof panel looks like this:" ]
+    , HH.img [ HP.src $ pictureURL "Ex1ProofPanel" ]
+    , HH.section [ HP.classes [ HH.ClassName "section" ] ]
+        [ HH.text $ "When trying to prove a sequent, we start by adding the premises and conclusion at the top of the proof. We add the premises by typing "
+        , HH.strong_ [ HH.text "PanQ, R " ]
+        , HH.text "in the premise field, and the conclusion by typing"
+        , HH.strong_ [ HH.text " QanR" ]
+        , HH.text " in the conclusion field."
+        ]
+    , HH.img [ HP.src $ pictureURL "Ex1Step1" ]
+    , HH.section [ HP.classes [ HH.ClassName "section" ] ]
+        [ HH.text "The next step is to perform an and-elimination. We do this by typing "
+        , HH.strong_ [ HH.text "Q " ]
+        , HH.text "in the formula field, and the formula "
+        , HH.strong_ [ HH.text "ane2 1" ]
+        , HH.text " in the rule and row fields on line 3."
+        ]
+    , HH.img [ HP.src $ pictureURL "Ex1Step2" ]
+    , HH.section [ HP.classes [ HH.ClassName "section" ] ]
+        [ HH.text "Finally we add a new row, by pressing enter, and perform an and-introduction by typing "
+        , HH.strong_ [ HH.text "QanR" ]
+        , HH.text " in the formula field, and the rule "
+        , HH.strong_ [ HH.text "ani 3 2" ]
+        , HH.text " in the rule and row fields on line 4."
+        ]
+    , HH.img [ HP.src $ pictureURL "Ex1Step3" ]
+    , HH.section [ HP.classes [ HH.ClassName "section" ] ]
+        [ HH.text "We have now proven the sequent P∧Q , R ⊢ Q∧R. The last row is highlighted in green to indicate that the conclusion has been reached and that all steps are valid. We now move on to another example, which demonstrates the use of boxes in a proof."
+        ]
+    , HH.section [ HP.classes [ HH.ClassName "section" ] ]
+        [ HH.h4 [ HP.classes [ HH.ClassName "title", HH.ClassName "is-5" ] ] [ HH.text "Example: (P∨Q)∨R , R ⊢ P∨(Q∨R)" ]
+        , HH.div_
+            [ HH.text "Start by adding the conclusion and the premise by typing "
+            , HH.strong_ [ HH.text "(PorQ)orR" ]
+            , HH.text " in the premise field, and "
+            , HH.strong_ [ HH.text "Por(QorR) " ]
+            , HH.text ", in the conclusion field."
+            ]
+        ]
+    , HH.img [ HP.src $ pictureURL "Ex2Step1" ]
+    , HH.section [ HP.classes [ HH.ClassName "section" ] ]
+        [ HH.text "Type "
+        , HH.strong_ [ HH.text "PorQ " ]
+        , HH.text "in the formula field and "
+        , HH.strong_ [ HH.text "as " ]
+        , HH.text "in the rule field on line 2. This opens up a new assumption box with its own scope and assumed formula at the top row. Note that when pressing enter, you will add rows inside the current box."
+        ]
+    , HH.img [ HP.src $ pictureURL "Ex2Step2" ]
+    , HH.section [ HP.classes [ HH.ClassName "section" ] ]
+        [ HH.text "We will now add two new assumptions inside the box we created, because we are going to perform a or-elimination at row 2 eventually. To add these assumptions and the inference rules involved, type in the following sequence:  "
+        , HH.ul_
+            [ HH.li_
+                [ HH.text "On row 3, type "
+                , HH.strong_ [ HH.text "P" ]
+                , HH.text " in the formula field, and "
+                , HH.strong_ [ HH.text "as" ]
+                , HH.text " in the rule field."
+                ]
+            , HH.li_
+                [ HH.text "On row 4, type "
+                , HH.strong_ [ HH.text "Por(QorR)" ]
+                , HH.text " in the formula field, and "
+                , HH.strong_ [ HH.text "ori1 3" ]
+                , HH.text " in the rule field."
+                ]
+            ]
+        , HH.p_
+            [ HH.text "The first assumption box is now finished and we want to add new rows outside of this box. To add a new row outside the box, press "
+            , HH.strong_ [ HH.text "shift+enter" ]
+            , HH.text ". Now we make a second assumption and apply the inference rules involved by writing the following: "
+            ]
+        , HH.ul_
+            [ HH.li_
+                [ HH.text "On row 5, type "
+                , HH.strong_ [ HH.text "Q" ]
+                , HH.text " in the formula field, and "
+                , HH.strong_ [ HH.text "as" ]
+                , HH.text " in the rule field."
+                ]
+            , HH.li_
+                [ HH.text "On row 6, type "
+                , HH.strong_ [ HH.text "QorR" ]
+                , HH.text " in the formula field, and "
+                , HH.strong_ [ HH.text "ori1 5" ]
+                , HH.text " in the rule field."
+                ]
+            , HH.li_
+                [ HH.text "On row 7, type "
+                , HH.strong_ [ HH.text "Por(QorR)" ]
+                , HH.text " in the formula field, and "
+                , HH.strong_ [ HH.text "ori2 6" ]
+                , HH.text " in the rule field."
+                ]
+            ]
+        , HH.p_ [ HH.text "The proof should now look like this: " ]
+        ]
+    , HH.img [ HP.src $ pictureURL "Ex2Step3" ]
+    , HH.section [ HP.classes [ HH.ClassName "section" ] ]
+        [ HH.text "Now we press "
+        , HH.strong_ [ HH.text "shift+enter " ]
+        , HH.text "to get outside of the current box and add a new row. At this row we also input "
+        , HH.strong_ [ HH.text "Por(QorR) " ]
+        , HH.text "and "
+        , HH.strong_ [ HH.text "ore 2 3-4 5-7 " ]
+        ]
+    , HH.img [ HP.src $ pictureURL "Ex2Step4" ]
+    , HH.section [ HP.classes [ HH.ClassName "section" ] ]
+        [ HH.text "Add a new assumption box and inference rules inside of it by doing: "
+        , HH.ul_
+            [ HH.li_
+                [ HH.text "On row 9, type "
+                , HH.strong_ [ HH.text "R" ]
+                , HH.text " in the formula field, and "
+                , HH.strong_ [ HH.text "as" ]
+                , HH.text " in the rule field."
+                ]
+            , HH.li_
+                [ HH.text "On row 10, type "
+                , HH.strong_ [ HH.text "QorR" ]
+                , HH.text " in the formula field, and "
+                , HH.strong_ [ HH.text "ori2 9" ]
+                , HH.text " in the rule field."
+                ]
+            , HH.li_
+                [ HH.text "On row 11, type "
+                , HH.strong_ [ HH.text "Por(QorR)" ]
+                , HH.text " in the formula field, and "
+                , HH.strong_ [ HH.text "ori2 10" ]
+                , HH.text " in the rule field."
+                ]
+            ]
+        , HH.p_ [ HH.text "The proof should now look like this:" ]
+        ]
+    , HH.img [ HP.src $ pictureURL "Ex2Step5" ]
+    , HH.section [ HP.classes [ HH.ClassName "section" ] ]
+        [ HH.text "We finish the proof by typing "
+        , HH.strong_ [ HH.text "Por(QorR)" ]
+        , HH.text " in the formula field, and "
+        , HH.strong_ [ HH.text "ore 1 , 2-8 , 9-11 " ]
+        , HH.text "in the rule field, which completes the proof."
+        ]
+    , HH.img [ HP.src $ pictureURL "Ex2Step6" ]
+    , HH.section [ HP.classes [ HH.ClassName "section" ] ]
+        [ HH.text "Phew! This was a little harder than the first one but now you should have enough information about how to use the editor. For more information about the symbols and how to use them, please visit the ", HH.a [ HE.onClick (\_ -> ActivateModal SP.ShortcutModal) ] [ HH.text "shortcut page." ] ]
+    ]
 
-shortcutModalBody :: forall w . HH.HTML w Action
+shortcutModalBody :: forall w. HH.HTML w Action
 shortcutModalBody =
   HH.div_
     [ HH.section [ HP.classes [ HH.ClassName "section" ] ]
         [ HH.text $ "This section lists various shortcut commands you can "
-            <> "type or press with the keyboard when constructing various proofs. For more information on how to use the editor, please visit the ", HH.a [HE.onClick (\_ -> ActivateModal SP.ManualModal)] [HH.text "manual."]
+            <> "type or press with the keyboard when constructing various proofs. For more information on how to use the editor, please visit the "
+        , HH.a [ HE.onClick (\_ -> ActivateModal SP.ManualModal) ] [ HH.text "manual." ]
         ]
     , HH.section [ HP.classes [ HH.ClassName "section" ] ]
         [ HH.h1 [ HP.classes [ HH.ClassName "title", HH.ClassName "has-text-centered" ] ] [ HH.text "General" ]
@@ -384,7 +400,7 @@ shortcutModalBody =
                     , HH.td_
                         [ HH.strong_ [ HH.text "bo" ]
                         , HH.text ", "
-                        , HH.strong_ [ HH.text "con" ]
+                        , HH.strong_ [ HH.text "co" ]
                         ]
                     ]
                 ]
