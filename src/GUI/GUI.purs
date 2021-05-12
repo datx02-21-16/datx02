@@ -346,16 +346,16 @@ shortcutModalBody =
                     , HH.td_
                         [ HH.strong_ [ HH.text "->" ]
                         , HH.text ", "
-                        , HH.strong_ [ HH.text "imp" ]
+                        , HH.strong_ [ HH.text "im" ]
                         ]
                     ]
                 , HH.tr_
                     [ HH.th_ [ HH.text "¬" ]
                     , HH.td_ [ HH.text "Negation" ]
                     , HH.td_
-                        [ HH.strong_ [ HH.text "not" ]
+                        [ HH.strong_ [ HH.text "no" ]
                         , HH.text ", "
-                        , HH.strong_ [ HH.text "neg" ]
+                        , HH.strong_ [ HH.text "ne" ]
                         , HH.text ", "
                         , HH.strong_ [ HH.text "!" ]
                         ]
