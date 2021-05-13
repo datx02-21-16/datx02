@@ -77,11 +77,11 @@ $modal-card-title-color: findColorInvert($modal-card-head-background-color);
 .proof-header {
 	display: flex;
 	justify-content: space-around;
-	
+
 	margin: 1rem auto;
 
 	white-space: nowrap;
-	vertical-align:top;
+	vertical-align: top;
 }
 
 .proof-rows {
@@ -185,6 +185,16 @@ $modal-card-title-color: findColorInvert($modal-card-head-background-color);
 
 .arg-field {
 	width: 4rem;
+
+	&.hint {
+		position: absolute;
+		border-color: transparent;
+		color: #999;
+	}
+
+	&:not(.hint) {
+		background-color: transparent;
+	}
 }
 
 [role="toolbar"] {
