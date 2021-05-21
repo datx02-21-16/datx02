@@ -69,7 +69,7 @@ instance arbitraryTTerm :: Arbitrary TTerm where
           m <- chooseInt 0 (n / 2)
           lift2 App lower $ vectorOf m (unwrap <$> p (n / (m + 1)))
 
-    f p _ = (TTerm <<< Var) <$> variable
+    f p _ = TTerm <<< Var <$> variable
 
 newtype TFormula
   = TFormula Formula
@@ -77,13 +77,13 @@ newtype TFormula
 derive instance newtypeTFormula :: Newtype TFormula _
 
 instance arbitraryTFormula :: Arbitrary TFormula where
-  arbitrary = sized $ fix f
+  arbitrary = sized $ fix f 0
     where
-    f p n =
+    f p minArgs n =
       TFormula
         <$> let
             args = do
-              m <- chooseInt 0 (n / 2)
+              m <- chooseInt (max minArgs 0) (max minArgs (n / 2))
               vectorOf m $ resize (n / (m + 1)) (un TTerm <$> arbitrary)
 
             atom = lift2 Predicate upper args
@@ -92,7 +92,9 @@ instance arbitraryTFormula :: Arbitrary TFormula where
               atom
             else
               let
-                arbFormula = unwrap <$> p (n / 2)
+                arbFormula = unwrap <$> p minArgs (n / 2)
+
+                arbFOLFormula = unwrap <$> p 1 (n / 2)
               in
                 oneOf $ NonEmptyArray.fromNonEmpty
                   $ NonEmpty atom
@@ -100,14 +102,12 @@ instance arbitraryTFormula :: Arbitrary TFormula where
                       , lift2 And arbFormula arbFormula
                       , lift2 Or arbFormula arbFormula
                       , lift2 Implies arbFormula arbFormula
-                      , lift2 Forall variable arbFormula
-                      , lift2 Exists variable arbFormula
+                      , lift2 Forall variable arbFOLFormula
+                      , lift2 Exists variable arbFOLFormula
                       ]
 
 readFormula :: String -> Formula
-readFormula s =
-  fromRight' (\_ -> unsafeCrashWith "Bad formula")
-    $ parseFormula s
+readFormula s = fromRight' (\_ -> unsafeCrashWith "Bad formula") $ parseFormula s
 
 spec :: Spec Unit
 spec =
@@ -254,9 +254,9 @@ spec =
             "A ∧ (B ∧ C)"
       it "should format equality nicely" do
         show (Predicate "=" [ Var x, Var y ]) `shouldEqual` "x = y"
-      it "should survive show/parseFormula roundtrip" do
-        quickCheck \(TFormula formula) ->
-          parseFormula (show formula) `assertEquals` Right formula
+      it "should survive show/parseFormula roundtrip"
+        $ quickCheck \(TFormula formula) ->
+            parseFormula (show formula) `assertEquals` Right formula
 
   x = Variable "x"
 

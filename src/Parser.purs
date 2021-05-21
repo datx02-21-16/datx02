@@ -2,11 +2,13 @@ module Parser (formula, parseFormula, parsePremises, parseVar) where
 
 import Prelude
 import Control.Alternative ((<|>))
-import Control.Lazy (fix)
+import Control.Lazy (defer)
 import Data.Array as Array
-import Data.List (many)
+import Data.List as List
+import Data.List ((:), many)
 import Data.List.NonEmpty (NonEmptyList)
 import Data.String.CodePoints (codePointFromChar)
+import Data.String.CodeUnits (fromCharArray)
 import Data.CodePoint.Unicode (isLower)
 import Data.Maybe (fromJust)
 import Data.Either (Either, fromRight')
@@ -15,10 +17,10 @@ import Data.String (Pattern(Pattern))
 import Data.String as String
 import Control.Monad.State.Class (gets)
 import Partial.Unsafe (unsafePartial, unsafeCrashWith)
-import Text.Parsing.Parser (Parser, ParserT, ParseError, ParseState(ParseState), runParser)
-import Text.Parsing.Parser.Combinators (option, choice, try, sepBy1, chainl1, lookAhead, (<?>))
+import Text.Parsing.Parser (Parser, ParserT, ParseError, ParseState(ParseState), runParser, fail)
+import Text.Parsing.Parser.Combinators ((<?>), option, try, sepBy1, lookAhead, notFollowedBy)
 import Text.Parsing.Parser.String (anyChar, char, oneOf, satisfy, eof)
-import Text.Parsing.Parser.Token (GenLanguageDef(..), TokenParser, makeTokenParser, upper, letter, alphaNum)
+import Text.Parsing.Parser.Token (GenLanguageDef(..), TokenParser, makeTokenParser, digit, upper, letter, alphaNum)
 import Text.Parsing.Parser.Expr (OperatorTable, Assoc(..), Operator(..), buildExprParser)
 import Formula (Variable(..), Term(..), Formula(..))
 
@@ -31,10 +33,10 @@ token = makeTokenParser languageDef
       , commentEnd: ""
       , commentLine: ""
       , nestedComments: false
-      , identStart: letter <|> char '⊥'
+      , identStart: letter
       , identLetter: alphaNum
       , opStart: oneOf [ '¬', '∧', '∨', '→', '∀', '∃' ]
-      , opLetter: oneOf []
+      , opLetter: fail "No alternative"
       , reservedNames: []
       , reservedOpNames: [ "¬", "∧", "∨", "→", "∀", "∃" ]
       , caseSensitive: true
@@ -45,21 +47,27 @@ lower :: forall m. Monad m => ParserT String m Char
 lower = satisfy (isLower <<< codePointFromChar) <?> "lowercase letter"
 
 variableSymbol :: Parser String String
-variableSymbol = lookAhead lower *> token.identifier
+variableSymbol =
+  token.lexeme do
+    start <- lower
+    rest <- many (lower <|> digit)
+    pure $ fromCharArray $ List.toUnfoldable (start : rest)
 
 variable :: Parser String Variable
 variable = Variable <$> variableSymbol <?> "variable"
-
-argumentList :: forall a. Parser String a -> Parser String (Array a)
-argumentList p = Array.fromFoldable <$> token.parens (token.commaSep p)
 
 term :: Parser String Term
 term =
   do
     symbol <- variableSymbol
     -- Constants require empty argument list ("c()") to disambiguate from variables
-    option (Var $ Variable symbol) (App symbol <$> argumentList term)
+    option (Var $ Variable symbol)
+      (App symbol <<< List.toUnfoldable <$> token.parens (token.commaSep term))
     <?> "term"
+
+-- | Parse a single atomic proposition such as p.
+proposition :: Parser String Formula
+proposition = flip Predicate [] <$> (token.symbol "⊥" <|> token.identifier) <?> "proposition"
 
 -- | Parse a single predicate variable such as P(x).
 predicate :: Parser String Formula
@@ -67,8 +75,7 @@ predicate =
   let
     predicateSymbol =
       token.symbol "=" <|> lookAhead upper *> token.identifier
-        <|> token.symbol "⊥"
-        <?> "uppercase proposition/predicate symbol"
+        <?> "uppercase predicate symbol"
 
     -- The equality predicate is usually written using infix notation
     equality =
@@ -82,43 +89,40 @@ predicate =
     equality
       <|> do
           symbol <- predicateSymbol
-          -- For nullary predicates the argument list is optional
-          args <- option [] (argumentList term)
+          args <- Array.fromFoldable <$> token.parens (token.commaSep1 term)
           pure $ Predicate symbol args
 
 -- | Parse a single formula.
 formula :: Parser String Formula
-formula = fix allFormulas
+formula = compoundFormula propOrPred
   where
+  propOrPred =
+    try (proposition <* notFollowedBy (void $ oneOf [ '(', '=' ])) <|> predicate
+      <?> "proposition/predicate"
+
   forallParser = Forall <$> (token.reservedOp "∀" *> variable)
 
   existsParser = Exists <$> (token.reservedOp "∃" *> variable)
 
-  -- Required because buildExprParser does not allow multiple prefix
-  -- operators of the same precedence (e.g. ¬¬A).
-  chained p = chainl1 p $ pure (<<<)
-
   opTable :: OperatorTable Identity String Formula
   opTable =
-    [ [ Prefix $ chained
-          $ choice
-              [ token.reservedOp "¬" $> Not
-              , forallParser
-              , existsParser
-              ]
-      ]
-    , [ Infix (token.reservedOp "∧" $> And) AssocLeft ]
+    [ [ Infix (token.reservedOp "∧" $> And) AssocLeft ]
     , [ Infix (token.reservedOp "∨" $> Or) AssocLeft ]
     , [ Infix (token.reservedOp "→" $> Implies) AssocRight ]
     ]
 
-  allFormulas p =
+  compoundFormula atom =
     let
-      singleFormula = token.parens p <|> predicate
+      singleFormula atom' =
+        token.parens (defer \_ -> compoundFormula atom')
+          <|> (token.reservedOp "¬" $> Not <*> defer \_ -> singleFormula atom')
+          <|> (forallParser <*> defer \_ -> singleFormula predicate)
+          <|> (existsParser <*> defer \_ -> singleFormula predicate)
+          <|> atom'
     in
-      buildExprParser opTable singleFormula
+      buildExprParser opTable (singleFormula atom) <?> "formula"
 
--- | Returns the result of parsing a formula from the specified string.
+-- | Returns the result of parsing the specified string as a formula.
 parseFormula :: String -> Either ParseError Formula
 -- The reservedOp parsers are a little stingy in that they appear to
 -- not treat EOF as a symbol boundary, so append a single whitespace
