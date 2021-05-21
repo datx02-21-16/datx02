@@ -217,7 +217,7 @@ mismatchText = case _ of
   P.PremiseM -> "Premises cant be variables"
   P.FreshM -> "Not a variable"
   P.NotAFormulaM -> "Not a formula"
-  P.UnExplainedError -> ""
+  P.UnexplainedError -> ""
 
 badArgsText :: P.ArgumentError -> String
 badArgsText = case _ of

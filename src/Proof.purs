@@ -125,7 +125,7 @@ data MismatchError
   | PremiseM
   | FreshM
   | NotAFormulaM
-  | UnExplainedError
+  | UnexplainedError
 
 data ArgumentError
   = BadAndE
@@ -380,7 +380,7 @@ applyRule rule formula = do
         FC f -> pure $ FC $ Not $ Not f
         _ -> throwError $ InvalidArg ArgNotFormula
     PBC box -> do
-      (Tuple a b) <- boxRef box
+      Tuple a b <- boxRef box
       case a, b of
         FC (Not f), FC f2 -> if f2 == bottomProp then pure $ FC f else throwError $ InvalidArg BadPBC
         _, _ -> throwError $ InvalidArg BadPBC
@@ -396,56 +396,48 @@ applyRule rule formula = do
     Fresh -> case formula of
       Just vc@(VC v) -> pure vc
       _ -> throwError $ FormulaMismatch FreshM
-    ForallElim i -> case formula of
-      Just formula'@(FC fTarget) -> do
-        f <- proofRef i
-        case f of
-          FC (Forall v f') ->
-            if isJust $ hasSingleSubOf v f' fTarget then
-              pure formula'
-            else
-              throwError $ FormulaMismatch UnExplainedError
-          _ -> throwError $ InvalidArg ArgNotFormula
-      _ -> throwError $ FormulaMismatch UnExplainedError
-    ForallIntro box -> case formula of
-        Just formula'@(FC fTarget@(Forall x f)) -> do
-          Tuple a b <- boxRef box
-        case a, b of
-            VC x0, _ -- x0 can not occur anywhere outside its box
-              | x0 `Set.member` freeVarsIn f -> throwError (OccursOutsideBox x0)
-            VC x0, FC g -> case hasSingleSubOf x f g of
-              Just (Var vSub)
-                | vSub == x0 -> pure formula'
-            _ -> throwError BadRule
-          _, _ -> throwError BadRule
-      _ -> throwError $ FormulaMismatch UnExplainedError
-      ExistsElim i box -> do
-        a <- proofRef i
-        Tuple b1 b2 <- boxRef box
-        case a, b1, b2 of
-          FC (Exists x f), FC g, FC χ -> case hasSingleSubOf x f g of
-            Just (Var x0)
-              | x0 `Set.member` freeVarsIn χ -> throwError (OccursOutsideBox x0)
-            Just (Var x0)
-              | x0 `Set.member` freeVarsIn f -> throwError BadRule
-            Just (Var x0) -> case formula of
-              Just (FC input)
-                | input `equivalent` χ -> pure $ FC input
-              Just _ -> throwError (FormulaMismatch UnExplainedError)
-              Nothing -> pure $ FC χ
-              _ -> throwError BadRule
-          _, _, _ -> throwError BadRule
-    ExistsIntro i -> case formula of
-      Just formula'@(FC (Exists v fTarget)) -> do
-        a <- proofRef i
-        case a of
-          FC fLocal ->
-            if isJust $ hasSingleSubOf v fTarget fLocal then
-              pure formula'
-            else
-              throwError BadRule
+    ForallElim i -> do
+      f <- proofRef i
+      case f, formula of
+        FC (Forall v f'), Just formula'@(FC fTarget)
+          | isJust $ hasSingleSubOf v f' fTarget -> pure formula'
+        FC (Forall v f'), _ -> throwError $ FormulaMismatch UnexplainedError
+        _, _ -> throwError $ InvalidArg ArgNotFormula
+    ForallIntro box -> do
+      Tuple a b <- boxRef box
+      case formula, a, b of
+        Just (FC (Forall _ f)), VC x0, _ -- x0 can not occur anywhere outside its box
+          | x0 `Set.member` freeVarsIn f -> throwError (OccursOutsideBox x0)
+        Just formula'@(FC (Forall x f)), VC x0, FC g -> case hasSingleSubOf x f g of
+          Just (Var vSub)
+            | vSub == x0 -> pure formula'
           _ -> throwError BadRule
-      _ -> throwError $ FormulaMismatch UnExplainedError
+        Just _, _, _ -> throwError BadFormula
+        _, _, _ -> throwError BadRule
+    ExistsElim i box -> do
+      a <- proofRef i
+      Tuple b1 b2 <- boxRef box
+      case a, b1, b2 of
+        FC (Exists x f), FC g, FC χ -> case hasSingleSubOf x f g of
+          Just (Var x0)
+            | x0 `Set.member` freeVarsIn χ -> throwError (OccursOutsideBox x0)
+          Just (Var x0)
+            | x0 `Set.member` freeVarsIn f -> throwError BadRule
+          Just (Var x0) -> case formula of
+            Just (FC input)
+              | input `equivalent` χ -> pure $ FC input
+            Just _ -> throwError (FormulaMismatch UnexplainedError)
+            Nothing -> pure $ FC χ
+          _ -> throwError BadRule
+        _, _, _ -> throwError BadRule
+    ExistsIntro i -> do
+      a <- proofRef i
+      inputFormula <- except $ note BadFormula formula
+      case a, inputFormula of
+        FC fLocal, formula'@(FC (Exists v fTarget))
+          | isJust $ hasSingleSubOf v fTarget fLocal -> pure formula'
+        FC _, _ -> throwError $ FormulaMismatch UnexplainedError
+        _, _ -> throwError BadRule
     EqElim i j -> case formula of
       Just formula'@(FC verifyF) -> do
         eqFormula <- proofRef i
@@ -455,16 +447,16 @@ applyRule rule formula = do
             if (eqF == equalityProp t1 t2 && almostEqual t1 t2 sF verifyF) then
               pure formula'
             else
-              throwError $ FormulaMismatch UnExplainedError
+              throwError $ FormulaMismatch UnexplainedError
           _, _ -> throwError BadFormula
-      _ -> throwError $ FormulaMismatch UnExplainedError
+      _ -> throwError $ FormulaMismatch UnexplainedError
     EqIntro -> case formula of
       Just formula'@(FC p@(Predicate _ [ t1, t2 ])) ->
         if p == equalityProp t1 t2 && t1 == t2 then
           pure formula'
         else
-          throwError $ FormulaMismatch UnExplainedError
-      _ -> throwError $ FormulaMismatch UnExplainedError
+          throwError $ FormulaMismatch UnexplainedError
+      _ -> throwError $ FormulaMismatch UnexplainedError
 
 -- | Add a row to the derivation.
 -- |
