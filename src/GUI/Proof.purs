@@ -206,6 +206,7 @@ errorText = case _ of
   P.NotABox -> "Not a valid box"
   P.InvalidArg ae -> "Bad rule arguments: " <> badArgsText ae
   P.BadPremise -> "Premises need to be at the start of a proof."
+  P.OccursOutsideBox x -> show x <> " occurs outside its box"
 
 mismatchText :: P.MismatchError -> String
 mismatchText = case _ of
