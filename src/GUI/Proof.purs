@@ -480,7 +480,7 @@ render st =
       , HE.onKeyDown $ FormulaKeyDown i
       ]
       ( [ HH.slot _symbolInput (2 * i) (symbolInput placeholder) text outputMap ]
-          <> [ HH.p [ HP.classes [ H.ClassName "help", H.ClassName "is-danger" ] ] (either (\err -> [ HH.text $ "Cannot parse formula: " <> parseErrorMessage err ]) (const []) parseResult) ]
+          <> [ HH.p [ HP.classes [ H.ClassName "help", H.ClassName "is-danger" ] ] (either (\err -> [ HH.text $ parseErrorMessage err ]) (const []) parseResult) ]
       )
     where
     parseResult = parseFFC text

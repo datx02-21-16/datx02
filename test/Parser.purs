@@ -47,7 +47,7 @@ spec =
     it "can parse the bottom symbol" do
       parseFormula "⊥" `shouldEqual` Right bottomProp
     it "does not care about redundant parentheses" do
-      (parseFormula "(A ∧ B) ∧ C")
+      parseFormula "(A ∧ B) ∧ C"
         `shouldEqual`
           Right
             ( And
@@ -57,19 +57,19 @@ spec =
                 )
                 (Predicate "C" [])
             )
-    it "can decide correct operator precedence from parentheses" do
-      (parseFormula "A ∧ (B ∧ C)")
-        `shouldEqual`
-          Right
-            ( And
-                (Predicate "A" [])
-                ( And
-                    (Predicate "B" [])
-                    (Predicate "C" [])
-                )
-            )
+    it "can decide correct operator precedence from parentheses"
+      $ parseFormula "A ∧ (B ∧ C)"
+          `shouldEqual`
+            Right
+              ( And
+                  (Predicate "A" [])
+                  ( And
+                      (Predicate "B" [])
+                      (Predicate "C" [])
+                  )
+              )
     it "properly parses implication" do
-      (parseFormula "(A ∧ B) → (B ∧ A)")
+      parseFormula "(A ∧ B) → (B ∧ A)"
         `shouldEqual`
           Right
             ( Implies
@@ -82,19 +82,25 @@ spec =
                     (Predicate "A" [])
                 )
             )
-    it "parses left associative formula correctly" do
-      (parseFormula "A ∧ B ∧ C")
-        `shouldEqual`
-          Right
-            ( And
-                ( And
-                    (Predicate "A" [])
-                    (Predicate "B" [])
-                )
-                (Predicate "C" [])
-            )
-    it "allows digits in variable names" do
-      (parseFormula "P(x0)") `shouldEqual` Right (Predicate "P" [ Var $ Variable "x0" ])
+    it "parses left associative formula correctly"
+      $ parseFormula "A ∧ B ∧ C"
+          `shouldEqual`
+            Right
+              ( And
+                  ( And
+                      (Predicate "A" [])
+                      (Predicate "B" [])
+                  )
+                  (Predicate "C" [])
+              )
+    it "allows digits in variable names"
+      $ parseFormula "P(x0)" `shouldEqual` Right (Predicate "P" [ Var $ Variable "x0" ])
     it "does not allow variables/predicates to start with a digit" do
       parseFormula "P(0x)" `shouldSatisfy` isLeft
       parseFormula "0A" `shouldSatisfy` isLeft
+    it "can parse quantified formula without space"
+      $ parseFormula "∀xP(x)" `shouldEqual` Right (Forall (Variable "x") $ Predicate "P" [ Var $ Variable "x" ])
+    it "parses lowercase propositions"
+      $ parseFormula "p" `shouldEqual` Right (Predicate "p" [])
+    it "does not allow proposition in quantified formula"
+      $ parseFormula "∃xp(x)" `shouldSatisfy` isLeft
