@@ -699,12 +699,14 @@ handleAction = case _ of
           newStart = target - if start < target then end - start else 0
 
           rowMap inc j
-            | start <= j && j < end = j + (newStart - start) -- Got moved
+            | start <= j && j < end - (if inc then 1 else 0) = j + (newStart - start) -- Got moved
             | target - (if inc then 1 else 0) <= j && j < start = j + (end - start) -- Rows added before
-            | end <= j && j < target - (if inc then 1 else 0) = j - (end - start) -- Rows removed before
+            | end <= j + (if inc then 1 else 0) && j < target - (if inc then 1 else 0) = j - (end - start) -- Rows removed before
             | otherwise = j
 
-          boxMap box@(Tuple boxStart boxEnd) = Tuple (rowMap false boxStart) (rowMap true boxEnd)
+          boxMap box@(Tuple boxStart boxEnd) = Tuple (rowMap false boxStart) (rowMap inc boxEnd)
+            where
+            inc = not (boxStart == start && boxEnd + 1 == end)
 
           updateBoxes =
             mapWithIndex \j -> case _ of
