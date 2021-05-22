@@ -1,4 +1,4 @@
-module Test.Formula where
+module Test.Formula (spec, readFormula) where
 
 import Prelude
 import Test.Spec (Spec, describe, it)
