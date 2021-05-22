@@ -15,7 +15,7 @@ module Formula
   , hasSingleSubOf
   , isPropFormula
   , almostEqual
-  , allVarsInFormula
+  , freeVarsIn
   , equivalent
   ) where
 
@@ -257,6 +257,16 @@ allVarsInFormula = case _ of
   Forall x f -> [ x ] <> allVarsInFormula f
   Exists x f -> [ x ] <> allVarsInFormula f
 
+freeVarsIn :: Formula -> Set Variable
+freeVarsIn = case _ of
+  Predicate _ args -> Set.fromFoldable $ args >>= allVarsInTerm
+  Not f -> freeVarsIn f
+  And f1 f2 -> freeVarsIn f1 <> freeVarsIn f2
+  Or f1 f2 -> freeVarsIn f1 <> freeVarsIn f2
+  Implies f1 f2 -> freeVarsIn f1 <> freeVarsIn f2
+  Forall x f -> x `Set.delete` freeVarsIn f
+  Exists x f -> x `Set.delete` freeVarsIn f
+
 -- | Unify the terms in the two formulas.
 formulaUnify :: Formula -> Formula -> Maybe (Tuple Substitution (List Term))
 formulaUnify f1 f2 = (Set.fromFoldable <$> subTerms f1 f2) >>= unify
@@ -292,8 +302,8 @@ formulaUnify f1 f2 = (Set.fromFoldable <$> subTerms f1 f2) >>= unify
 formulaUnifier :: Formula -> Formula -> Maybe Substitution
 formulaUnifier a b = (\(Tuple σ _) -> σ) <$> formulaUnify a b
 
--- | Given x, returns the t in the the substitution {t/v}
--- | such that g equals f{t/v}, if it exists.
+-- | Given x, returns the t in the the substitution {t/x} such that g
+-- | equals f{t/x}, if it exists.
 hasSingleSubOf :: Variable -> Formula -> Formula -> Maybe Term
 hasSingleSubOf x f g = do
   let

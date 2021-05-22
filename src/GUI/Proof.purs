@@ -206,6 +206,7 @@ errorText = case _ of
   P.NotABox -> "Not a valid box"
   P.InvalidArg ae -> "Bad rule arguments: " <> badArgsText ae
   P.BadPremise -> "Premises need to be at the start of a proof."
+  P.OccursOutsideBox x -> show x <> " occurs outside its box"
 
 mismatchText :: P.MismatchError -> String
 mismatchText = case _ of
@@ -216,7 +217,7 @@ mismatchText = case _ of
   P.PremiseM -> "Premises cant be variables"
   P.FreshM -> "Not a variable"
   P.NotAFormulaM -> "Not a formula"
-  P.UnExplainedError -> ""
+  P.UnexplainedError -> ""
 
 badArgsText :: P.ArgumentError -> String
 badArgsText = case _ of
@@ -409,10 +410,10 @@ render st =
       ]
 
   addRowButton :: HH.HTML _ _
-  addRowButton = toolbarButton (HH.img [ HP.src addRowIcon ]) "Add a new row below the row currently in focus, stay in the current box." AddBelow
+  addRowButton = toolbarButton (HH.img [ HP.src addRowIcon ]) "Add a new row below the row currently in focus, stay in the current box. (Enter)" AddBelow
 
   addRowOutsideButton :: HH.HTML _ _
-  addRowOutsideButton = toolbarButton (HH.img [ HP.src exitBoxIcon ]) "Add a new row below the row currently in focus. Close the current box (if any) before the new line." AddOutsideBox
+  addRowOutsideButton = toolbarButton (HH.img [ HP.src exitBoxIcon ]) "Add a new row below the row currently in focus. Close the current box (if any) before the new line. (Shift + Enter)" AddOutsideBox
 
   clearButton :: HH.HTML _ _
   clearButton = toolbarButton (HH.text "Clear") "Erase all rows from the current proof." ClearProof

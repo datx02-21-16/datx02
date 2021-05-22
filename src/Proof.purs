@@ -20,6 +20,7 @@ import Control.Monad.Except.Trans (ExceptT, except, runExceptT, throwError)
 import Control.Monad.Maybe.Trans (MaybeT(MaybeT), runMaybeT)
 import Control.Monad.State (State, class MonadState, runState, modify_, get)
 import Data.Array as Array
+import Data.Array ((!!))
 import Data.Either (Either(..), note, hush)
 import Data.Foldable (all, any)
 import Data.List (List(Nil), (:))
@@ -30,8 +31,9 @@ import Data.Set as Set
 import Data.Tuple (Tuple(..))
 import Formula
   ( Formula(..)
+  , Variable
   , Term(..)
-  , allVarsInFormula
+  , freeVarsIn
   , almostEqual
   , bottomProp
   , equalityProp
@@ -112,6 +114,7 @@ data NdError
   | InvalidArg ArgumentError
   | BadPremise
   | RefOutOfBounds_Box
+  | OccursOutsideBox Variable
 
 --TODO: Add error constructors for predicate logic with specific error scenario messages.
 data MismatchError
@@ -122,7 +125,7 @@ data MismatchError
   | PremiseM
   | FreshM
   | NotAFormulaM
-  | UnExplainedError
+  | UnexplainedError
 
 data ArgumentError
   = BadAndE
@@ -151,6 +154,7 @@ instance showNdError :: Show NdError where
   show NotABox = "not a box"
   show BadPremise = "Bad premise order"
   show RefOutOfBounds_Box = "Reference out of bounds for box"
+  show (OccursOutsideBox x) = show x <> " occurs outside its box"
 
 derive instance eqNdError :: Eq NdError
 
@@ -242,7 +246,7 @@ proofRef :: Maybe Int -> ExceptT NdError ND FFC
 proofRef ref = do
   i <- except $ note BadRef ref
   { rows, scopes } <- get
-  { formula, error } <- except $ note RefOutOfBounds $ rows Array.!! (i - 1)
+  { formula, error } <- except $ note RefOutOfBounds $ rows !! (i - 1)
   when (not (lineInScope i scopes)) $ throwError RefDiscarded
   when (error == Just BadFormula) $ throwError BadRef -- User needs to have input the formula
   except $ note BadRef formula
@@ -251,8 +255,8 @@ boxRef :: Maybe Box -> ExceptT NdError ND (Tuple FFC FFC)
 boxRef ref = do
   box@(Tuple i j) <- except $ note BadRef_Box ref
   { rows, scopes } <- get
-  { formula: maybeF1, error: e1 } <- except $ note RefOutOfBounds_Box $ rows Array.!! (i - 1)
-  { formula: maybeF2, error: e2 } <- except $ note RefOutOfBounds_Box $ rows Array.!! (j - 1)
+  { formula: maybeF1, error: e1 } <- except $ note RefOutOfBounds_Box $ rows !! (i - 1)
+  { formula: maybeF2, error: e2 } <- except $ note RefOutOfBounds_Box $ rows !! (j - 1)
   when (isNotBox box scopes) $ throwError NotABox
   when (not (boxInScope box scopes)) $ throwError RefDiscarded
   when (e1 == Just BadFormula || e2 == Just BadFormula) $ throwError BadRef -- User needs to have input the formula
@@ -376,7 +380,7 @@ applyRule rule formula = do
         FC f -> pure $ FC $ Not $ Not f
         _ -> throwError $ InvalidArg ArgNotFormula
     PBC box -> do
-      (Tuple a b) <- boxRef box
+      Tuple a b <- boxRef box
       case a, b of
         FC (Not f), FC f2 -> if f2 == bottomProp then pure $ FC f else throwError $ InvalidArg BadPBC
         _, _ -> throwError $ InvalidArg BadPBC
@@ -392,51 +396,48 @@ applyRule rule formula = do
     Fresh -> case formula of
       Just vc@(VC v) -> pure vc
       _ -> throwError $ FormulaMismatch FreshM
-    ForallElim i -> case formula of
-      Just formula'@(FC fTarget) -> do
-        f <- proofRef i
-        case f of
-          FC (Forall v f') ->
-            if isJust $ hasSingleSubOf v f' fTarget then
-              pure formula'
-            else
-              throwError $ FormulaMismatch UnExplainedError
-          _ -> throwError $ InvalidArg ArgNotFormula
-      _ -> throwError $ FormulaMismatch UnExplainedError
-    ForallIntro box -> case formula of
-      Just formula'@(FC fTarget@(Forall v f)) -> do
-        (Tuple a b) <- boxRef box
-        case a, b of
-          VC vLocal, FC fLocal -> case hasSingleSubOf v f fLocal of
-            Just (Var vSub) -> if vSub == vLocal then pure formula' else throwError BadRule
-            _ -> throwError BadRule
-          _, _ -> throwError BadRule
-      _ -> throwError $ FormulaMismatch UnExplainedError
-    ExistsElim i box -> case formula of
-      Just formula'@(FC fTarget) -> do
-        a <- proofRef i
-        (Tuple b1 b2) <- boxRef box
-        case a, b1, b2 of
-          FC (Exists v f), FC f', FC b2' -> do
-            case hasSingleSubOf v f f' of
-              Just (Var intro) -> do
-                when (intro `Array.elem` allVarsInFormula f) (throwError BadRule)
-                when (intro `Array.elem` allVarsInFormula fTarget) (throwError BadRule)
-                if b2' `equivalent` fTarget then pure formula' else throwError $ FormulaMismatch UnExplainedError
-              _ -> throwError BadRule
-          _, _, _ -> throwError $ FormulaMismatch UnExplainedError
-      _ -> throwError $ FormulaMismatch UnExplainedError
-    ExistsIntro i -> case formula of
-      Just formula'@(FC (Exists v fTarget)) -> do
-        a <- proofRef i
-        case a of
-          FC fLocal ->
-            if isJust $ hasSingleSubOf v fTarget fLocal then
-              pure formula'
-            else
-              throwError BadRule
+    ForallElim i -> do
+      f <- proofRef i
+      case f, formula of
+        FC (Forall v f'), Just formula'@(FC fTarget)
+          | isJust $ hasSingleSubOf v f' fTarget -> pure formula'
+        FC (Forall v f'), _ -> throwError $ FormulaMismatch UnexplainedError
+        _, _ -> throwError $ InvalidArg ArgNotFormula
+    ForallIntro box -> do
+      Tuple a b <- boxRef box
+      case formula, a, b of
+        Just (FC (Forall _ f)), VC x0, _ -- x0 can not occur anywhere outside its box
+          | x0 `Set.member` freeVarsIn f -> throwError (OccursOutsideBox x0)
+        Just formula'@(FC (Forall x f)), VC x0, FC g -> case hasSingleSubOf x f g of
+          Just (Var vSub)
+            | vSub == x0 -> pure formula'
           _ -> throwError BadRule
-      _ -> throwError $ FormulaMismatch UnExplainedError
+        Just _, _, _ -> throwError BadFormula
+        _, _, _ -> throwError BadRule
+    ExistsElim i box -> do
+      a <- proofRef i
+      Tuple b1 b2 <- boxRef box
+      case a, b1, b2 of
+        FC (Exists x f), FC g, FC χ -> case hasSingleSubOf x f g of
+          Just (Var x0)
+            | x0 `Set.member` freeVarsIn χ -> throwError (OccursOutsideBox x0)
+          Just (Var x0)
+            | x0 `Set.member` freeVarsIn f -> throwError BadRule
+          Just (Var x0) -> case formula of
+            Just (FC input)
+              | input `equivalent` χ -> pure $ FC input
+            Just _ -> throwError (FormulaMismatch UnexplainedError)
+            Nothing -> pure $ FC χ
+          _ -> throwError BadRule
+        _, _, _ -> throwError BadRule
+    ExistsIntro i -> do
+      a <- proofRef i
+      inputFormula <- except $ note BadFormula formula
+      case a, inputFormula of
+        FC fLocal, formula'@(FC (Exists v fTarget))
+          | isJust $ hasSingleSubOf v fTarget fLocal -> pure formula'
+        FC _, _ -> throwError $ FormulaMismatch UnexplainedError
+        _, _ -> throwError BadRule
     EqElim i j -> case formula of
       Just formula'@(FC verifyF) -> do
         eqFormula <- proofRef i
@@ -446,16 +447,16 @@ applyRule rule formula = do
             if (eqF == equalityProp t1 t2 && almostEqual t1 t2 sF verifyF) then
               pure formula'
             else
-              throwError $ FormulaMismatch UnExplainedError
+              throwError $ FormulaMismatch UnexplainedError
           _, _ -> throwError BadFormula
-      _ -> throwError $ FormulaMismatch UnExplainedError
+      _ -> throwError $ FormulaMismatch UnexplainedError
     EqIntro -> case formula of
       Just formula'@(FC p@(Predicate _ [ t1, t2 ])) ->
         if p == equalityProp t1 t2 && t1 == t2 then
           pure formula'
         else
-          throwError $ FormulaMismatch UnExplainedError
-      _ -> throwError $ FormulaMismatch UnExplainedError
+          throwError $ FormulaMismatch UnexplainedError
+      _ -> throwError $ FormulaMismatch UnexplainedError
 
 -- | Add a row to the derivation.
 -- |
@@ -494,7 +495,7 @@ addProof { formula: inputFormula, rule } = do
     Implies f' f'' -> Array.nub $ scopedVars f' <> scopedVars f''
     Forall v f' -> Array.delete v $ scopedVars f'
     Exists v f' -> Array.delete v $ scopedVars f'
-    _ -> Array.nub $ allVarsInFormula f
+    _ -> Array.fromFoldable $ freeVarsIn f
 
 -- | Open a new box.
 openBox :: ND Unit

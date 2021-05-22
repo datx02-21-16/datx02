@@ -34,7 +34,7 @@ substitute =
     -- Quantifiers
     , Tuple "f[ao]" "∀"
     , Tuple "ex|te" "∃"
-    , Tuple "bo|co" "⊥"
+    , Tuple "bo" "⊥"
     -- Derived rules
     , Tuple "mt" "MT"
     , Tuple "pbc" "PBC"
