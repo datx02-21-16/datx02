@@ -422,6 +422,7 @@ applyRule rule formula = if isJust formula then applyRule' else throwError BadFo
             FC (Exists v f), FC f', FC b2' -> do
               case hasSingleSubOf v f f' of
                 Just (Var intro) -> do
+                  when (intro `Array.elem` allVarsInFormula f) (throwError BadRule)
                   when (intro `Array.elem` allVarsInFormula fTarget) (throwError BadRule)
                   if b2' `equivalent` fTarget then pure formula' else throwError $ FormulaMismatch UnExplainedError
                 _ -> throwError BadRule
