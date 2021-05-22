@@ -397,11 +397,7 @@ shortcutModalBody =
                 , HH.tr_
                     [ HH.th_ [ HH.text "⊥" ]
                     , HH.td_ [ HH.text "Bottom / Contradiction" ]
-                    , HH.td_
-                        [ HH.strong_ [ HH.text "bo" ]
-                        , HH.text ", "
-                        , HH.strong_ [ HH.text "co" ]
-                        ]
+                    , HH.td_ [ HH.strong_ [ HH.text "bo" ] ]
                     ]
                 ]
             ]

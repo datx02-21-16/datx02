@@ -410,10 +410,10 @@ render st =
       ]
 
   addRowButton :: HH.HTML _ _
-  addRowButton = toolbarButton (HH.img [ HP.src addRowIcon ]) "Add a new row below the row currently in focus, stay in the current box." AddBelow
+  addRowButton = toolbarButton (HH.img [ HP.src addRowIcon ]) "Add a new row below the row currently in focus, stay in the current box. (Enter)" AddBelow
 
   addRowOutsideButton :: HH.HTML _ _
-  addRowOutsideButton = toolbarButton (HH.img [ HP.src exitBoxIcon ]) "Add a new row below the row currently in focus. Close the current box (if any) before the new line." AddOutsideBox
+  addRowOutsideButton = toolbarButton (HH.img [ HP.src exitBoxIcon ]) "Add a new row below the row currently in focus. Close the current box (if any) before the new line. (Shift + Enter)" AddOutsideBox
 
   clearButton :: HH.HTML _ _
   clearButton = toolbarButton (HH.text "Clear") "Erase all rows from the current proof." ClearProof
