@@ -22,7 +22,9 @@ module Formula
 import Prelude
 import Data.Array (zipWith)
 import Data.Array as Array
-import Data.Foldable (and, any, find, foldl)
+import Data.Foldable (foldMap, and, any, find)
+import Data.Unfoldable as Unfoldable
+import Data.Traversable (sequence)
 import Data.List (List(Nil), (:), null, transpose)
 import Data.List as List
 import Data.Map (Map)
@@ -31,9 +33,7 @@ import Data.Maybe (Maybe(..), fromMaybe, maybe, isJust)
 import Data.Set (Set)
 import Data.Set as Set
 import Data.String.Common (joinWith)
-import Data.Traversable (sequence)
 import Data.Tuple (Tuple(Tuple))
-import Data.Unfoldable as Unfoldable
 
 -- | A variable symbol.
 newtype Variable
@@ -120,7 +120,7 @@ instance showSubstitution :: Show Substitution where
 
       showElem (Tuple t v) = show t <> "/" <> show v
     in
-      "{" <> (joinWith ", " $ showElem <$> elems) <> "}"
+      "{" <> joinWith ", " (showElem <$> elems) <> "}"
 
 instance semigroupSubstitution :: Semigroup Substitution where
   -- | The composition of the two substitutions.
@@ -170,7 +170,7 @@ class Substitutable a where
 instance substitutableTerm :: Substitutable Term where
   substitute θ@(Substitution s) = case _ of
     Var v1 -> fromMaybe (Var v1) $ Map.lookup v1 s
-    App f args -> App f $ (substitute θ) <$> args
+    App f args -> App f $ substitute θ <$> args
 
 instance substitutableFormula :: Substitutable Formula where
   substitute θ@(Substitution s) f = case f of
@@ -216,7 +216,7 @@ unify = go mempty
   where
   -- If w is singleton σ is most general unifier
   go σ w
-    | Set.size w <= 1 = (Tuple σ) <$> (Set.toUnfoldable w)
+    | Set.size w <= 1 = Tuple σ <$> Set.toUnfoldable w
 
   go σ w =
     let
@@ -235,37 +235,36 @@ unify = go mempty
     in
       sub >>= (\λ -> go (σ <> λ) (Set.map (map (substitute λ)) w))
 
--- | Returns a new variable that does not conflict with any
--- | pre-existent variable in the specified formula.
--- |
--- | Guaranteed to be the concatenation of all vars in the formula.
-varUniqueIn :: Formula -> Variable
-varUniqueIn = Variable <<< foldl (<>) "" <<< (map \(Variable s) -> s) <<< Array.nub <<< allVarsInFormula
-
-allVarsInTerm :: Term -> Array Variable
+allVarsInTerm :: Term -> Set Variable
 allVarsInTerm = case _ of
-  Var v -> [ v ]
-  App _ args -> args >>= allVarsInTerm
-
-allVarsInFormula :: Formula -> Array Variable
-allVarsInFormula = case _ of
-  Predicate _ args -> args >>= allVarsInTerm
-  Not f -> allVarsInFormula f
-  And f1 f2 -> allVarsInFormula f1 <> allVarsInFormula f2
-  Or f1 f2 -> allVarsInFormula f1 <> allVarsInFormula f2
-  Implies f1 f2 -> allVarsInFormula f1 <> allVarsInFormula f2
-  Forall x f -> [ x ] <> allVarsInFormula f
-  Exists x f -> [ x ] <> allVarsInFormula f
+  Var v -> Set.singleton v
+  App _ args -> Array.fold $ allVarsInTerm <$> args
 
 freeVarsIn :: Formula -> Set Variable
 freeVarsIn = case _ of
-  Predicate _ args -> Set.fromFoldable $ args >>= allVarsInTerm
+  Predicate _ args -> Array.fold $ allVarsInTerm <$> args
   Not f -> freeVarsIn f
   And f1 f2 -> freeVarsIn f1 <> freeVarsIn f2
   Or f1 f2 -> freeVarsIn f1 <> freeVarsIn f2
   Implies f1 f2 -> freeVarsIn f1 <> freeVarsIn f2
   Forall x f -> x `Set.delete` freeVarsIn f
   Exists x f -> x `Set.delete` freeVarsIn f
+
+-- | Returns a new variable that does not conflict with any
+-- | pre-existent variable in the specified formula.
+-- |
+-- | Guaranteed to be the concatenation of all vars in the formula.
+varUniqueIn :: Formula -> Variable
+varUniqueIn = Variable <<< foldMap (\(Variable s) -> s) <<< allVarsInFormula
+  where
+  allVarsInFormula = case _ of
+    Predicate _ args -> Array.fold $ allVarsInTerm <$> args
+    Not f -> allVarsInFormula f
+    And f1 f2 -> allVarsInFormula f1 <> allVarsInFormula f2
+    Or f1 f2 -> allVarsInFormula f1 <> allVarsInFormula f2
+    Implies f1 f2 -> allVarsInFormula f1 <> allVarsInFormula f2
+    Forall x f -> x `Set.insert` allVarsInFormula f
+    Exists x f -> x `Set.insert` allVarsInFormula f
 
 -- | Unify the terms in the two formulas.
 formulaUnify :: Formula -> Formula -> Maybe (Tuple Substitution (List Term))
@@ -344,11 +343,12 @@ almostEqual t1 t2 = go Set.empty
 equivalent :: Formula -> Formula -> Boolean
 equivalent f1 f2 = f1 == f2 || formulaUnifier f1 f2 == Just mempty
 
+-- | Returns whether the argument does not use any FOL constructs.
 isPropFormula :: Formula -> Boolean
-isPropFormula formula = case formula of
+isPropFormula = case _ of
   Predicate _ [] -> true
-  Not f' -> isPropFormula f'
-  And f' f'' -> isPropFormula f' && isPropFormula f''
-  Or f' f'' -> isPropFormula f' && isPropFormula f''
-  Implies f' f'' -> isPropFormula f' && isPropFormula f''
+  Not f -> isPropFormula f
+  And f g -> isPropFormula f && isPropFormula g
+  Or f g -> isPropFormula f && isPropFormula g
+  Implies f g -> isPropFormula f && isPropFormula g
   _ -> false
