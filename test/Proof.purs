@@ -7,7 +7,8 @@ import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
 import Data.List (List(Nil), (:))
 import Data.Set as Set
-import Proof (Rule(..), addProof, closeBox, openBox, runND)
+import Proof (ND, Rule(..), addProof, closeBox, openBox, runND)
+import Test.Formula (readFormula)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
@@ -22,6 +23,9 @@ b = Predicate "B" []
 
 p :: Formula
 p = Predicate "P" []
+
+boxed :: ND Unit -> ND Unit
+boxed nd = openBox *> nd *> closeBox
 
 {- | Some tests that are constructing proofs -}
 testInference :: Spec Unit
@@ -169,3 +173,27 @@ testInference =
                       : Nil
                   )
               }
+    it "can prove Ana's funky proof"
+      let
+        Tuple completed _ =
+          runND (Just $ FC $ readFormula "¬P(a) → P(b)") do
+            addProof { formula: Just $ FC $ readFormula "∀x (x = a ∨ x = b)", rule: Just Premise }
+            addProof { formula: Just $ FC $ readFormula "∃xP(x)", rule: Just Premise }
+            boxed do
+              addProof { formula: Just $ FC $ readFormula "¬P(a)", rule: Just Assumption }
+              boxed do
+                addProof { formula: Just $ FC $ readFormula "P(x0)", rule: Just Assumption }
+                addProof { formula: Just $ FC $ readFormula "x0 = a ∨ x0=b", rule: Just $ ForallElim (Just 1) }
+                boxed do
+                  addProof { formula: Just $ FC $ readFormula "x0=a", rule: Just Assumption }
+                  addProof { formula: Just $ FC $ readFormula "P(a)", rule: Just $ EqElim (Just 6) (Just 4) }
+                  addProof { formula: Just $ FC $ readFormula "⊥", rule: Just $ NegElim (Just 3) (Just 7) }
+                  addProof { formula: Just $ FC $ readFormula "P(b)", rule: Just $ BottomElim (Just 8) }
+                boxed do
+                  addProof { formula: Just $ FC $ readFormula "x0=b", rule: Just Assumption }
+                  addProof { formula: Just $ FC $ readFormula "P(b)", rule: Just $ EqElim (Just 10) (Just 4) }
+                addProof { formula: Just $ FC $ readFormula "P(b)", rule: Just $ OrElim (Just 5) (Just $ Tuple 6 9) (Just $ Tuple 10 11) }
+              addProof { formula: Just $ FC $ readFormula "P(b)", rule: Just $ ExistsElim (Just 2) (Just $ Tuple 4 12) }
+            addProof { formula: Just $ FC $ readFormula "¬P(a)→P(b)", rule: Just $ ImplIntro (Just $ Tuple 3 13) }
+      in
+        completed `shouldEqual` true

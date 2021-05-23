@@ -139,6 +139,7 @@ data ArgumentError
   | BadOrE2
   | BadNegI
   | BadPBC
+  | BadEq Formula
   | ArgNotFormula
 
 instance showNdError :: Show NdError where
@@ -438,18 +439,17 @@ applyRule rule formula = do
           | isJust $ hasSingleSubOf v fTarget fLocal -> pure formula'
         FC _, _ -> throwError $ FormulaMismatch UnexplainedError
         _, _ -> throwError BadRule
-    EqElim i j -> case formula of
-      Just formula'@(FC verifyF) -> do
-        eqFormula <- proofRef i
-        subFormula <- proofRef j
-        case eqFormula, subFormula of
-          FC eqF@(Predicate _ [ t1, t2 ]), FC sF ->
-            if (eqF == equalityProp t1 t2 && almostEqual t1 t2 sF verifyF) then
-              pure formula'
-            else
-              throwError $ FormulaMismatch UnexplainedError
-          _, _ -> throwError BadFormula
-      _ -> throwError $ FormulaMismatch UnexplainedError
+    EqElim i j -> do
+      a <- proofRef i
+      b <- proofRef j
+      case a, b, formula of
+        FC (Predicate "=" [ t1, t2 ]), FC f, Just formula'@(FC g)
+          | almostEqual t1 t2 f g -> pure formula'
+        FC (Predicate "=" [ _, _ ]), FC _, Just _ -> throwError $ FormulaMismatch UnexplainedError
+        VC _, _, _ -> throwError $ InvalidArg ArgNotFormula
+        _, VC _, _ -> throwError $ InvalidArg ArgNotFormula
+        FC (Predicate "=" [ _, _ ]), _, Nothing -> throwError BadFormula
+        FC badEq, _, _ -> throwError $ InvalidArg (BadEq badEq)
     EqIntro -> case formula of
       Just formula'@(FC p@(Predicate _ [ t1, t2 ])) ->
         if p == equalityProp t1 t2 && t1 == t2 then

@@ -232,6 +232,7 @@ badArgsText = case _ of
   P.BadOrE2 -> "First argument field of rule needs to refer a disjunction formula"
   P.BadNegI -> "Expected ⊥ at last row in assumption box."
   P.BadPBC -> "Top row in assumption box needs to be a negation formula and last row a ⊥"
+  P.BadEq badEq -> "Expected equality instead of " <> show badEq
   P.ArgNotFormula -> "Argument is not a formula"
 
 type ProofRow
