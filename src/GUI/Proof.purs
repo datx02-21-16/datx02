@@ -22,7 +22,7 @@ import Data.String as String
 import Data.Traversable (sequence)
 import Data.Tuple (Tuple(Tuple), snd)
 import Effect.Class (class MonadEffect)
-import FormulaOrVar (parseFFC)
+import FormulaOrVar (FFC(FC, VC), parseFFC)
 import GUI.Hint as Hint
 import GUI.Rules (RuleType(..))
 import GUI.Rules as R
@@ -33,7 +33,7 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.HTML.Properties.ARIA as HPARIA
-import Parser (parsePremises)
+import Parser (parseFormula, parseVar, parsePremises)
 import Partial.Unsafe (unsafePartial, unsafeCrashWith)
 import Proof (NdError(..))
 import Proof as P
@@ -496,7 +496,13 @@ render st =
         RowNode _ r ->
           pure
             $ P.addProof
-                { formula: hush $ parseFFC r.formulaText
+                { formula:
+                    hush
+                      $ ( case parseRuleText (ruleText r.rule) of
+                            Just RtFresh -> map VC <$> parseVar
+                            _ -> map FC <$> parseFormula
+                        )
+                          r.formulaText
                 , rule: parseRule r
                 }
 
