@@ -46,7 +46,7 @@ ruleButtonPanel =
     createButton rule =
       HH.div [ HP.classes [ HH.ClassName "column", HH.ClassName "is-half" ] ]
         [ HH.button
-            [ HP.classes ([ HH.ClassName "button", HH.ClassName "is-fullwidth" ] <> maybe [] (\rt -> if (rt == rule) then [ HH.ClassName "is-primary" ] else []) st)
+            [ HP.classes ([ HH.ClassName "button", HH.ClassName "is-small", HH.ClassName "is-fullwidth" ] <> maybe [] (\rt -> if (rt == rule) then [ HH.ClassName "is-primary" ] else []) st)
             , HP.type_ HP.ButtonSubmit
             , HE.onClick $ \_ -> if st == (Just rule) then ClearRule else SetRule rule
             ]
