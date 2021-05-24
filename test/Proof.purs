@@ -34,7 +34,7 @@ testInference =
     it "can do implies introduction"
       let
         (Tuple completed proof) =
-          runND (Just $ FC (Implies p b))
+          runND (Just $ Implies p b)
             $ do
                 addProof
                   { formula: Just (FC $ Implies p (And a b))
@@ -96,7 +96,7 @@ testInference =
     it "can do and intro"
       let
         (Tuple completed proof) =
-          runND (Just $ FC (And a b))
+          runND (Just $ And a b)
             $ do
                 addProof
                   { formula: Just $ FC a
@@ -140,7 +140,7 @@ testInference =
     it "can do and elim 1"
       let
         (Tuple completed proof) =
-          runND (Just $ FC a)
+          runND (Just $ a)
             $ do
                 addProof
                   { formula: Just $ FC (And a b)
@@ -176,7 +176,7 @@ testInference =
     it "can prove Ana's funky proof"
       let
         Tuple completed _ =
-          runND (Just $ FC $ readFormula "¬P(a) → P(b)") do
+          runND (Just $ readFormula "¬P(a) → P(b)") do
             addProof { formula: Just $ FC $ readFormula "∀x (x = a ∨ x = b)", rule: Just Premise }
             addProof { formula: Just $ FC $ readFormula "∃xP(x)", rule: Just Premise }
             boxed do

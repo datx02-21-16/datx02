@@ -219,7 +219,7 @@ derive newtype instance monadStateND :: MonadState Proof ND
 -- |
 -- | Returns the completeness status, together with the proof as given
 -- | annotated with any potential errors.
-runND :: forall a. Maybe FFC -> ND a -> Tuple Boolean Proof
+runND :: forall a. Maybe Formula -> ND a -> Tuple Boolean Proof
 runND conclusion (ND nd) = runState (nd *> checkCompleteness) initialState
   where
   initialState =
@@ -237,7 +237,7 @@ runND conclusion (ND nd) = runState (nd *> checkCompleteness) initialState
           when (any (isJust <<< _.error) rows) $ MaybeT (pure Nothing)
           -- The last row should equal the conclusion in a complete proof
           lastRow <- MaybeT $ pure $ (Array.last rows) >>= _.formula
-          unless (Just lastRow == conclusion) $ MaybeT (pure Nothing)
+          unless (Just lastRow == (FC <$> conclusion)) $ MaybeT (pure Nothing)
 
 innerBoxStart :: List Scope -> Maybe Int
 innerBoxStart ss = (\s -> s.boxStart) $ unsafePartial $ fromJust $ List.head ss
