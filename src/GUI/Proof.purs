@@ -507,7 +507,7 @@ render st =
                 , rule: parseRule r
                 }
 
-      conclusion = hush $ parseFFC st.conclusion
+      conclusion = hush $ parseFormula st.conclusion
     in
       P.runND conclusion (sequence $ proofTree st >>= proofTreeAction)
 
