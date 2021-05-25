@@ -64,8 +64,8 @@ siteBody =
                     [ HH.slot_ _proof unit GP.proof unit ]
                 , HH.div
                     [ HP.classes [ HH.ClassName "column" ] ]
-                    [ HH.slot_ _ruleButtonPanel unit RP.ruleButtonPanel 0
-                    , HH.slot _settingsPanel unit SP.settingsPanel 0 ActivateModal
+                    [ HH.slot _settingsPanel unit SP.settingsPanel 0 ActivateModal
+                    , HH.slot_ _ruleButtonPanel unit RP.ruleButtonPanel 0
                     ]
                 ]
             ]
