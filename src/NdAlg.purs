@@ -176,7 +176,7 @@ doIntro nd@{ list_proof
 , marks
 } = case list_goals of
   -- Do implies-introduction (and discard up till assumption)
-  _ : Goal implies@(Implies _ _) : next ->
+  _ : next@(Goal implies@(Implies _ _) : _) ->
     let
       ass = unsafePartial $ fromJust lastAssumption
     in
@@ -198,12 +198,12 @@ doIntro nd@{ list_proof
         , marks = popMarks marks
         }
   -- Only way we could have reached this goal is by first proving conjuncts
-  _ : Goal and@(And _ _) : next ->
+  _ : next@(Goal and@(And _ _) : _) ->
     nd
       { list_proof = snoc list_proof { formula: and, rule: AndIntro }
       , list_goals = next
       }
-  _ : Goal or@(Or _ _) : next ->
+  _ : next@(Goal or@(Or _ _) : _) ->
     nd
       { list_proof = snoc list_proof { formula: or, rule: OrIntro }
       , list_goals = next
