@@ -22,12 +22,14 @@ import Control.Monad.State (State, class MonadState, runState, modify_, get)
 import Data.Array as Array
 import Data.Array ((!!))
 import Data.Either (Either(..), note, hush)
-import Data.Foldable (all, any)
+import Data.Foldable (findMap, all, any)
 import Data.List (List(Nil), (:))
 import Data.List as List
-import Data.Maybe (Maybe(..), fromJust, isJust, isNothing)
+import Data.Maybe (Maybe(..), maybe, fromJust, isJust, isNothing)
 import Data.Set (Set)
 import Data.Set as Set
+import Data.Map (Map)
+import Data.Map as Map
 import Data.Tuple (Tuple(..))
 import Formula
   ( Formula(..)
@@ -115,6 +117,7 @@ data NdError
   | BadPremise
   | OccursOutsideBox Variable
   | NotAFresh
+  | FreshShadowsVar Variable Int
 
 --TODO: Add error constructors for predicate logic with specific error scenario messages.
 data MismatchError
@@ -156,6 +159,7 @@ instance showNdError :: Show NdError where
   show BadPremise = "Bad premise order"
   show (OccursOutsideBox x) = show x <> " occurs outside its box"
   show NotAFresh = "not a fresh"
+  show (FreshShadowsVar v i) = "fresh shadows var " <> show v <> " " <> show i
 
 derive instance eqNdError :: Eq NdError
 
@@ -177,6 +181,8 @@ type Scope
   = { lines :: Set Int
     , boxes :: Array Box
     , boxStart :: Maybe Int
+    -- Map of variables to the row indices where they are first introduced
+    , vars :: Map Variable Int
     }
 
 -- | Empty scope
@@ -185,6 +191,7 @@ fullScope =
   { lines: Set.empty
   , boxes: []
   , boxStart: Nothing
+  , vars: Map.empty
   }
 
 newScope :: Int -> Scope
@@ -192,6 +199,7 @@ newScope n =
   { lines: Set.empty
   , boxes: []
   , boxStart: Just n
+  , vars: Map.empty
   }
 
 -- | Partial or completed ND derivation.
@@ -314,13 +322,13 @@ applyRule rule formula = do
         _, _, _, _, _ -> throwError $ InvalidArg BadOrE2
     OrIntro1 i -> do
       case formula of
-        Just f@(FC f'@(Or f1 _)) -> do
+        Just f@(FC (Or f1 _)) -> do
           a <- proofRef i
           if a `equivalent` f1 then pure f else throwError $ FormulaMismatch BadOrI_Order
         _ -> throwError $ FormulaMismatch BadOrI_Formula
     OrIntro2 i -> do
       case formula of
-        Just f@(FC f'@(Or _ f2)) -> do
+        Just f@(FC (Or _ f2)) -> do
           a <- proofRef i
           if a `equivalent` f2 then pure f else throwError $ FormulaMismatch BadOrI_Order
         _ -> throwError $ FormulaMismatch BadOrI_Formula
@@ -379,14 +387,17 @@ applyRule rule formula = do
       _ -> throwError $ FormulaMismatch BadLem
     Copy i -> FC <$> proofRef i
     Fresh -> case formula of
-      Just vc@(VC v) -> pure vc
+      Just formula'@(VC v) ->
+        maybe (pure formula')
+          (\i -> throwError $ FreshShadowsVar v i)
+          $ varIntroRow v scopes
       _ -> throwError $ FormulaMismatch FreshM
     ForallElim i -> do
       f <- proofRef i
       case f, formula of
         Forall v f', Just formula'@(FC fTarget)
           | isJust $ hasSingleSubOf v f' fTarget -> pure formula'
-        Forall v f', _ -> throwError $ FormulaMismatch UnexplainedError
+        Forall _ _, _ -> throwError $ FormulaMismatch UnexplainedError
         _, _ -> throwError $ InvalidArg ArgNotFormula
     ForallIntro box -> do
       Tuple a b <- boxRef box
@@ -409,7 +420,7 @@ applyRule rule formula = do
             | x0 `Set.member` freeVarsIn χ -> throwError (OccursOutsideBox x0)
           Just (Var x0)
             | x0 `Set.member` freeVarsIn f -> throwError BadRule
-          Just (Var x0) -> case formula of
+          Just (Var _) -> case formula of
             Just (FC input)
               | input `equivalent` χ -> pure $ FC input
             Just _ -> throwError (FormulaMismatch UnexplainedError)
@@ -450,7 +461,6 @@ addProof :: { formula :: Maybe FFC, rule :: Maybe Rule } -> ND Unit
 addProof { formula: inputFormula, rule } = do
   -- Try to apply the rule (and get the correct formula)
   result <- runExceptT $ (except $ note InvalidRule rule) >>= (flip applyRule) inputFormula
-  { scopes } <- get
   let
     formula = inputFormula <|> hush result
 
@@ -463,21 +473,12 @@ addProof { formula: inputFormula, rule } = do
   modify_ \proof ->
     proof
       { rows = Array.snoc proof.rows { formula, rule, error }
-      , scopes = addLineToInnermost (Array.length proof.rows + 1) proof.scopes
+      , scopes = addLineToInnermost (Array.length proof.rows + 1) inputFormula proof.scopes
       }
   where
   genericMismatchText r = case r of
     Right (FC r') -> "Expected: \"" <> show r' <> "\""
     _ -> "Error"
-
-  scopedVars f = case f of
-    Not f' -> scopedVars f'
-    And f' f'' -> Array.nub $ scopedVars f' <> scopedVars f''
-    Or f' f'' -> Array.nub $ scopedVars f' <> scopedVars f''
-    Implies f' f'' -> Array.nub $ scopedVars f' <> scopedVars f''
-    Forall v f' -> Array.delete v $ scopedVars f'
-    Exists v f' -> Array.delete v $ scopedVars f'
-    _ -> Array.fromFoldable $ freeVarsIn f
 
 -- | Open a new box.
 openBox :: ND Unit
@@ -518,22 +519,39 @@ boxInScope b ss = any (\s -> b `Array.elem` s.boxes) ss
 lineInScope :: Int -> List Scope -> Boolean
 lineInScope l ss = any (\s -> l `Set.member` s.lines) ss
 
+-- | Returns, if the specified var is in scope, the first row idx where it is introduced.
+varIntroRow :: Variable -> List Scope -> Maybe Int
+varIntroRow v = findMap (\s -> v `Map.lookup` s.vars)
+
 -- | Add a box to a scope.
 addBox :: Box -> Scope -> Scope
 addBox b s = s { boxes = b `Array.cons` s.boxes }
 
 -- | Add a line to a scope.
-addLine :: Int -> Scope -> Scope
-addLine l s = s { lines = l `Set.insert` s.lines }
+addLine :: Int -> (Maybe FFC) -> Scope -> Scope
+addLine l formula s =
+  s
+    { lines = l `Set.insert` s.lines
+    , vars =
+      s.vars
+        <|> ( const l
+              <$> Set.toMap
+                  ( case formula of
+                      Just (VC v) -> Set.singleton v
+                      Just (FC f) -> freeVarsIn f
+                      Nothing -> Set.empty
+                  )
+          )
+    }
 
 -- | Add a box to the innermost scope in a stack of scopes.
 addBoxToInnermost :: Box -> List Scope -> List Scope
 addBoxToInnermost b (innermost : outerScopes) = addBox b innermost : outerScopes
 
-addBoxToInnermost _ _ = unsafeCrashWith "Cannot add to an empty list of scopes."
+addBoxToInnermost _ Nil = unsafeCrashWith "Cannot add to an empty list of scopes."
 
 -- | Add a line to the innermost scope in a stack of scopes.
-addLineToInnermost :: Int -> List Scope -> List Scope
-addLineToInnermost l (innermost : outerScopes) = addLine l innermost : outerScopes
+addLineToInnermost :: Int -> (Maybe FFC) -> List Scope -> List Scope
+addLineToInnermost l formula (innermost : outerScopes) = addLine l formula innermost : outerScopes
 
-addLineToInnermost _ _ = unsafeCrashWith "Cannot add to an empty list of scopes."
+addLineToInnermost _ _ Nil = unsafeCrashWith "Cannot add to an empty list of scopes."

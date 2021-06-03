@@ -1,4 +1,4 @@
-module Test.Formula (spec, readFormula) where
+module Test.Formula (spec, readFormula, readVariable) where
 
 import Prelude
 import Test.Spec (Spec, describe, it)
@@ -33,7 +33,7 @@ import Formula
   , unify
   , formulaUnifier
   )
-import Parser (parseFormula)
+import Parser (parseFormula, parseVar)
 
 -- | Generator for a single uppercase letter string.
 upper :: Gen String
@@ -108,6 +108,9 @@ instance arbitraryTFormula :: Arbitrary TFormula where
 
 readFormula :: String -> Formula
 readFormula s = fromRight' (\_ -> unsafeCrashWith "Bad formula") $ parseFormula s
+
+readVariable :: String -> Variable
+readVariable s = fromRight' (\_ -> unsafeCrashWith "Bad variable") $ parseVar s
 
 spec :: Spec Unit
 spec =
