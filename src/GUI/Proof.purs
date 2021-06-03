@@ -197,8 +197,7 @@ errorText = case _ of
   P.BadRef -> "Reference to invalid row"
   P.BadRef_Box -> "Reference to invalid box"
   P.RefDiscarded -> "Reference to row in discarded box"
-  P.RefOutOfBounds -> "Reference to self or non-existent row(s)"
-  P.RefOutOfBounds_Box -> "Wrong applied range of numbers for a box."
+  P.RefOutOfBounds i -> "Reference to self or non-existent row: " <> show i
   P.BadRule -> "Bad rule application"
   P.BadFormula -> "No formula can be parsed"
   P.FormulaMismatch mme -> "Formula does not match rule output. " <> mismatchText mme
@@ -207,6 +206,7 @@ errorText = case _ of
   P.InvalidArg ae -> "Bad rule arguments: " <> badArgsText ae
   P.BadPremise -> "Premises need to be at the start of a proof."
   P.OccursOutsideBox x -> show x <> " occurs outside its box"
+  P.NotAFresh -> "First row of the box is not a fresh variable"
 
 mismatchText :: P.MismatchError -> String
 mismatchText = case _ of
