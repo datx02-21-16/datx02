@@ -3,11 +3,11 @@
     "easy-purescript-nix": {
       "flake": false,
       "locked": {
-        "lastModified": 1615750216,
-        "narHash": "sha256-zvv5WHnuDobXGCyQxLhGVI413DBqvxKLDE6gORkXYy4=",
+        "lastModified": 1622283220,
+        "narHash": "sha256-PO4WBrJltZXW6rAF41Sytqve6XnFW2VEBHC3mVtrqaw=",
         "owner": "justinwoo",
         "repo": "easy-purescript-nix",
-        "rev": "e8a1ffafafcdf2e81adba419693eb35f3ee422f8",
+        "rev": "b197e8764680f39416352f2ab3ed8f25e2a6b333",
         "type": "github"
       },
       "original": {
@@ -18,11 +18,11 @@
     },
     "flake-utils": {
       "locked": {
-        "lastModified": 1614513358,
-        "narHash": "sha256-LakhOx3S1dRjnh0b5Dg3mbZyH0ToC9I8Y2wKSkBaTzU=",
+        "lastModified": 1622445595,
+        "narHash": "sha256-m+JRe6Wc5OZ/mKw2bB3+Tl0ZbtyxxxfnAWln8Q5qs+Y=",
         "owner": "numtide",
         "repo": "flake-utils",
-        "rev": "5466c5bbece17adaab2d82fae80b46e807611bf3",
+        "rev": "7d706970d94bc5559077eb1a6600afddcd25a7c8",
         "type": "github"
       },
       "original": {
@@ -33,10 +33,10 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1615325726,
-        "narHash": "sha256-CTqQpGms8YWD6Rxds0b7n15Tqgtd9K4jRS56CdHwOcc=",
-        "path": "/nix/store/yn68kf6fdsjzvnajb09f8698n2ls23kg-source",
-        "rev": "2821518e36047af33385a3bd302c9c30c0a442c4",
+        "lastModified": 1622503062,
+        "narHash": "sha256-5QHhFydG1+ImYjeE7XLrPbCUZhWcSYrebXpYuY0XWz4=",
+        "path": "/nix/store/fckfx94bqxr8zdbalwrccmrm2wplzsi4-source",
+        "rev": "3a2e0c36e79cecaf196cbea23e75e74710140ea4",
         "type": "path"
       },
       "original": {
