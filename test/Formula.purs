@@ -69,7 +69,7 @@ instance arbitraryTTerm :: Arbitrary TTerm where
           m <- chooseInt 0 (n / 2)
           lift2 App lower $ vectorOf m (unwrap <$> p (n / (m + 1)))
 
-    f p _ = TTerm <<< Var <$> variable
+    f _ _ = TTerm <<< Var <$> variable
 
 newtype TFormula
   = TFormula Formula

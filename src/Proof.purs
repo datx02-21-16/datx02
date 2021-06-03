@@ -38,7 +38,6 @@ import Formula
   , freeVarsIn
   , almostEqual
   , bottomProp
-  , equalityProp
   , equivalent
   , hasSingleSubOf
   )
@@ -373,9 +372,7 @@ applyRule rule formula = do
         Implies x y, Not z -> if y `equivalent` z then pure (FC $ Not x) else throwError $ InvalidArg BadMt1
         Not z, Implies x y -> if y `equivalent` z then pure (FC $ Not x) else throwError $ InvalidArg BadMt1
         _, _ -> throwError $ InvalidArg BadMt2
-    DoubleNegIntro i -> do
-      a <- proofRef i
-      pure $ FC $ Not $ Not a
+    DoubleNegIntro i -> (FC <<< Not <<< Not) <$> proofRef i
     PBC box -> do
       Tuple a b <- boxRef box
       case a, b of
@@ -398,19 +395,17 @@ applyRule rule formula = do
         Forall v f', Just formula'@(FC fTarget)
           | isJust $ hasSingleSubOf v f' fTarget -> pure formula'
         Forall _ _, _ -> throwError $ FormulaMismatch UnexplainedError
-        _, _ -> throwError $ InvalidArg ArgNotFormula
+        _, _ -> throwError BadRule
     ForallIntro box -> do
       Tuple a b <- boxRef box
       case formula, a, b of
-        Just (FC (Forall _ f)), VC x0, _ -- x0 can not occur anywhere outside its box
-          | x0 `Set.member` freeVarsIn f -> throwError (OccursOutsideBox x0)
-        Just formula'@(FC (Forall x f)), VC x0, FC g -> case hasSingleSubOf x f g of
-          Just (Var vSub)
-            | vSub == x0 -> pure formula'
-          _ -> throwError BadRule
         _, FC _, _ -> throwError NotAFresh
-        Just _, _, _ -> throwError BadRule
-        Nothing, _, _ -> throwError BadFormula
+        _, _, VC _ -> throwError $ InvalidArg ArgNotFormula
+        Just formula'@(FC target@(Forall x f)), VC x0, FC g
+          -- x0 can not occur anywhere outside its box
+          | x0 `Set.member` freeVarsIn target -> throwError (OccursOutsideBox x0)
+          | maybe false (_ == Var x0) $ hasSingleSubOf x f g -> pure formula'
+        _, VC x0, FC g -> pure $ FC (Forall x0 g)
     ExistsElim i box -> do
       a <- proofRef i
       Tuple b1 b2 <- boxRef box
@@ -418,13 +413,11 @@ applyRule rule formula = do
         Exists x f, FC g, FC χ -> case hasSingleSubOf x f g of
           Just (Var x0)
             | x0 `Set.member` freeVarsIn χ -> throwError (OccursOutsideBox x0)
-          Just (Var x0)
             | x0 `Set.member` freeVarsIn f -> throwError BadRule
-          Just (Var _) -> case formula of
-            Just (FC input)
-              | input `equivalent` χ -> pure $ FC input
-            Just _ -> throwError (FormulaMismatch UnexplainedError)
-            Nothing -> pure $ FC χ
+            | otherwise -> case formula of
+              Just (FC input)
+                | input `equivalent` χ -> pure $ FC input
+              _ -> pure $ FC χ
           _ -> throwError BadRule
         _, _, _ -> throwError BadRule
     ExistsIntro i -> do
@@ -440,15 +433,12 @@ applyRule rule formula = do
       case a, b, formula of
         Predicate "=" [ t1, t2 ], f, Just formula'@(FC g)
           | almostEqual t1 t2 f g -> pure formula'
-        Predicate "=" [ _, _ ], _, Just _ -> throwError $ FormulaMismatch UnexplainedError
+          | otherwise -> throwError $ FormulaMismatch UnexplainedError
         Predicate "=" [ _, _ ], _, Nothing -> throwError BadFormula
         badEq, _, _ -> throwError $ InvalidArg (BadEq badEq)
     EqIntro -> case formula of
-      Just formula'@(FC p@(Predicate _ [ t1, t2 ])) ->
-        if p == equalityProp t1 t2 && t1 == t2 then
-          pure formula'
-        else
-          throwError $ FormulaMismatch UnexplainedError
+      Just formula'@(FC (Predicate "=" [ t1, t2 ]))
+        | t1 == t2 -> pure formula'
       _ -> throwError $ FormulaMismatch UnexplainedError
 
 -- | Add a row to the derivation.
