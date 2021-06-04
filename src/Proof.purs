@@ -283,6 +283,12 @@ boxRef ref = do
 applyRule :: Rule -> Maybe FFC -> ExceptT NdError ND FFC
 applyRule rule formula = do
   { rows, scopes } <- get
+  -- | Throws an error if "v" shadows any preexistent variables.
+  let
+    checkShadowing v =
+      maybe (pure unit)
+        (throwError <<< FreshShadowsVar v)
+        $ varIntroRow v scopes
   case rule of
     Premise -> do
       case formula of
@@ -304,10 +310,7 @@ applyRule rule formula = do
       case a of
         And _ x -> pure $ FC x
         _ -> throwError $ InvalidArg BadAndE
-    AndIntro i j -> do
-      a <- proofRef i
-      b <- proofRef j
-      pure $ FC (And a b)
+    AndIntro i j -> FC <$> (And <$> proofRef i <*> proofRef j)
     OrElim i box1 box2 -> do
       a <- proofRef i
       Tuple b1 b2 <- boxRef box1
@@ -384,10 +387,7 @@ applyRule rule formula = do
       _ -> throwError $ FormulaMismatch BadLem
     Copy i -> FC <$> proofRef i
     Fresh -> case formula of
-      Just formula'@(VC v) ->
-        maybe (pure formula')
-          (\i -> throwError $ FreshShadowsVar v i)
-          $ varIntroRow v scopes
+      Just formula'@(VC v) -> checkShadowing v $> formula'
       _ -> throwError $ FormulaMismatch FreshM
     ForallElim i -> do
       f <- proofRef i
@@ -413,11 +413,12 @@ applyRule rule formula = do
         Exists x f, FC g, FC χ -> case hasSingleSubOf x f g of
           Just (Var x0)
             | x0 `Set.member` freeVarsIn χ -> throwError (OccursOutsideBox x0)
-            | x0 `Set.member` freeVarsIn f -> throwError BadRule
-            | otherwise -> case formula of
-              Just (FC input)
-                | input `equivalent` χ -> pure $ FC input
-              _ -> pure $ FC χ
+            | otherwise ->
+              checkShadowing x0
+                *> case formula of
+                    Just (FC input)
+                      | input `equivalent` χ -> pure $ FC input
+                    _ -> pure $ FC χ
           _ -> throwError BadRule
         _, _, _ -> throwError BadRule
     ExistsIntro i -> do
