@@ -1,4 +1,4 @@
-module Test.Formula (spec, readFormula) where
+module Test.Formula (spec, readFormula, readVariable) where
 
 import Prelude
 import Test.Spec (Spec, describe, it)
@@ -33,7 +33,7 @@ import Formula
   , unify
   , formulaUnifier
   )
-import Parser (parseFormula)
+import Parser (parseFormula, parseVar)
 
 -- | Generator for a single uppercase letter string.
 upper :: Gen String
@@ -69,7 +69,7 @@ instance arbitraryTTerm :: Arbitrary TTerm where
           m <- chooseInt 0 (n / 2)
           lift2 App lower $ vectorOf m (unwrap <$> p (n / (m + 1)))
 
-    f p _ = TTerm <<< Var <$> variable
+    f _ _ = TTerm <<< Var <$> variable
 
 newtype TFormula
   = TFormula Formula
@@ -108,6 +108,9 @@ instance arbitraryTFormula :: Arbitrary TFormula where
 
 readFormula :: String -> Formula
 readFormula s = fromRight' (\_ -> unsafeCrashWith "Bad formula") $ parseFormula s
+
+readVariable :: String -> Variable
+readVariable s = fromRight' (\_ -> unsafeCrashWith "Bad variable") $ parseVar s
 
 spec :: Spec Unit
 spec =

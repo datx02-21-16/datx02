@@ -197,8 +197,7 @@ errorText = case _ of
   P.BadRef -> "Reference to invalid row"
   P.BadRef_Box -> "Reference to invalid box"
   P.RefDiscarded -> "Reference to row in discarded box"
-  P.RefOutOfBounds -> "Reference to self or non-existent row(s)"
-  P.RefOutOfBounds_Box -> "Wrong applied range of numbers for a box."
+  P.RefOutOfBounds i -> "Reference to self or non-existent row: " <> show i
   P.BadRule -> "Bad rule application"
   P.BadFormula -> "No formula can be parsed"
   P.FormulaMismatch mme -> "Formula does not match rule output. " <> mismatchText mme
@@ -207,6 +206,8 @@ errorText = case _ of
   P.InvalidArg ae -> "Bad rule arguments: " <> badArgsText ae
   P.BadPremise -> "Premises need to be at the start of a proof."
   P.OccursOutsideBox x -> show x <> " occurs outside its box"
+  P.NotAFresh -> "First row of the box is not a fresh variable"
+  P.FreshShadowsVar v i -> "Variable " <> show v <> " first introduced on line " <> show i <> " would get shadowed"
 
 mismatchText :: P.MismatchError -> String
 mismatchText = case _ of
@@ -712,7 +713,7 @@ handleAction = case _ of
             | end <= j + (if inc then 1 else 0) && j < target - (if inc then 1 else 0) = j - (end - start) -- Rows removed before
             | otherwise = j
 
-          boxMap box@(Tuple boxStart boxEnd) = Tuple (rowMap false boxStart) (rowMap inc boxEnd)
+          boxMap (Tuple boxStart boxEnd) = Tuple (rowMap false boxStart) (rowMap inc boxEnd)
             where
             inc = not (boxStart == start && boxEnd + 1 == end)
 
@@ -769,7 +770,6 @@ handleAction = case _ of
       Nothing -> ruleArgs
 
   addRowBelow i = do
-    rowCount <- H.gets $ Array.length <<< _.rows
     let
       refMap j = if j > i then j + 1 else j
 
@@ -815,7 +815,7 @@ handleAction = case _ of
             Nothing -> st.rows
             Just boxStart ->
               let
-                boxMap box@(Tuple j k)
+                boxMap box@(Tuple j _)
                   | j == boxStart = Tuple j i
                   | otherwise = box
               in

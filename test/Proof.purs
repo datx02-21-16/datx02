@@ -2,13 +2,14 @@ module Test.Proof where
 
 import Prelude
 import Formula (Formula(..))
-import FormulaOrVar (FFC(FC))
+import FormulaOrVar (FFC(FC, VC))
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
 import Data.List (List(Nil), (:))
 import Data.Set as Set
+import Data.Map as Map
 import Proof (ND, Rule(..), addProof, closeBox, openBox, runND)
-import Test.Formula (readFormula)
+import Test.Formula (readFormula, readVariable)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
@@ -89,6 +90,7 @@ testInference =
                   ( { boxes: [ Tuple 2 4 ]
                     , lines: Set.insert 5 (Set.singleton 1) --[ 5, 1 ]
                     , boxStart: Nothing
+                    , vars: Map.empty
                     }
                       : Nil
                   )
@@ -133,6 +135,7 @@ testInference =
                   ( { boxes: []
                     , lines: Set.insert 3 (Set.insert 2 (Set.singleton 1)) --[ 3, 2, 1 ]
                     , boxStart: Nothing
+                    , vars: Map.empty
                     }
                       : Nil
                   )
@@ -169,6 +172,7 @@ testInference =
                   ( { boxes: []
                     , lines: Set.insert 2 (Set.singleton 1) --[ 2, 1 ]
                     , boxStart: Nothing
+                    , vars: Map.empty
                     }
                       : Nil
                   )
@@ -197,3 +201,17 @@ testInference =
             addProof { formula: Just $ FC $ readFormula "¬P(a)→P(b)", rule: Just $ ImplIntro (Just $ Tuple 3 13) }
       in
         completed `shouldEqual` true
+    it "does not allow shadowing of variables by way of fresh"
+      let
+        Tuple completed _ =
+          runND (Just $ readFormula "∀x P(x)") do
+            addProof { formula: Just $ FC $ readFormula "∃x P(x)", rule: Just Premise }
+            boxed do
+              addProof { formula: Just $ FC $ readFormula "P(x0)", rule: Just Assumption }
+              boxed do
+                addProof { formula: Just $ VC $ readVariable "x0", rule: Just Fresh }
+                addProof { formula: Just $ FC $ readFormula "P(x0)", rule: Just $ Copy (Just 2) }
+              addProof { formula: Just $ FC $ readFormula "∀x P(x)", rule: Just $ ForallIntro (Just $ Tuple 3 4) }
+            addProof { formula: Just $ FC $ readFormula "∀x P(x)", rule: Just $ ExistsElim (Just 1) (Just $ Tuple 2 5) }
+      in
+        completed `shouldEqual` false
