@@ -3,16 +3,14 @@ module GUI.PrintProof where
 import Prelude
 import Data.Array
 import Data.Maybe
+import Effect
 
---printProof :: {row :: Array String} -> String
---printProof :: String
---printProof :: forall t1. t1 -> t1
---printProof xs = xs
+foreign import printProofer :: Effect Unit
 
-printProof arr = case uncons arr of
-  Just { head: x, tail: xs } -> x
-  Nothing -> {}
 
+printProof :: Effect Unit
+printProof = do 
+        printProofer
 
 
 

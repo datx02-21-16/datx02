@@ -49,7 +49,7 @@ import Web.HTML.Event.DragEvent as DragEvent
 import Web.HTML.HTMLInputElement as HTMLInputElement
 import Web.UIEvent.KeyboardEvent (KeyboardEvent)
 import Web.UIEvent.KeyboardEvent as KeyboardEvent
-import Effect.Console
+import Effect.Console (logShow)
 
 foreign import addRowIcon :: String
 
@@ -373,7 +373,7 @@ render st =
         [ HH.text "Proof" ]
     , toolbar
     , HH.div
-        [ HP.classes $ [ H.ClassName "panel-block", H.ClassName "proof" ]
+        [ HP.id $ "printable", HP.classes $ [ H.ClassName "panel-block", H.ClassName "proof" ]
             <> if complete then [ H.ClassName "complete" ] else []
         ]
         [ proofHeader
@@ -428,7 +428,7 @@ render st =
   hintButton = toolbarButton (HH.text "Hint") "Get a hint on how to get started." ShowHint
 
   printButton :: HH.HTML _ _
-  printButton = toolbarButton (HH.text "Print") "Is this on Hover???" PrintProof
+  printButton = toolbarButton (HH.text "Save") "Download this proof as pdf" PrintProof
 
   toolbarButton :: forall w. (HH.HTML w Action) -> String -> Action -> HH.HTML w Action
   toolbarButton content buttonTitle buttonAction =
@@ -749,9 +749,9 @@ handleAction = case _ of
     st <- H.get
     H.liftEffect $ Hint.showHint { premises: premises st.rows, conclusion: st.conclusion }
   PrintProof -> do
-    st <- H.get
-    --H.liftEffect $ logShow $ st
-    H.liftEffect $ logShow $ PrintProof.printProof st.rows
+    --H.liftEffect $ logShow $ PrintProof.printProof
+    H.liftEffect $ PrintProof.printProof
+
 
   AddBelow -> do
     { inFocus } <- H.get
