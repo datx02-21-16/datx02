@@ -6,7 +6,7 @@ const html2canvas = require('html2canvas')
 
 exports.printProofer = () => {
     html2canvas(document.getElementById("printable")).then(function(canvas) {
-        document.body.appendChild(canvas);
+        document.body.appendChild(canvas).hidden = true;
         var imgdata = canvas.toDataURL("image/png");
         var imgWidth = 105;
         var pageHeight = 295;
