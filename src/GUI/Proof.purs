@@ -7,6 +7,7 @@
 module GUI.Proof (Slot, proof) where
 
 import Prelude
+
 import Data.Array ((!!), unsafeIndex)
 import Data.Array as Array
 import Data.Either (Either(Left, Right), isRight, either, hush)
@@ -24,6 +25,7 @@ import Data.Tuple (Tuple(Tuple), snd)
 import Effect.Class (class MonadEffect)
 import FormulaOrVar (FFC(FC, VC), parseFFC)
 import GUI.Hint as Hint
+import GUI.PrintProof as PrintProof 
 import GUI.Rules (RuleType(..))
 import GUI.Rules as R
 import GUI.SymbolInput (symbolInput)
@@ -47,6 +49,7 @@ import Web.HTML.Event.DragEvent as DragEvent
 import Web.HTML.HTMLInputElement as HTMLInputElement
 import Web.UIEvent.KeyboardEvent (KeyboardEvent)
 import Web.UIEvent.KeyboardEvent as KeyboardEvent
+import Effect.Console (logShow)
 
 foreign import addRowIcon :: String
 
@@ -277,6 +280,7 @@ data Action
   | FormulaKeyDown Int KeyboardEvent
   | ClearProof
   | ShowHint
+  | PrintProof
   | UpdatePremises String
   | AddBelow
   | AddOutsideBox
@@ -369,7 +373,7 @@ render st =
         [ HH.text "Proof" ]
     , toolbar
     , HH.div
-        [ HP.classes $ [ H.ClassName "panel-block", H.ClassName "proof" ]
+        [ HP.id $ "printable", HP.classes $ [ H.ClassName "panel-block", H.ClassName "proof" ]
             <> if complete then [ H.ClassName "complete" ] else []
         ]
         [ proofHeader
@@ -408,7 +412,7 @@ render st =
     HH.nav [ HPARIA.role "toolbar", HP.classes [ H.ClassName "level", H.ClassName "is-mobile" ] ]
       [ HH.div [ HP.classes [ H.ClassName "level-left" ] ] [ addRowButton, addRowOutsideButton ]
       , HH.div [ HP.classes [ H.ClassName "level-right" ] ]
-          [ HH.div [ HP.classes [ H.ClassName "level-item" ] ] [ clearButton, hintButton ] ]
+          [ HH.div [ HP.classes [ H.ClassName "level-item" ] ] [ clearButton, hintButton, printButton ] ]
       ]
 
   addRowButton :: HH.HTML _ _
@@ -422,6 +426,9 @@ render st =
 
   hintButton :: HH.HTML _ _
   hintButton = toolbarButton (HH.text "Hint") "Get a hint on how to get started." ShowHint
+
+  printButton :: HH.HTML _ _
+  printButton = toolbarButton (HH.text "Save") "Download this proof as pdf" PrintProof
 
   toolbarButton :: forall w. (HH.HTML w Action) -> String -> Action -> HH.HTML w Action
   toolbarButton content buttonTitle buttonAction =
@@ -741,6 +748,11 @@ handleAction = case _ of
   ShowHint -> do
     st <- H.get
     H.liftEffect $ Hint.showHint { premises: premises st.rows, conclusion: st.conclusion }
+  PrintProof -> do
+    --H.liftEffect $ logShow $ PrintProof.printProof
+    H.liftEffect $ PrintProof.printProof
+
+
   AddBelow -> do
     { inFocus } <- H.get
     addRowBelow inFocus
