@@ -15,32 +15,24 @@ module Proof
   ) where
 
 import Prelude
+
 import Control.Alt ((<|>))
 import Control.Monad.Except.Trans (ExceptT, except, runExceptT, throwError)
 import Control.Monad.Maybe.Trans (MaybeT(MaybeT), runMaybeT)
 import Control.Monad.State (State, class MonadState, runState, modify_, get)
-import Data.Array as Array
 import Data.Array ((!!))
+import Data.Array as Array
 import Data.Either (Either(..), note, hush)
 import Data.Foldable (findMap, all, any)
 import Data.List (List(Nil), (:))
 import Data.List as List
+import Data.Map (Map)
+import Data.Map as Map
 import Data.Maybe (Maybe(..), maybe, fromJust, isJust, isNothing)
 import Data.Set (Set)
 import Data.Set as Set
-import Data.Map (Map)
-import Data.Map as Map
 import Data.Tuple (Tuple(..))
-import Formula
-  ( Formula(..)
-  , Variable
-  , Term(..)
-  , freeVarsIn
-  , almostEqual
-  , bottomProp
-  , equivalent
-  , hasSingleSubOf
-  )
+import Formula (Formula(..), Variable, Term(..), freeVarsIn, almostEqual, bottomProp, equivalent, hasSingleSubOf)
 import FormulaOrVar (FFC(FC, VC))
 import Partial.Unsafe (unsafeCrashWith, unsafePartial)
 
@@ -117,6 +109,7 @@ data NdError
   | OccursOutsideBox Variable
   | NotAFresh
   | FreshShadowsVar Variable Int
+  | BadRuleAfterBox
 
 --TODO: Add error constructors for predicate logic with specific error scenario messages.
 data MismatchError
@@ -159,6 +152,7 @@ instance showNdError :: Show NdError where
   show (OccursOutsideBox x) = show x <> " occurs outside its box"
   show NotAFresh = "not a fresh"
   show (FreshShadowsVar v i) = "fresh shadows var " <> show v <> " " <> show i
+  show BadRuleAfterBox = "Cannot close box with this rule"
 
 derive instance eqNdError :: Eq NdError
 
@@ -289,6 +283,9 @@ applyRule rule formula = do
       maybe (pure unit)
         (throwError <<< FreshShadowsVar v)
         $ varIntroRow v scopes
+  if rowJustAfterBox scopes rows && not (isValidBoxCloser rule)
+     then throwError $ BadRuleAfterBox
+     else pure unit
   case rule of
     Premise -> do
       case formula of
@@ -505,6 +502,26 @@ isNotBox b@(Tuple l1 l2) ss = lineInScope l1 ss && lineInScope l2 ss && not (box
 -- | Check if a box is in scope in a stack of scopes.
 boxInScope :: Box -> List Scope -> Boolean
 boxInScope b ss = any (\s -> b `Array.elem` s.boxes) ss
+
+-- | Check if a row is just after a box
+rowJustAfterBox :: List Scope -> Array ProofRow -> Boolean
+rowJustAfterBox scopes rows = case Array.head s.boxes of
+   Nothing -> false
+   Just b@(Tuple start end) -> (Array.length rows) == end
+
+  where s = unsafePartial $ fromJust $ List.head scopes
+
+
+-- | Check if rule is valid for closing a box
+isValidBoxCloser :: Rule -> Boolean
+isValidBoxCloser r = case r of
+  ImplIntro _    -> true
+  NegIntro _     -> true
+  PBC _          -> true
+  ForallIntro _  -> true
+  ExistsElim _ _ -> true
+  OrElim _ _ _   -> true
+  _              -> false 
 
 -- | Check if a line is in scope in a stack of scopes.
 lineInScope :: Int -> List Scope -> Boolean

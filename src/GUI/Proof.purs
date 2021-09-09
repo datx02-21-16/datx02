@@ -211,6 +211,7 @@ errorText = case _ of
   P.OccursOutsideBox x -> show x <> " occurs outside its box"
   P.NotAFresh -> "First row of the box is not a fresh variable"
   P.FreshShadowsVar v i -> "Variable " <> show v <> " first introduced on line " <> show i <> " would get shadowed"
+  P.BadRuleAfterBox -> "Cannot close box with this rule"
 
 mismatchText :: P.MismatchError -> String
 mismatchText = case _ of
