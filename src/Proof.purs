@@ -32,6 +32,7 @@ import Data.Maybe (Maybe(..), maybe, fromJust, isJust, isNothing)
 import Data.Set (Set)
 import Data.Set as Set
 import Data.Tuple (Tuple(..))
+import Latex (class Latex)
 import Formula (Formula(..), Variable, Term(..), freeVarsIn, almostEqual, bottomProp, equivalent, hasSingleSubOf)
 import FormulaOrVar (FFC(FC, VC))
 import Partial.Unsafe (unsafeCrashWith, unsafePartial)
@@ -93,6 +94,42 @@ instance showRule :: Show Rule where
   show (ExistsIntro _) = "∃i"
   show (EqElim _ _) = "=e"
   show EqIntro = "=i"
+
+instance latexRule :: Latex Rule where
+  toLatex Premise = "Premise"
+  toLatex Assumption = "Assumption"
+  toLatex (AndElim1 a) = "$\\land_{e_1}$ (" <> maybeIntToLatex a <> ")"
+  toLatex (AndElim2 a) = "$\\land_{e_2}$ (" <> maybeIntToLatex a <> ")"
+  toLatex (AndIntro a b) = "$\\land_i$ (" <> maybeIntToLatex a <> ", " <> maybeIntToLatex b <> ")"
+  toLatex (OrElim a b c) = "$\\lor_e$ (" <> maybeIntToLatex a <> ", " <> maybeBoxToLatex b <> ", " <> maybeBoxToLatex c <> ")"
+  toLatex (OrIntro1 a) = "$\\lor_{i_1}$ (" <> maybeIntToLatex a <> ")"
+  toLatex (OrIntro2 a) = "$\\lor_{i_2}$ (" <> maybeIntToLatex a <> ")"
+  toLatex (ImplElim a b) = "$\\to_e$ (" <> maybeIntToLatex a <> ", " <> maybeIntToLatex b <> ")"
+  toLatex (ImplIntro a) = "$\\to_i$ (" <> maybeBoxToLatex a <> ")"
+  toLatex (NegElim a b) = "$\\neg_e$ (" <> maybeIntToLatex a <> ", " <> maybeIntToLatex b <> ")"
+  toLatex (NegIntro a) = "$\\neg_i$ (" <> maybeBoxToLatex a <> ")"
+  toLatex (BottomElim a) = "$\\bot_e$ (" <> maybeIntToLatex a <> ")"
+  toLatex (DoubleNegElim a) = "$\\neg\\neg_e$ (" <> maybeIntToLatex a <> ")"
+  toLatex (ModusTollens a b) = "MT (" <> maybeIntToLatex a <> ", " <> maybeIntToLatex b <> ")"
+  toLatex (DoubleNegIntro a) = "$\\neg\\neg_i$ (" <> maybeIntToLatex a <> ")"
+  toLatex (PBC a) = "PBC (" <> maybeBoxToLatex a <> ")"
+  toLatex LEM = "LEM"
+  toLatex (Copy a) = "Copy (" <> maybeIntToLatex a <> ")"
+  toLatex Fresh = "Fresh"
+  toLatex (ForallElim a) = "$\\forall_e$ (" <> maybeIntToLatex a <> ")"
+  toLatex (ForallIntro a) = "$\\forall_i$ (" <> maybeBoxToLatex a <> ")"
+  toLatex (ExistsElim a b) = "$\\exists_e$ (" <> maybeIntToLatex a <> ", " <> maybeBoxToLatex b <> ")"
+  toLatex (ExistsIntro a) = "$\\exists_i$ (" <> maybeIntToLatex a <> ")"
+  toLatex (EqElim a b) = "$=_e$ (" <> maybeIntToLatex a <> ", " <> maybeIntToLatex b <> ")"
+  toLatex EqIntro = "$=_i$"
+
+maybeIntToLatex :: Maybe Int -> String
+maybeIntToLatex Nothing = ""
+maybeIntToLatex (Just a) = show a
+
+maybeBoxToLatex :: Maybe Box -> String
+maybeBoxToLatex Nothing = ""
+maybeBoxToLatex (Just (Tuple f t)) = show f <> "--" <> show t
 
 data NdError
   = BadRef
