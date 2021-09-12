@@ -4,7 +4,7 @@
 -- | modify, i.e. has a single contiguous array of all rows. When
 -- | rendering or validating we map this to a tree with subproof
 -- | nodes.
-module GUI.Proof (Slot, proof) where
+module GUI.Proof (Slot, Output, proof) where
 
 import Prelude
 
@@ -29,6 +29,7 @@ import GUI.Hint as Hint
 import GUI.PrintProof as PrintProof 
 import GUI.Rules (RuleType(..))
 import GUI.Rules as R
+import GUI.SettingsPanel as SP
 import GUI.SymbolInput (symbolInput)
 import GUI.SymbolInput as SI
 import Halogen as H
@@ -253,7 +254,7 @@ emptyRow :: ProofRow
 emptyRow = { formulaText: "", rule: Rule "", ruleArgs: [] }
 
 type Slot id
-  = forall query output. H.Slot query output id
+  = forall query. H.Slot query Output id
 
 -- | Only stores endpoints of boxes since assumptions naturally define start points.
 type State
@@ -304,7 +305,10 @@ _symbolInput = Proxy :: Proxy "symbolInput"
 type Slots
   = ( symbolInput :: SI.Slot Int )
 
-proof :: forall query input output m. MonadEffect m => H.Component query input output m
+type Output
+  = SP.Modal
+
+proof :: forall query input m. MonadEffect m => H.Component query input Output m
 proof =
   H.mkComponent
     { initialState
@@ -656,10 +660,10 @@ render st =
         pure $ argField <$> enumerate (Array.zip argTypes argStrings)
 
 handleAction ::
-  forall output m.
+  forall m.
   MonadEffect m =>
   Action ->
-  H.HalogenM State Action Slots output m Unit
+  H.HalogenM State Action Slots Output m Unit
 handleAction = case _ of
   UpdateFormula i s ->
     H.modify_ \st ->
@@ -783,7 +787,7 @@ handleAction = case _ of
     H.liftEffect $ PrintProof.printProof
   ExportLatex -> do
     st <- H.get
-    H.liftEffect $ logShow $ stateToLatex st
+    H.raise $ SP.ExportLatexModal $ stateToLatex st
 
 
   AddBelow -> do
@@ -897,7 +901,7 @@ handleAction = case _ of
       x -> x
 
   -- | Inclusive-exclusive interval of the rows that are currently being dragged.
-  draggedRows :: H.HalogenM State Action Slots output m { start :: Int, end :: Int }
+  draggedRows :: H.HalogenM State Action Slots Output m { start :: Int, end :: Int }
   draggedRows = do
     start <- unsafePartial $ fromJust <$> H.gets _.dragged
     rows <- H.gets _.rows

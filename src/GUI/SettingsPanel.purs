@@ -15,6 +15,7 @@ type Output
 data Modal
   = ManualModal
   | ShortcutModal
+  | ExportLatexModal String
 
 settingsPanel :: forall query input m. H.Component query input Output m
 settingsPanel =
