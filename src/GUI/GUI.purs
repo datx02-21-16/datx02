@@ -61,7 +61,7 @@ siteBody =
                 [ HP.classes [ HH.ClassName "columns" ] ]
                 [ HH.div
                     [ HP.classes [ HH.ClassName "column", HH.ClassName "is-three-quarters" ] ]
-                    [ HH.slot_ _proof unit GP.proof unit ]
+                    [ HH.slot _proof unit GP.proof unit (case _ of GP.LatexOutput s -> ActivateModal $ SP.ExportLatexModal s) ]
                 , HH.div
                     [ HP.classes [ HH.ClassName "column" ] ]
                     [ HH.slot _settingsPanel unit SP.settingsPanel 0 ActivateModal
@@ -81,12 +81,16 @@ siteBody =
   modal m = case m of
     SP.ManualModal -> manualModal
     SP.ShortcutModal -> shortcutModal
+    SP.ExportLatexModal latex -> exportLatexModal latex
 
   manualModal :: HH.HTML _ _
   manualModal = mkModal "How to use the editor." manualModalBody
 
   shortcutModal :: HH.HTML _ _
   shortcutModal = mkModal "Syntax shortcuts." shortcutModalBody
+
+  exportLatexModal :: String -> HH.HTML _ _
+  exportLatexModal latex = mkModal "Export as LaTeX." $ exportLatexModalBody latex
 
   mkModal :: String -> (HH.HTML _ _) -> HH.HTML _ _
   mkModal title modalBody =
@@ -402,4 +406,15 @@ shortcutModalBody =
                 ]
             ]
         ]
+    ]
+
+exportLatexModalBody :: forall w. String -> HH.HTML w Action
+exportLatexModalBody latex =
+  HH.div [ HP.classes [ HH.ClassName "content" ] ]
+    [ HH.p_
+        [ HH.text "Here you can find the source for including your proof in a LaTeX document. To render properly you will need to use the "
+        , HH.code_ [ HH.text "logicproof" ]
+        , HH.text " package."
+        ]
+    , HH.pre_ [ HH.code_ [ HH.text latex ] ]
     ]

@@ -4,13 +4,14 @@
 -- | modify, i.e. has a single contiguous array of all rows. When
 -- | rendering or validating we map this to a tree with subproof
 -- | nodes.
-module GUI.Proof (Slot, proof) where
+module GUI.Proof (Slot, Output(..), proof) where
 
 import Prelude
 
 import Data.Array ((!!), unsafeIndex)
 import Data.Array as Array
 import Data.Either (Either(Left, Right), isRight, either, hush)
+import Data.Foldable (foldl)
 import Data.FoldableWithIndex (foldlWithIndex, foldWithIndexM)
 import Data.FunctorWithIndex (mapWithIndex)
 import Data.Int as Int
@@ -35,6 +36,7 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.HTML.Properties.ARIA as HPARIA
+import Latex (class Latex, toLatex)
 import Parser (parseFormula, parseVar, parsePremises)
 import Partial.Unsafe (unsafePartial, unsafeCrashWith)
 import Proof (NdError(..))
@@ -251,7 +253,7 @@ emptyRow :: ProofRow
 emptyRow = { formulaText: "", rule: Rule "", ruleArgs: [] }
 
 type Slot id
-  = forall query output. H.Slot query output id
+  = forall query. H.Slot query Output id
 
 -- | Only stores endpoints of boxes since assumptions naturally define start points.
 type State
@@ -265,6 +267,15 @@ type State
     -- a premise proof row instead).
     , premisesInput :: String
     }
+
+stateToLatex :: State -> String
+stateToLatex st = "\\begin{logicproof}{" <> show subTreeCount <> "}\n" <> arrayProofTreeToLatex pt <> "\n\\end{logicproof}"
+  where
+    pt = proofTree st
+    subTreeCount = foldl (\acc t -> max acc $ countSubTrees 0 t) 0 pt
+    countSubTrees :: Int -> ProofTree -> Int
+    countSubTrees n (Subproof arr) = 1 + foldl (\acc x -> max acc $ countSubTrees n x) 0 arr
+    countSubTrees n (RowNode _ _) = n
 
 data Action
   = UpdateFormula Int String
@@ -282,6 +293,7 @@ data Action
   | ClearProof
   | ShowHint
   | PrintProof
+  | ExportLatex
   | UpdatePremises String
   | AddBelow
   | AddOutsideBox
@@ -292,7 +304,10 @@ _symbolInput = Proxy :: Proxy "symbolInput"
 type Slots
   = ( symbolInput :: SI.Slot Int )
 
-proof :: forall query input output m. MonadEffect m => H.Component query input output m
+data Output
+  = LatexOutput String
+
+proof :: forall query input m. MonadEffect m => H.Component query input Output m
 proof =
   H.mkComponent
     { initialState
@@ -320,6 +335,20 @@ initialState _ =
 data ProofTree
   = Subproof (Array ProofTree)
   | RowNode Int ProofRow
+
+instance latexProofTree :: Latex ProofTree where
+  toLatex (Subproof subproofs) = "\\begin{subproof}\n" <> arrayProofTreeToLatex subproofs <> "\n\t\\end{subproof}"
+  toLatex (RowNode _ rn@{ formulaText }) = formulaLatex <> " & " <> ruleLatex
+    where
+      formulaLatex = either parseErrorMessage toLatex $ parseFFC formulaText
+      ruleLatex = maybe "" toLatex $ parseRule rn
+
+arrayProofTreeToLatex :: Array ProofTree -> String
+arrayProofTreeToLatex arr = joinWith "\n" $ Array.mapWithIndex toLatexRow arr
+  where
+    lastI = Array.length arr - 1
+    toLatexRow _ pt@(Subproof _) = "\t" <> toLatex pt
+    toLatexRow i pt@(RowNode _ _) = "\t" <> toLatex pt <> if i == lastI then "" else " \\\\"
 
 -- | Converts the GUI proof representation into an explicit tree structure.
 proofTree :: State -> Array ProofTree
@@ -413,7 +442,7 @@ render st =
     HH.nav [ HPARIA.role "toolbar", HP.classes [ H.ClassName "level", H.ClassName "is-mobile" ] ]
       [ HH.div [ HP.classes [ H.ClassName "level-left" ] ] [ addRowButton, addRowOutsideButton ]
       , HH.div [ HP.classes [ H.ClassName "level-right" ] ]
-          [ HH.div [ HP.classes [ H.ClassName "level-item" ] ] [ clearButton, hintButton, printButton ] ]
+          [ HH.div [ HP.classes [ H.ClassName "level-item" ] ] [ clearButton, hintButton, printButton, exportLatexButton ] ]
       ]
 
   addRowButton :: HH.HTML _ _
@@ -430,6 +459,9 @@ render st =
 
   printButton :: HH.HTML _ _
   printButton = toolbarButton (HH.text "Save") "Download this proof as pdf" PrintProof
+
+  exportLatexButton :: HH.HTML _ _
+  exportLatexButton = toolbarButton (HH.text "Export as LaTeX") "Export this proof as LaTeX source" ExportLatex
 
   toolbarButton :: forall w. (HH.HTML w Action) -> String -> Action -> HH.HTML w Action
   toolbarButton content buttonTitle buttonAction =
@@ -627,10 +659,10 @@ render st =
         pure $ argField <$> enumerate (Array.zip argTypes argStrings)
 
 handleAction ::
-  forall output m.
+  forall m.
   MonadEffect m =>
   Action ->
-  H.HalogenM State Action Slots output m Unit
+  H.HalogenM State Action Slots Output m Unit
 handleAction = case _ of
   UpdateFormula i s ->
     H.modify_ \st ->
@@ -752,6 +784,9 @@ handleAction = case _ of
   PrintProof -> do
     --H.liftEffect $ logShow $ PrintProof.printProof
     H.liftEffect $ PrintProof.printProof
+  ExportLatex -> do
+    st <- H.get
+    H.raise $ LatexOutput $ stateToLatex st
 
 
   AddBelow -> do
@@ -865,7 +900,7 @@ handleAction = case _ of
       x -> x
 
   -- | Inclusive-exclusive interval of the rows that are currently being dragged.
-  draggedRows :: H.HalogenM State Action Slots output m { start :: Int, end :: Int }
+  draggedRows :: H.HalogenM State Action Slots Output m { start :: Int, end :: Int }
   draggedRows = do
     start <- unsafePartial $ fromJust <$> H.gets _.dragged
     rows <- H.gets _.rows

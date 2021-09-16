@@ -33,6 +33,7 @@ import Data.Set (Set)
 import Data.Set as Set
 import Data.String.Common (joinWith)
 import Data.Tuple (Tuple(Tuple))
+import Latex (class Latex, toLatex)
 
 -- | A variable symbol.
 newtype Variable
@@ -46,6 +47,9 @@ derive newtype instance semigroupVariable :: Semigroup Variable
 
 instance showVariable :: Show Variable where
   show (Variable s) = s
+
+instance latexVariable :: Latex Variable where
+  toLatex (Variable s) = s
 
 -- | A term which denotes some object.
 -- |
@@ -64,6 +68,10 @@ instance showTerm :: Show Term where
   show (Var v) = show v
   show (App p args) = p <> "(" <> (joinWith ", " (show <$> args)) <> ")"
 
+instance latexTerm :: Latex Term where
+  toLatex (Var v) = show v
+  toLatex (App p args) = p <> "(" <> (joinWith ", " (toLatex <$> args)) <> ")"
+
 -- | A formula in first-order logic.
 data Formula
   = Predicate String (Array Term)
@@ -80,22 +88,36 @@ derive instance ordFormula :: Ord Formula
 
 -- | Shows formulas using least amount of parentheses wrt. precedence.
 instance showFormula :: Show Formula where
-  show = showPrec 1
+  show = showPrec symbol 1
     where
+      symbol s = s
+
+instance latexFormula :: Latex Formula where
+  toLatex = showPrec symbol 1
+    where
+      symbol "⊥" = "\\bot{}"
+      symbol "¬" = "\\lnot{}"
+      symbol "∧" = "\\land{}"
+      symbol "∨" = "\\lor{}"
+      symbol "→" = "\\to{}"
+      symbol "∀" = "\\forall{}"
+      symbol "∃" = "\\exists{}"
+      symbol s = s
+
+showPrec :: (String -> String) -> Int -> Formula -> String
+showPrec symbol n = case _ of
+  Predicate p [] -> symbol p
+  Predicate "=" [ x, y ] -> show x <> " " <> symbol "=" <> " " <> show y
+  Predicate p args -> symbol p <> parens (joinWith ", " (show <$> args))
+  Not f -> symbol "¬" <> showPrec symbol 4 f
+  Forall x f -> symbol "∀" <> show x <> " " <> showPrec symbol 4 f
+  Exists x f -> symbol "∃" <> show x <> " " <> showPrec symbol 4 f
+  And a b -> optParens (n > 3) $ showPrec symbol 3 a <> " " <> symbol "∧" <> " " <> showPrec symbol 4 b
+  Or a b -> optParens (n > 2) $ showPrec symbol 2 a <> " " <> symbol "∨" <> " " <> showPrec symbol 3 b
+  Implies a b -> optParens (n > 1) $ showPrec symbol 2 a <> " " <> symbol "→" <> " " <> showPrec symbol 1 b
+  where
     parens s = "(" <> s <> ")"
-
     optParens b s = if b then parens s else s
-
-    showPrec n = case _ of
-      Predicate p [] -> p
-      Predicate "=" [ x, y ] -> show x <> " = " <> show y
-      Predicate p args -> p <> parens (joinWith ", " (show <$> args))
-      Not f -> "¬" <> showPrec 4 f
-      Forall x f -> "∀" <> show x <> " " <> showPrec 4 f
-      Exists x f -> "∃" <> show x <> " " <> showPrec 4 f
-      And a b -> optParens (n > 3) $ showPrec 3 a <> " ∧ " <> showPrec 4 b
-      Or a b -> optParens (n > 2) $ showPrec 2 a <> " ∨ " <> showPrec 3 b
-      Implies a b -> optParens (n > 1) $ showPrec 2 a <> " → " <> showPrec 1 b
 
 -- | Dedicated symbol for a proposition that is assigned a false truth value.
 bottomProp :: Formula
@@ -117,6 +139,15 @@ instance showSubstitution :: Show Substitution where
       showElem (Tuple t v) = show t <> "/" <> show v
     in
       "{" <> joinWith ", " (showElem <$> elems) <> "}"
+
+instance latexSubstitution :: Latex Substitution where
+  toLatex (Substitution ss) =
+    let
+      elems = Map.toUnfoldableUnordered ss :: Array _
+
+      showElem (Tuple t v) = toLatex t <> "/" <> toLatex v
+    in
+      "\\{" <> joinWith ", " (showElem <$> elems) <> "\\}"
 
 instance semigroupSubstitution :: Semigroup Substitution where
   -- | The composition of the two substitutions.
