@@ -268,17 +268,17 @@ spec =
       it "should handle precedence" do
         toLatex (Or (Predicate "A" []) (Not $ Predicate "A" []))
           `shouldEqual`
-            "A \\lor \\lnot A"
+            "A \\lor{} \\lnot{}A"
         toLatex (Exists (Variable "x") (Implies (Predicate "P" [ Var $ Variable "x" ]) (Predicate "Q" [ Var $ Variable "x" ])))
           `shouldEqual`
-            "\\exists x (P(x) \\to Q(x))"
+            "\\exists{}x (P(x) \\to{} Q(x))"
       it "should handle associativity" do
         toLatex (And (And (Predicate "A" []) (Predicate "B" [])) (Predicate "C" []))
           `shouldEqual`
-            "A \\land B \\land C"
+            "A \\land{} B \\land{} C"
         toLatex (And (Predicate "A" []) (And (Predicate "B" []) (Predicate "C" [])))
           `shouldEqual`
-            "A \\land (B \\land C)"
+            "A \\land{} (B \\land{} C)"
       it "should format equality nicely" do
         toLatex (Predicate "=" [ Var x, Var y ]) `shouldEqual` "x = y"
 

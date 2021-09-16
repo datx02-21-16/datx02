@@ -95,13 +95,13 @@ instance showFormula :: Show Formula where
 instance latexFormula :: Latex Formula where
   toLatex = showPrec symbol 1
     where
-      symbol "⊥" = "\\bot "
-      symbol "¬" = "\\lnot "
-      symbol "∧" = "\\land "
-      symbol "∨" = "\\lor "
-      symbol "→" = "\\to "
-      symbol "∀" = "\\forall "
-      symbol "∃" = "\\exists "
+      symbol "⊥" = "\\bot{}"
+      symbol "¬" = "\\lnot{}"
+      symbol "∧" = "\\land{}"
+      symbol "∨" = "\\lor{}"
+      symbol "→" = "\\to{}"
+      symbol "∀" = "\\forall{}"
+      symbol "∃" = "\\exists{}"
       symbol s = s
 
 showPrec :: (String -> String) -> Int -> Formula -> String
