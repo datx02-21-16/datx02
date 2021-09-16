@@ -61,7 +61,7 @@ siteBody =
                 [ HP.classes [ HH.ClassName "columns" ] ]
                 [ HH.div
                     [ HP.classes [ HH.ClassName "column", HH.ClassName "is-three-quarters" ] ]
-                    [ HH.slot _proof unit GP.proof 0 ActivateModal ]
+                    [ HH.slot _proof unit GP.proof unit (case _ of GP.LatexOutput s -> ActivateModal $ SP.ExportLatexModal s) ]
                 , HH.div
                     [ HP.classes [ HH.ClassName "column" ] ]
                     [ HH.slot _settingsPanel unit SP.settingsPanel 0 ActivateModal
@@ -81,7 +81,7 @@ siteBody =
   modal m = case m of
     SP.ManualModal -> manualModal
     SP.ShortcutModal -> shortcutModal
-    (SP.ExportLatexModal latex) -> exportLatexModal latex
+    SP.ExportLatexModal latex -> exportLatexModal latex
 
   manualModal :: HH.HTML _ _
   manualModal = mkModal "How to use the editor." manualModalBody

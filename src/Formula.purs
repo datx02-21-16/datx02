@@ -95,20 +95,14 @@ instance showFormula :: Show Formula where
 instance latexFormula :: Latex Formula where
   toLatex = showPrec symbol 1
     where
-      symbol "⊥" = "\\bot"
+      symbol "⊥" = "\\bot "
       symbol "¬" = "\\lnot "
-      symbol "∧" = "\\land"
-      symbol "∨" = "\\lor"
-      symbol "→" = "\\to"
+      symbol "∧" = "\\land "
+      symbol "∨" = "\\lor "
+      symbol "→" = "\\to "
       symbol "∀" = "\\forall "
       symbol "∃" = "\\exists "
       symbol s = s
-
-parens :: String -> String
-parens s = "(" <> s <> ")"
-
-optParens :: Boolean -> String -> String
-optParens b s = if b then parens s else s
 
 showPrec :: (String -> String) -> Int -> Formula -> String
 showPrec symbol n = case _ of
@@ -121,6 +115,9 @@ showPrec symbol n = case _ of
   And a b -> optParens (n > 3) $ showPrec symbol 3 a <> " " <> symbol "∧" <> " " <> showPrec symbol 4 b
   Or a b -> optParens (n > 2) $ showPrec symbol 2 a <> " " <> symbol "∨" <> " " <> showPrec symbol 3 b
   Implies a b -> optParens (n > 1) $ showPrec symbol 2 a <> " " <> symbol "→" <> " " <> showPrec symbol 1 b
+  where
+    parens s = "(" <> s <> ")"
+    optParens b s = if b then parens s else s
 
 -- | Dedicated symbol for a proposition that is assigned a false truth value.
 bottomProp :: Formula

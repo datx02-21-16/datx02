@@ -4,7 +4,7 @@
 -- | modify, i.e. has a single contiguous array of all rows. When
 -- | rendering or validating we map this to a tree with subproof
 -- | nodes.
-module GUI.Proof (Slot, Output, proof) where
+module GUI.Proof (Slot, Output(..), proof) where
 
 import Prelude
 
@@ -29,7 +29,6 @@ import GUI.Hint as Hint
 import GUI.PrintProof as PrintProof 
 import GUI.Rules (RuleType(..))
 import GUI.Rules as R
-import GUI.SettingsPanel as SP
 import GUI.SymbolInput (symbolInput)
 import GUI.SymbolInput as SI
 import Halogen as H
@@ -305,8 +304,8 @@ _symbolInput = Proxy :: Proxy "symbolInput"
 type Slots
   = ( symbolInput :: SI.Slot Int )
 
-type Output
-  = SP.Modal
+data Output
+  = LatexOutput String
 
 proof :: forall query input m. MonadEffect m => H.Component query input Output m
 proof =
@@ -787,7 +786,7 @@ handleAction = case _ of
     H.liftEffect $ PrintProof.printProof
   ExportLatex -> do
     st <- H.get
-    H.raise $ SP.ExportLatexModal $ stateToLatex st
+    H.raise $ LatexOutput $ stateToLatex st
 
 
   AddBelow -> do
